@@ -124,6 +124,32 @@ tbody tr:hover { background: #fbfdff; }
 .option-stock input { width: 17px; height: 17px; accent-color: #0f3d6e; }
 .separateur-stock { height: 1px; margin: 26px 0; background: #e2e8f0; }
 
+.module-approvisionnements > .entete-section p { margin: 7px 0 0; color: #718096; font-size: 13px; }
+.module-approvisionnements h3 { margin: 22px 0 12px; color: #18324e; font-size: 15px; }
+.module-approvisionnements .bouton:disabled { cursor: not-allowed; opacity: .55; }
+.module-approvisionnements .formulaire-approvisionnement { align-items: end; }
+.destination-editoriale { grid-column: 1 / -1; display: grid; gap: 12px; }
+.destination-editoriale > .titre-section { margin: 9px 0 0; }
+.bloc-destination { display: grid; gap: 13px; min-width: 0; margin: 0; padding: 16px; border: 1px solid #dce5ee; border-radius: 10px; }
+.bloc-destination legend { padding: 0 7px; color: #164574; font-size: 13px; font-weight: 800; }
+.ligne-destination, .ligne-allocation { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(120px, 1fr) auto; align-items: end; gap: 12px; }
+.ligne-destination { grid-template-columns: minmax(0, 1fr) auto; }
+.ligne-allocation .champ-territorial input, .ligne-allocation .champ-territorial select, .formulaire-approvisionnement > .champ-territorial input, .formulaire-approvisionnement > .champ-territorial select, .formulaire-approvisionnement > .champ-territorial textarea, .champ-appro-large input, .champ-appro-large select, .formulaire-cloture textarea { width: 100%; min-height: 43px; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #263b51; }
+.champ-appro-large { display: grid; max-width: 680px; gap: 7px; margin: 14px 0 20px; color: #263b51; font-size: 13px; font-weight: 700; }
+.bouton-texte-danger { padding: 8px 9px; border: 0; color: #b42318; background: transparent; font-size: 12px; font-weight: 700; }
+.bouton-texte-danger:hover { text-decoration: underline; }
+.detail-reception, .carte-ecarts { margin-top: 23px; padding: 18px; border: 1px solid #dce5ee; border-radius: 10px; background: #f8fafc; }
+.detail-reception > p { color: #52677d; font-size: 12px; }
+.tableau-reception { grid-column: 1 / -1; }
+.tableau-reception input { width: 105px; min-height: 35px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; color: #263b51; }
+.ligne-ecart { display: grid; gap: 11px; padding: 12px 0; border-top: 1px solid #e2e8f0; color: #344b62; font-size: 12px; }
+.ligne-ecart .champ-territorial { max-width: 680px; }
+.ligne-ecart textarea, .formulaire-cloture textarea { min-height: 72px; resize: vertical; }
+.formulaire-cloture { margin-top: 21px; }
+.formulaire-cloture .champ-territorial { grid-column: 1 / -1; }
+.formulaire-cloture .bouton { grid-column: 1 / -1; }
+.pagination .bouton:disabled { opacity: .55; }
+
 @media (max-width: 900px) {
   .barre-laterale { width: 220px; }
   .zone-principale { width: calc(100% - 220px); margin-left: 220px; }
@@ -145,6 +171,8 @@ tbody tr:hover { background: #fbfdff; }
   .carte-section { padding: 15px; }
   .grille-territoriale, .formulaire-proposition { grid-template-columns: minmax(0, 1fr); }
   .formulaire-gestion { grid-template-columns: minmax(0, 1fr); }
+  .destination-editoriale, .formulaire-cloture .champ-territorial, .formulaire-cloture .bouton { grid-column: auto; }
+  .ligne-allocation, .ligne-destination { grid-template-columns: minmax(0, 1fr); }
   .barre-filtres-stock { grid-template-columns: minmax(0, 1fr); }
   .choix-roles { grid-column: auto; }
   .champ-documentation { grid-column: auto; }

@@ -3,6 +3,7 @@ import type { UtilisateurAuthentifie } from "../../shared/types/authentification
 import { ChangementMotDePasse } from "./components/connexion/ChangementMotDePasse";
 import { ConnexionPage } from "./components/connexion/ConnexionPage";
 import { TableauGestionBeneficiaires } from "./components/gestion/TableauGestionBeneficiaires";
+import { TableauApprovisionnements } from "./components/gestion/TableauApprovisionnements";
 import { TableauGestionStocks } from "./components/gestion/TableauGestionStocks";
 import { TableauProprietaire } from "./components/proprietaire/TableauProprietaire";
 import { ErreurApi, chargerJetonCsrf, requeteApi } from "./services/api";
@@ -19,6 +20,12 @@ export default function App() {
   const [erreurAction, setErreurAction] = useState<string | null>(null);
   const [chargement, setChargement] = useState(true);
   const [afficherStocks, setAfficherStocks] = useState(false);
+  const [afficherApprovisionnements, setAfficherApprovisionnements] = useState(false);
+
+  function choisirModule(module: "comptes" | "stocks" | "approvisionnements" | "beneficiaires"): void {
+    setAfficherStocks(module === "stocks");
+    setAfficherApprovisionnements(module === "approvisionnements");
+  }
 
   useEffect(() => {
     let actif = true;
@@ -75,8 +82,9 @@ export default function App() {
         <aside className="barre-laterale">
           <div className="logo-barre"><span>S</span><div><strong>SIGAD</strong><small>République du Tchad</small></div></div>
           <nav aria-label="Navigation principale">
-            <button className={!afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => setAfficherStocks(false)} type="button">Administration des comptes</button>
-            <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => setAfficherStocks(true)} type="button">Articles et stocks</button>
+            <button className={!afficherStocks && !afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("comptes")} type="button">Administration des comptes</button>
+            <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("stocks")} type="button">Articles et stocks</button>
+            <button className={afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("approvisionnements")} type="button">Approvisionnements</button>
           </nav>
           <div className="profil-barre">
             <span className="avatar">{utilisateur.nom_complet.charAt(0).toUpperCase()}</span>
@@ -86,9 +94,11 @@ export default function App() {
         <main className="zone-principale">
           <header className="barre-haute"><span>Gestion intégrée des aides et des distributions</span><button className="bouton bouton-discret" onClick={() => void deconnexion()} type="button">Se déconnecter</button></header>
           {erreurAction && <p className="message-erreur bandeau-erreur" role="alert">{erreurAction}</p>}
-          {afficherStocks
-            ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : <TableauProprietaire jetonCsrf={jetonCsrf} />}
+          {afficherApprovisionnements
+            ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+            : afficherStocks
+              ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+              : <TableauProprietaire jetonCsrf={jetonCsrf} />}
         </main>
       </div>
     );
@@ -99,8 +109,9 @@ export default function App() {
       <aside className="barre-laterale">
         <div className="logo-barre"><span>S</span><div><strong>SIGAD</strong><small>République du Tchad</small></div></div>
         <nav aria-label="Navigation principale">
-          <button className={!afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => setAfficherStocks(false)} type="button">Gestion des bénéficiaires</button>
-          <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => setAfficherStocks(true)} type="button">Articles et stocks</button>
+          <button className={!afficherStocks && !afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("beneficiaires")} type="button">Gestion des bénéficiaires</button>
+          <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("stocks")} type="button">Articles et stocks</button>
+          <button className={afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("approvisionnements")} type="button">Approvisionnements</button>
         </nav>
         <div className="profil-barre">
           <span className="avatar">{utilisateur.nom_complet.charAt(0).toUpperCase()}</span>
@@ -110,9 +121,11 @@ export default function App() {
       <main className="zone-principale">
         <header className="barre-haute"><span>Gestion intégrée des aides et des distributions</span><button className="bouton bouton-discret" onClick={() => void deconnexion()} type="button">Se déconnecter</button></header>
         {erreurAction && <p className="message-erreur bandeau-erreur">{erreurAction}</p>}
-        {afficherStocks
-          ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-          : <TableauGestionBeneficiaires utilisateur={utilisateur} jetonCsrf={jetonCsrf} />}
+        {afficherApprovisionnements
+          ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+          : afficherStocks
+            ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+            : <TableauGestionBeneficiaires utilisateur={utilisateur} jetonCsrf={jetonCsrf} />}
       </main>
     </div>
   );

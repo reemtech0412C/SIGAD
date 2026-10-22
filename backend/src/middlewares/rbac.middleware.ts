@@ -18,7 +18,7 @@ export const isolationProvinciale: MiddlewareHandler<EnvironnementApplication> =
   if (utilisateur.role !== "DELEGUE_PROVINCIAL") return suivant();
   if (!utilisateur.province_id) return c.json({ erreur: "Aucune province n’est associée à votre compte." }, 403);
 
-  const provinceRoute = c.req.param("provinceId") ?? new URL(c.req.url).pathname.match(/^\/api\/provincial\/([^/]+)/u)?.[1];
+  const provinceRoute = c.req.param("provinceId") ?? new URL(c.req.url).pathname.match(/^\/api\/provincial\/(prov-[^/]+)(?:\/|$)/u)?.[1];
   const provinceRequete = c.req.query("province_id");
   if ((provinceRoute && provinceRoute !== utilisateur.province_id) || (provinceRequete && provinceRequete !== utilisateur.province_id)) {
     return c.json({ erreur: "Accès refusé." }, 403);

@@ -10,7 +10,7 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 14) throw new Error("Les quatorze migrations attendues sont requises pour la vérification.");
+if (fichiers.length !== 15) throw new Error(`Les quinze migrations versionnées attendues sont requises; ${fichiers.length} trouvées.`);
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -98,7 +98,7 @@ async function verifierBaseD1Locale() {
       throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 62: ${nomsTables.join(", ")}.`);
     }
 
-    for (const [nom, champsSpecification] of tablesSpecification) {
+    for (const [nom, champsSpecification] of colonnesAttenduesD1) {
       const champsD1 = baseD1.prepare(`PRAGMA table_xinfo("${nom.replaceAll('"', '""')}")`).all().map((champ) => champ.name);
       if (champsD1.length !== champsSpecification.length || champsD1.some((champ, index) => champ !== champsSpecification[index])) {
         throw new Error(`D1 local: les colonnes de ${nom} diffèrent de la spécification.`);
@@ -136,13 +136,13 @@ async function verifierBaseD1Locale() {
     ) {
       throw new Error("D1 local: le nombre d’éléments du seed est incohérent.");
     }
-    if (nombreMigrations !== 14) throw new Error(`D1 local n’enregistre que ${nombreMigrations} migrations sur 14.`);
-    if (nombreIndexesD1 !== 41) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu de 41.`);
-    if (nombreDeclencheursD1 !== 33) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles de sécurité au lieu de 33.`);
+    if (nombreMigrations !== fichiers.length) throw new Error(`D1 local enregistre ${nombreMigrations} migrations au lieu de ${fichiers.length}.`);
+    if (nombreIndexesD1 !== indexesMigrations.size) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des ${indexesMigrations.size} index versionnés.`);
+    if (nombreDeclencheursD1 !== declencheursMigrations) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des ${declencheursMigrations} déclencheurs de validation versionnés.`);
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
     verifierCorrespondanceProvinces(baseD1, "D1 local");
-    console.log(`PASS — Wrangler D1 local (${cheminBase}) : 14 migrations enregistrées; 62 tables et colonnes conformes; 41 index et 33 contrôles de sécurité; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 62 tables et colonnes conformes; ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   } finally {
     baseD1.close();
   }
@@ -183,13 +183,27 @@ for (const [nom, champsSpecification] of tablesSpecification) {
     throw new Error(`Les champs ou leur ordre diffèrent pour ${nom}: spécification [${champsSpecification.join(", ")}], migrations [${champsMigration.join(", ")}].`);
   }
 }
+const colonnesAttenduesD1 = new Map([...tablesSpecification].map(([nom, champs]) => [nom, [...champs]]));
+for (const correspondance of sqlMigrationsSchema.matchAll(/ALTER\s+TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ADD\s+COLUMN\s+([a-zA-Z_][a-zA-Z0-9_]*)/giu)) {
+  const nomTable = correspondance[1];
+  const nomColonne = correspondance[2];
+  const champs = nomTable ? colonnesAttenduesD1.get(nomTable) : undefined;
+  if (!nomTable || !nomColonne || !champs || champs.includes(nomColonne)) {
+    throw new Error(`Une extension de schéma est dupliquée ou vise une table non documentée: ${nomTable ?? "table inconnue"}.${nomColonne ?? "colonne inconnue"}.`);
+  }
+  champs.push(nomColonne);
+}
 const indexesSpecification = extraireIndexes(specification);
 const indexesMigrations = extraireIndexes(sqlMigrationsSchema);
 if (indexesSpecification.size !== 10) throw new Error(`La spécification contient ${indexesSpecification.size} index métier au lieu de 10.`);
 for (const [nom, definitionSpecification] of indexesSpecification) {
   if (indexesMigrations.get(nom) !== definitionSpecification) throw new Error(`L’index ${nom} est absent ou diffère de la spécification.`);
 }
-if (indexesMigrations.size !== 41) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu de 41, index de sécurité, du référentiel territorial, du ciblage, du dédoublonnage et du stock inclus.`);
+const declencheursMigrations = new Set(
+  [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
+).size;
+if (indexesMigrations.size !== 51) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 51 index attendus, index de sécurité, du référentiel territorial, du ciblage, du dédoublonnage, du stock et des approvisionnements inclus.`);
+if (declencheursMigrations !== 45) throw new Error(`Les migrations contiennent ${declencheursMigrations} déclencheurs de validation au lieu des 45 attendus.`);
 
 function verifierCorrespondanceProvinces(base, source) {
   const texteCsv = requireContenuCsvProvinces;
@@ -255,8 +269,8 @@ try {
   }
   if (nombreCategories !== 5) throw new Error(`Le référentiel contient ${nombreCategories} catégories d’aide au lieu de 5.`);
   if (nombreUnites !== 6) throw new Error(`Le référentiel contient ${nombreUnites} unités de mesure au lieu de 6.`);
-  if (nombreIndexes !== 41) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 41 index définis.`);
-  if (nombreDeclencheurs !== 33) throw new Error(`Le schéma contient ${nombreDeclencheurs} contrôles de sécurité au lieu de 33.`);
+  if (nombreIndexes !== indexesMigrations.size) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des ${indexesMigrations.size} index définis.`);
+  if (nombreDeclencheurs !== declencheursMigrations) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de ${declencheursMigrations}.`);
   if (erreursClesEtrangeres.length > 0) throw new Error("La vérification des clés étrangères a détecté une incohérence.");
   verifierContraintes(base, "SQLite vierge");
 
@@ -264,7 +278,7 @@ try {
     throw new Error(`Le référentiel territorial et bénéficiaire est incohérent : ${nombreCommunes} communes (${nombreCommunesEnRelecture} à relire, ${nombreCommunesActives} activées), ${nombreCategoriesPopulation} catégories de population et ${nombreVulnerabilites} vulnérabilités.`);
   }
   verifierCorrespondanceProvinces(base, "SQLite vierge");
-  console.log("PASS — SQLite : migrations 0001 à 0007, seed 0008 et migrations 0009 à 0014 appliqués sur une base vierge; 62 tables et champs conformes à la spécification; 41 index; 33 contrôles de sécurité; 23 provinces comparées au fichier source; 500 communes importées en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.");
+  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations (0001–0007, seed 0008, corrections 0009–${fichiers.at(-1)?.slice(0, 4)}) appliquées; 62 tables et champs conformes à la spécification; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   if (process.argv.includes("--d1-local")) await verifierBaseD1Locale();
 } finally {
   base.close();

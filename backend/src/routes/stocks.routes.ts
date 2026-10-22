@@ -124,7 +124,7 @@ function ajouterRecherche(conditions: string[], valeurs: (string | number)[], ex
 function reponseErreurStock(c: Context<EnvironnementApplication>, erreur: unknown) {
   if (erreur instanceof ErreurStock) return c.json({ erreur: erreur.message }, erreur.statutHttp as 400 | 403 | 404 | 409 | 500);
   const message = erreur instanceof Error ? erreur.message : "";
-  if (/UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint|RATTACHEMENT_ENTREPOT_INVALIDE/iu.test(message)) {
+  if (/UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint|RATTACHEMENT_ENTREPOT_INVALIDE|MOUVEMENT_SANS_MUTATION_EFFECTIVE/iu.test(message)) {
     return c.json({ erreur: "Une référence existe déjà ou les données ne respectent pas les règles de gestion." }, 409);
   }
   console.error(JSON.stringify({ action: "operation_stock_refusee", chemin: c.req.path, erreur: message }));

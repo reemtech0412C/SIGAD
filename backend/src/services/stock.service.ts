@@ -41,7 +41,7 @@ interface ArticleD1 {
   actif: number;
 }
 
-interface LotFefoD1 {
+export interface LotFefoD1 {
   id: string;
   numero_lot: string;
   entrepot_id: string;
@@ -70,15 +70,16 @@ interface EnveloppeIdempotence {
   reponse: unknown;
 }
 
-interface ResultatIdempotent<T> {
+export interface ResultatIdempotent<T> {
   statutHttp: number;
   corps: T;
   rejouee: boolean;
 }
 
-interface EcritureCritique {
+export interface EcritureCritique {
   instruction: D1PreparedStatement;
   operation: string;
+  changementsAttendus?: number;
 }
 
 interface AllocationLot {
@@ -132,7 +133,21 @@ async function lireCleIdempotence(db: D1Database, cle: string): Promise<LigneIde
   ).bind(cle).first<LigneIdempotenceD1>();
 }
 
-async function executerOperationIdempotente<T>(options: {
+export async function rejouerOperationIdempotente<T>(options: {
+  db: D1Database;
+  utilisateur: UtilisateurSession;
+  routeApi: string;
+  cle: string;
+  chargeUtile: unknown;
+}): Promise<ResultatIdempotent<T> | null> {
+  const empreinte = await empreinteJson(options.chargeUtile);
+  const existante = await lireCleIdempotence(options.db, options.cle);
+  return existante
+    ? verifierRejeu<T>(existante, options.utilisateur, options.routeApi, empreinte)
+    : null;
+}
+
+export async function executerOperationIdempotente<T>(options: {
   db: D1Database;
   utilisateur: UtilisateurSession;
   routeApi: string;
@@ -155,16 +170,20 @@ async function executerOperationIdempotente<T>(options: {
     ).bind(options.cle, options.utilisateur.id, options.routeApi, options.statutHttp,
       JSON.stringify({ version: 1, empreinte_requete: empreinte, reponse: options.corps } satisfies EnveloppeIdempotence)),
   ];
-  const indexesCritiques: { index: number; operation: string }[] = [];
+  const indexesCritiques: { index: number; operation: string; changementsAttendus: number | undefined }[] = [];
   for (const ecriture of options.instructions) {
-    indexesCritiques.push({ index: instructions.length, operation: ecriture.operation });
+    indexesCritiques.push({
+      index: instructions.length,
+      operation: ecriture.operation,
+      changementsAttendus: ecriture.changementsAttendus,
+    });
     instructions.push(ecriture.instruction);
   }
 
   try {
     const resultats = await options.db.batch(instructions);
     for (const controle of indexesCritiques) {
-      if (resultats[controle.index]?.meta.changes !== 1) {
+      if (resultats[controle.index]?.meta.changes !== (controle.changementsAttendus ?? 1)) {
         throw new ErreurStock(`L’opération a été refusée car ${controle.operation} n’a pas été appliquée.`, 409);
       }
     }
@@ -173,7 +192,7 @@ async function executerOperationIdempotente<T>(options: {
     if (ligneConcurrente) return verifierRejeu<T>(ligneConcurrente, options.utilisateur, options.routeApi, empreinte);
     if (erreur instanceof ErreurStock) throw erreur;
     const texte = erreur instanceof Error ? erreur.message : "";
-    if (/STOCK_|PERIMETRE_|SOLDE_STOCK_|MOUVEMENT_STOCK_|UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint/iu.test(texte)) {
+    if (/STOCK_|PERIMETRE_|SOLDE_STOCK_|MOUVEMENT_STOCK_|MOUVEMENT_SANS_MUTATION_EFFECTIVE|APPROVISIONNEMENT_|DESTINATION_APPROVISIONNEMENT_|ARTICLE_DESTINATION_|EXPEDITION_|LIGNE_EXPEDITION_|RECEPTION_PROVINCIALE_|LIGNE_RECEPTION_PROVINCIALE_|JUSTIFICATION_ECART_|AUDIT_APPROVISIONNEMENT_|UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint/iu.test(texte)) {
       throw new ErreurStock("Le stock a changé ou une contrainte de cohérence a refusé l’opération. Rechargez les données avant de réessayer.", 409);
     }
     throw new ErreurStock("L’opération de stock n’a pas pu être enregistrée.", 500);
@@ -182,7 +201,7 @@ async function executerOperationIdempotente<T>(options: {
   return { statutHttp: options.statutHttp, corps: options.corps, rejouee: false };
 }
 
-function construireInstructionMouvement(
+export function construireInstructionMouvement(
   db: D1Database,
   utilisateur: UtilisateurSession,
   entree: {
@@ -293,7 +312,7 @@ function validerPrecisionReception(ligne: ReceptionStockSaisie["lignes"][number]
   }
 }
 
-function creerReference(prefixe: string, id: string): string {
+export function creerReference(prefixe: string, id: string): string {
   return `${prefixe}-${new Date().getUTCFullYear()}-${id.slice(0, 8).toUpperCase()}`;
 }
 

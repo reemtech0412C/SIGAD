@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -12,6 +12,7 @@ const persistanceParente = resolve(tmpdir());
 let dossierTemporaire;
 let dossierPersistance;
 let processusWorker;
+let contenuSeedInitial;
 
 function executerNode(argumentsNode, environnement = process.env) {
   const resultat = spawnSync(process.execPath, argumentsNode, {
@@ -80,6 +81,7 @@ try {
   );
   const fichierCodes = join(dossierTemporaire, "codes-activation.json");
   const dossierD1 = join(dossierPersistance, "v3", "d1", "miniflare-D1DatabaseObject");
+  contenuSeedInitial = await readFile(join(racine, "migrations/0008_seed_initial_data.sql"));
 
   executerNode([
     resolve(racine, "scripts/generer-seed-initial.mjs"),
@@ -135,23 +137,29 @@ try {
   processusWorker.stderr.on("data", (donnees) => process.stderr.write(donnees));
   await attendreWorker(adresse, processusWorker);
 
-  executerNode([
-    "--experimental-strip-types",
-    "--experimental-sqlite",
-    "--test",
-    "--test-concurrency=1",
-    resolve(racine, "tests/integration/auth-worker.test.mjs"),
-    resolve(racine, "tests/integration/stocks-worker.test.mjs"),
-  ], {
-    ...environnementTest,
-    SIGAD_LOCAL_API_URL: adresse,
-    SIGAD_D1_STATE_DIR: dossierD1,
-  });
+  for (const fichierTest of [
+    "auth-worker.test.mjs",
+    "stocks-worker.test.mjs",
+    "approvisionnements-worker.test.mjs",
+  ]) {
+    executerNode([
+      "--experimental-strip-types",
+      "--experimental-sqlite",
+      "--test",
+      "--test-concurrency=1",
+      resolve(racine, "tests/integration", fichierTest),
+    ], {
+      ...environnementTest,
+      SIGAD_LOCAL_API_URL: adresse,
+      SIGAD_D1_STATE_DIR: dossierD1,
+    });
+  }
 } catch (erreur) {
   console.error(erreur instanceof Error ? erreur.message : "Échec inconnu de l’acceptation locale.");
   process.exitCode = 1;
 } finally {
   await arreterWorker();
+  if (contenuSeedInitial) await writeFile(join(racine, "migrations/0008_seed_initial_data.sql"), contenuSeedInitial);
   if (dossierTemporaire) {
     const chemin = resolve(dossierTemporaire);
     if (!isAbsolute(chemin) || !chemin.startsWith(`${persistanceParente}${sep}`) || !chemin.slice(persistanceParente.length + 1).startsWith("sigad-acceptation-worker-")) {
