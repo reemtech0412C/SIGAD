@@ -1,4 +1,6 @@
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
+import { creerInstructionNotification } from "./notifications.service.ts";
+import { lireEtatClotureDistribution } from "./controle.service.ts";
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings.ts";
 import { allouerLotsFefo, creerReference, executerOperationIdempotente, rejouerOperationIdempotente, type AllocationLot, type LotFefoD1 } from "./stock.service.ts";
 import type {
@@ -1536,6 +1538,11 @@ export async function declarerFinDistribution(
       { operation: "l’audit de déclaration de fin", instruction: preparerAudit(
         db, utilisateur, "DECLARATION_FIN_DISTRIBUTION", "DISTRIBUTION_PROVINCIALE", distributionId, adresseIp, corps,
       ), changementsAttendus: 1 },
+      { operation: "la notification de fin d’exécution à l’administration centrale", instruction:
+        creerInstructionNotification(db, { role: "ADMIN_CENTRAL" },
+          "Distribution déclarée terminée",
+          `La distribution ${distribution.reference_distribution} a été déclarée terminée et attend la clôture centrale.`,
+          "ACTION_REQUISE", "/controle/fermetures"), changementsAttendus: 1 },
     ],
   });
 }
@@ -1638,8 +1645,19 @@ export async function retournerPourCorrectionDistribution(
   if (rejouee) return rejouee;
   const distribution = await lireDistributionAutorisee(db, utilisateur, distributionId);
   if (distribution.statut !== "TERMINEE_PROVINCE") throw new ErreurDistribution("Seule une distribution terminée par la province peut être retournée.");
+  const champsAutorises = new Set(["intitule_distribution", "objectif", "date_prevue", "observations"]);
+  if (entree.elements_a_corriger.length === 0 || entree.elements_a_corriger.some((champ) => !champsAutorises.has(champ))
+      || new Set(entree.elements_a_corriger).size !== entree.elements_a_corriger.length) {
+    throw new ErreurDistribution("La demande doit nommer des champs modifiables connus, sans doublons.", 400);
+  }
   const demandeId = crypto.randomUUID();
-  const elementsJson = JSON.stringify({ champs_modifiables: entree.elements_a_corriger });
+  const valeursOriginales: Record<string, string | null> = {};
+  for (const champ of entree.elements_a_corriger) {
+    const valeur = Reflect.get(distribution, champ);
+    if (typeof valeur !== "string" && valeur !== null) throw new ErreurDistribution("Une valeur originale ne peut pas être archivée.", 409);
+    valeursOriginales[champ] = valeur;
+  }
+  const elementsJson = JSON.stringify({ champs_modifiables: entree.elements_a_corriger, valeurs_originales: valeursOriginales });
   const corps = { id: distributionId, demande_correction_id: demandeId, statut: "RETOURNEE_POUR_CORRECTION" };
   return executerOperationIdempotente({
     db, utilisateur, routeApi, cle,
@@ -1662,6 +1680,11 @@ export async function retournerPourCorrectionDistribution(
       { operation: "l’audit du retour pour correction", instruction: preparerAudit(
         db, utilisateur, "RETOUR_CORRECTION_DISTRIBUTION", "DISTRIBUTION_PROVINCIALE", distributionId, adresseIp, corps,
       ), changementsAttendus: 1 },
+      { operation: "la notification de la demande de correction à la délégation", instruction:
+        creerInstructionNotification(db, { provinceId: distribution.province_id, role: "DELEGUE_PROVINCIAL" },
+          "Correction de distribution demandée",
+          `L’administration centrale a demandé une correction pour ${distribution.reference_distribution}.`,
+          "DEMANDE_CORRECTION", "/distributions"), changementsAttendus: 1 },
     ],
   });
 }
@@ -1709,13 +1732,27 @@ export async function soumettreCorrectionDistribution(
   };
   const affectations: string[] = [];
   const valeurs: (string | null)[] = [];
+  const valeursCorrigees: Record<string, string | null> = {};
   for (const [champ, valeur] of Object.entries(entree.corrections)) {
     const colonne = colonnes[champ];
     if (!colonne) continue;
     if (valeur === null && champ !== "observations") throw new ErreurDistribution("Ce champ ne peut pas être vide.", 400);
     affectations.push(`${colonne} = ?`);
     valeurs.push(valeur);
+    valeursCorrigees[champ] = valeur;
   }
+  if (typeof autorises !== "object" || autorises === null || Array.isArray(autorises)) {
+    throw new ErreurDistribution("La demande de correction est invalide.", 500);
+  }
+  const valeursOriginales = Reflect.get(autorises, "valeurs_originales");
+  if (typeof valeursOriginales !== "object" || valeursOriginales === null || Array.isArray(valeursOriginales)) {
+    throw new ErreurDistribution("L’instantané des valeurs originales est invalide.", 500);
+  }
+  const traceCorrection = JSON.stringify({
+    champs_modifiables: champsSource,
+    valeurs_originales: valeursOriginales,
+    valeurs_corrigees: valeursCorrigees,
+  });
   const corps = { id: distributionId, demande_correction_id: demande.id, statut: "TERMINEE_PROVINCE" };
   const instructions: Array<{ instruction: Ecriture; operation: string; changementsAttendus?: number }> = [];
   if (affectations.length > 0) {
@@ -1731,8 +1768,9 @@ export async function soumettreCorrectionDistribution(
   instructions.push(
     { operation: "l’enregistrement de la réponse provinciale", instruction: db.prepare(
       `UPDATE demandes_correction SET statut = 'CORRECTION_SOUMISE', traite_par_delegue = ?,
-        reponse_delegue = ?, resolu_le = datetime('now') WHERE id = ? AND province_id = ? AND statut = 'EN_ATTENTE_DELEGUE'`,
-    ).bind(utilisateur.id, entree.reponse_delegue, demande.id, provinceId), changementsAttendus: 1 },
+        reponse_delegue = ?, elements_a_corriger = ?
+       WHERE id = ? AND province_id = ? AND statut = 'EN_ATTENTE_DELEGUE'`,
+    ).bind(utilisateur.id, entree.reponse_delegue, traceCorrection, demande.id, provinceId), changementsAttendus: 1 },
     { operation: "la remise de la distribution au contrôle central", instruction: db.prepare(
       `UPDATE distributions_provinciales SET statut = 'TERMINEE_PROVINCE', modifie_le = datetime('now')
        WHERE id = ? AND province_id = ? AND statut = 'RETOURNEE_POUR_CORRECTION'`,
@@ -1745,6 +1783,11 @@ export async function soumettreCorrectionDistribution(
     { operation: "l’audit de soumission de correction", instruction: preparerAudit(
       db, utilisateur, "SOUMISSION_CORRECTION_DISTRIBUTION", "DISTRIBUTION_PROVINCIALE", distributionId, adresseIp, corps,
     ), changementsAttendus: 1 },
+    { operation: "la notification de correction soumise à l’administration centrale", instruction:
+      creerInstructionNotification(db, { role: "ADMIN_CENTRAL" },
+        "Correction provinciale soumise",
+        `La délégation de ${distribution.province_id} a répondu à une demande de correction pour ${distribution.reference_distribution}.`,
+        "ACTION_REQUISE", "/controle/corrections"), changementsAttendus: 1 },
   );
   return executerOperationIdempotente({
     db, utilisateur, routeApi, cle,
@@ -1785,6 +1828,11 @@ export async function validerCorrectionDistribution(
       { operation: "l’audit de validation de la correction", instruction: preparerAudit(
         db, utilisateur, "VALIDATION_CORRECTION_DISTRIBUTION", "DISTRIBUTION_PROVINCIALE", distributionId, adresseIp, corps,
       ), changementsAttendus: 1 },
+      { operation: "la notification de validation de correction à la délégation", instruction:
+        creerInstructionNotification(db, { provinceId: distribution.province_id, role: "DELEGUE_PROVINCIAL" },
+          "Correction de distribution validée",
+          `La correction de la distribution ${distribution.reference_distribution} a été validée par l’administration centrale.`,
+          "INFO", "/distributions"), changementsAttendus: 1 },
     ],
   });
 }
@@ -1805,6 +1853,8 @@ export async function cloturerDistribution(
   if (rejouee) return rejouee;
   const distribution = await lireDistributionAutorisee(db, utilisateur, distributionId);
   if (distribution.statut !== "TERMINEE_PROVINCE") throw new ErreurDistribution("La distribution doit être déclarée terminée et contrôlée avant sa clôture.");
+  const etatCloture = await lireEtatClotureDistribution(db, utilisateur, distributionId);
+  if (!etatCloture.pret) throw new ErreurDistribution(`La clôture est bloquée : ${etatCloture.bloqueurs.join(" ")}`, 409);
   const correctionOuverte = await db.prepare(
     `SELECT id FROM demandes_correction WHERE distribution_id = ? AND statut IN ('EN_ATTENTE_DELEGUE', 'CORRECTION_SOUMISE')`,
   ).bind(distributionId).first<{ id: string }>();
@@ -1923,6 +1973,11 @@ export async function cloturerDistribution(
         id: fermetureId, observations, lots_liberes: reliquats.results.length,
       },
     ), changementsAttendus: 1 },
+    { operation: "la notification de clôture à la délégation provinciale", instruction:
+      creerInstructionNotification(db, { provinceId: distribution.province_id, role: "DELEGUE_PROVINCIAL" },
+        "Distribution clôturée au niveau central",
+        `La distribution ${distribution.reference_distribution} a été clôturée après contrôle.`,
+        "CLOTURE", "/distributions"), changementsAttendus: 1 },
   );
   const corps = { id: distributionId, statut: "CLOTUREE_CENTRAL", lots_liberes: reliquats.results.length };
   return executerOperationIdempotente({

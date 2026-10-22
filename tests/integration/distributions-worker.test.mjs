@@ -438,6 +438,9 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
     assert.equal(remiseApresFin.reponse.status, 409, "Aucune nouvelle remise ne peut suivre la déclaration de fin.");
     const baseAvantRetour = ouvrirD1Locale();
     const nombreRemisesAvant = baseAvantRetour.prepare("SELECT COUNT(*) AS total FROM remises_distribution WHERE distribution_id = ?").get(brouillon.id).total;
+    const sortiesAvantCorrection = baseAvantRetour.prepare(
+      "SELECT COUNT(*) AS total FROM mouvements_stock WHERE document_source_type = 'REMISE_DISTRIBUTION' AND document_source_id IN (SELECT id FROM remises_distribution WHERE distribution_id = ?)",
+    ).get(brouillon.id).total;
     baseAvantRetour.close();
     const retour = await central.requete(`/api/central/distributions/${brouillon.id}/retour-correction`, {
       methode: "POST", cleIdempotence: creerCle("retour-p6"), corps: {
@@ -461,10 +464,65 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
       methode: "POST", cleIdempotence: creerCle("validation-correction-p6"), corps: {},
     });
     assert.equal(validationCorrection.reponse.status, 200, JSON.stringify(validationCorrection.donnees));
+    const baseApresCorrection = ouvrirD1Locale();
+    assert.equal(baseApresCorrection.prepare("SELECT COUNT(*) AS total FROM remises_distribution WHERE distribution_id = ?").get(brouillon.id).total,
+      nombreRemisesAvant, "Le traitement d’une correction conserve toutes les remises déjà enregistrées.");
+    assert.equal(baseApresCorrection.prepare(
+      "SELECT COUNT(*) AS total FROM mouvements_stock WHERE document_source_type = 'REMISE_DISTRIBUTION' AND document_source_id IN (SELECT id FROM remises_distribution WHERE distribution_id = ?)",
+    ).get(brouillon.id).total, sortiesAvantCorrection, "Une correction de données ne réémet aucun mouvement de sortie de stock.");
+    const traceCorrection = JSON.parse(baseApresCorrection.prepare(
+      "SELECT elements_a_corriger FROM demandes_correction WHERE id = ?",
+    ).get(correctionId).elements_a_corriger);
+    assert.equal(traceCorrection.valeurs_originales.observations, "Bilan synthétique vérifié.");
+    assert.equal(traceCorrection.valeurs_corrigees.observations, "Bilan complété après revue du procès-verbal.");
+    baseApresCorrection.close();
+    const observationCreee = await central.requete("/api/central/controle/observations", {
+      methode: "POST", cleIdempotence: creerCle("observation-critique-p7"), corps: {
+        operation_type: "DISTRIBUTION_PROVINCIALE", operation_id: brouillon.id,
+        province_id: "prov-sila", niveau_gravite: "CRITIQUE",
+        observation: "Vérifier le rapprochement des documents avant la clôture centrale.",
+      },
+    });
+    assert.equal(observationCreee.reponse.status, 201, JSON.stringify(observationCreee.donnees));
+    const observationId = observationCreee.donnees.id;
+    const reponseCroisee = await ouaddai.requete(`/api/provincial/observations/${observationId}/reponse`, {
+      methode: "POST", cleIdempotence: creerCle("observation-croisee-p7"), corps: { reponse_delegue: "Réponse hors périmètre de Sila." },
+    });
+    assert.equal(reponseCroisee.reponse.status, 404, "La délégation du Ouaddaï ne peut répondre à une observation de Sila.");
+    const clotureParDelegue = await sila.requete(`/api/central/controle/observations/${observationId}/cloture`, {
+      methode: "POST", cleIdempotence: creerCle("observation-rbac-p7"), corps: { statut: "TRAITEE", decision: "Décision interdite." },
+    });
+    assert.equal(clotureParDelegue.reponse.status, 403, "La délégation ne possède pas le droit de clôture centrale.");
+    const baseObservation = ouvrirD1Locale();
+    assert.throws(() => baseObservation.prepare("UPDATE observations_controle SET observation = 'Texte modifié' WHERE id = ?").run(observationId), /OBSERVATION_CONTROLE_IMMUABLE/u);
+    baseObservation.close();
+    const reponseObservation = await sila.requete(`/api/provincial/observations/${observationId}/reponse`, {
+      methode: "POST", cleIdempotence: creerCle("observation-reponse-p7"),
+      corps: { reponse_delegue: "Les pièces justificatives ont été vérifiées par notre équipe." },
+    });
+    assert.equal(reponseObservation.reponse.status, 200, JSON.stringify(reponseObservation.donnees));
+    const blocageObservationCritique = await central.requete(`/api/central/distributions/${brouillon.id}/cloture`, {
+      methode: "POST", cleIdempotence: creerCle("cloture-obs-critique-p7"), corps: { observations_finales: null },
+    });
+    assert.equal(blocageObservationCritique.reponse.status, 409, "Une observation critique ouverte liée à la distribution bloque la clôture.");
+    const clotureObservation = await central.requete(`/api/central/controle/observations/${observationId}/cloture`, {
+      methode: "POST", cleIdempotence: creerCle("observation-cloture-p7"),
+      corps: { statut: "TRAITEE", decision: "Réponse vérifiée et pièces rapprochées." },
+    });
+    assert.equal(clotureObservation.reponse.status, 200, JSON.stringify(clotureObservation.donnees));
+    const observationInformation = await central.requete("/api/central/controle/observations", {
+      methode: "POST", cleIdempotence: creerCle("observation-info-ouverte-p7"), corps: {
+        operation_type: "DISTRIBUTION_PROVINCIALE", operation_id: brouillon.id,
+        province_id: "prov-sila", niveau_gravite: "INFO",
+        observation: "Archiver la copie du procès-verbal dans le dossier annuel.",
+      },
+    });
+    assert.equal(observationInformation.reponse.status, 201, JSON.stringify(observationInformation.donnees));
     const fermeture = await central.requete(`/api/central/distributions/${brouillon.id}/cloture`, {
       methode: "POST", cleIdempotence: creerCle("cloture-p6"), corps: { observations_finales: "Écart de reliquat libéré après rapprochement." },
     });
     assert.equal(fermeture.reponse.status, 200, JSON.stringify(fermeture.donnees));
+    assert.equal(observationInformation.donnees.statut, "OUVERTE", "Une observation informative reste ouverte sans bloquer la clôture.");
     assert.equal(fermeture.donnees.statut, "CLOTUREE_CENTRAL");
     const detailFinal = await central.requete(`/api/distributions/${brouillon.id}`);
     assert.equal(detailFinal.donnees.corrections[0].statut, "VALIDEE_CENTRAL");
@@ -543,5 +601,74 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
     assert.equal(ecarts, 0, "Les soldes agrégés doivent être identiques à la somme des lots.");
     assert.equal(negativites, 0, "Aucun solde de lot ne peut devenir négatif ou sur-réservé.");
     baseControle.close();
+  });
+
+  await t.test("Périmètre du journal, notifications, idempotence et rollback des observations", async () => {
+    const corps = {
+      operation_type: "DISTRIBUTION_PROVINCIALE",
+      operation_id: brouillon.id,
+      province_id: "prov-sila",
+      niveau_gravite: "INFO",
+      observation: "Information de contrôle archivistique sans blocage de clôture.",
+    };
+    const cleObservation = creerCle("observation-info-p7");
+    const observation = await central.requete("/api/central/controle/observations", {
+      methode: "POST", cleIdempotence: cleObservation, corps,
+    });
+    assert.equal(observation.reponse.status, 201, JSON.stringify(observation.donnees));
+    const rejeu = await central.requete("/api/central/controle/observations", {
+      methode: "POST", cleIdempotence: cleObservation, corps,
+    });
+    assert.equal(rejeu.reponse.status, 201);
+    assert.equal(rejeu.reponse.headers.get("Idempotency-Replayed"), "true");
+    const reutilisation = await central.requete("/api/central/controle/observations", {
+      methode: "POST", cleIdempotence: cleObservation,
+      corps: { ...corps, observation: "Texte différent pour la même clé d’idempotence." },
+    });
+    assert.equal(reutilisation.reponse.status, 409, "Une clé réutilisée avec un autre contenu doit être refusée.");
+
+    const sansCsrf = await sila.requete("/api/notifications/lecture-toutes", { methode: "POST", csrf: false });
+    assert.equal(sansCsrf.reponse.status, 403, "La modification des notifications doit être protégée par CSRF.");
+    const notificationsSila = await sila.requete("/api/notifications?limite=100&decalage=0");
+    const notificationsOuaddai = await ouaddai.requete("/api/notifications?limite=100&decalage=0");
+    assert.equal(notificationsSila.reponse.status, 200);
+    assert.equal(notificationsOuaddai.reponse.status, 200);
+    assert.ok(notificationsSila.donnees.elements.some((item) => item.titre === "Correction de distribution demandée"));
+    assert.ok(!notificationsOuaddai.donnees.elements.some((item) => item.titre === "Correction de distribution demandée"),
+      "Une notification de Sila n’est pas visible au Ouaddaï.");
+
+    const auditSila = await sila.requete("/api/provincial/audit?limite=100&decalage=0");
+    assert.equal(auditSila.reponse.status, 200, JSON.stringify(auditSila.donnees));
+    assert.ok(auditSila.donnees.elements.every((item) => !item.province_id || item.province_id === "prov-sila"),
+      "Les entrées liées à une autre province sont exclues du journal du délégué.");
+    const auditApiMutation = await central.requete("/api/central/audit", {
+      methode: "POST", cleIdempotence: creerCle("audit-ecriture-p7"), corps: {},
+    });
+    assert.ok([404, 405].includes(auditApiMutation.reponse.status), "Aucune route d’écriture n’existe pour le journal d’audit.");
+
+    const baseControle = ouvrirD1Locale();
+    const auditDistrib = baseControle.prepare(
+      "SELECT id FROM journaux_audit WHERE entite_type = 'DISTRIBUTION_PROVINCIALE' AND entite_id = ? LIMIT 1",
+    ).get(brouillon.id);
+    assert.ok(auditDistrib);
+    assert.throws(() => baseControle.prepare("UPDATE journaux_audit SET action = 'ALTÉRATION' WHERE id = ?").run(auditDistrib.id), /JOURNAL_AUDIT_IMMUABLE/u);
+    assert.throws(() => baseControle.prepare("DELETE FROM journaux_audit WHERE id = ?").run(auditDistrib.id), /JOURNAL_AUDIT_IMMUABLE/u);
+    const avantRollback = baseControle.prepare("SELECT COUNT(*) AS total FROM observations_controle").get().total;
+    baseControle.exec(
+      `CREATE TRIGGER test_refus_audit_observation BEFORE INSERT ON journaux_audit
+       WHEN NEW.action = 'CREATION_OBSERVATION_CONTROLE'
+       BEGIN SELECT RAISE(ABORT, 'TEST_AUDIT_OBSERVATION'); END`,
+    );
+    baseControle.close();
+    const echecAudit = await central.requete("/api/central/controle/observations", {
+      methode: "POST", cleIdempotence: creerCle("rollback-observation-p7"),
+      corps: { ...corps, niveau_gravite: "INFO", observation: "L’observation doit être annulée avec son audit." },
+    });
+    assert.equal(echecAudit.reponse.status, 500, JSON.stringify(echecAudit.donnees));
+    const apresRollback = ouvrirD1Locale();
+    const nombreApres = apresRollback.prepare("SELECT COUNT(*) AS total FROM observations_controle").get().total;
+    assert.equal(nombreApres, avantRollback, "L’échec du journal annule l’observation et ses autres écritures liées.");
+    apresRollback.exec("DROP TRIGGER test_refus_audit_observation");
+    apresRollback.close();
   });
 });

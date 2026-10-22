@@ -1,10 +1,12 @@
 import { Hono, type Context } from "hono";
 import type { EnvironnementApplication } from "../bindings";
 import { STATUTS_UTILISATEUR } from "../../../shared/constantes/roles";
-import type { EntreeJournalAudit, ReponsePagination, UtilisateurAdmin } from "../../../shared/types/authentification";
+import type { ReponsePagination, UtilisateurAdmin } from "../../../shared/types/authentification";
 import { schemaStatutUtilisateur } from "../../../shared/validations/authentification";
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
 import { genererJetonAleatoire, hacherMotDePasse } from "../services/cryptographie.service";
+import { listerJournalAudit } from "../services/controle.service.ts";
+import { schemaFiltresAudit } from "../../../shared/validations/controle.ts";
 
 const routesProprietaire = new Hono<EnvironnementApplication>();
 
@@ -46,26 +48,9 @@ routesProprietaire.get("/utilisateurs", async (c) => {
 });
 
 routesProprietaire.get("/audit", async (c) => {
-  const pagination = paginationDepuisRequete(c);
-  if (!pagination) return c.json({ erreur: "Les paramètres de pagination sont invalides." }, 400);
-
-  const [liste, total] = await Promise.all([
-    c.env.DB.prepare(
-      `SELECT id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, cree_le
-       FROM journaux_audit ORDER BY cree_le DESC, id DESC LIMIT ? OFFSET ?`,
-    )
-      .bind(pagination.limite, pagination.decalage)
-      .all<EntreeJournalAudit>(),
-    c.env.DB.prepare("SELECT COUNT(*) AS total FROM journaux_audit").first<{ total: number }>(),
-  ]);
-
-  const reponse: ReponsePagination<EntreeJournalAudit> = {
-    elements: liste.results,
-    total: total?.total ?? 0,
-    limite: pagination.limite,
-    decalage: pagination.decalage,
-  };
-  return c.json(reponse);
+  const filtres = schemaFiltresAudit.safeParse(Object.fromEntries(new URL(c.req.url).searchParams.entries()));
+  if (!filtres.success) return c.json({ erreur: "Les filtres ou la pagination du journal d’audit sont invalides." }, 400);
+  return c.json(await listerJournalAudit(c.env.DB, c.get("utilisateur"), filtres.data));
 });
 
 routesProprietaire.patch("/utilisateurs/:id/statut", async (c) => {

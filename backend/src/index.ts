@@ -15,6 +15,7 @@ import {
   routesExpeditionsProvinciales,
 } from "./routes/approvisionnements.routes";
 import { routesControleDistributions, routesDistributions } from "./routes/distributions.routes";
+import { routesControleCentral, routesControleProvincial, routesNotifications } from "./routes/controle.routes.ts";
 
 const app = new Hono<EnvironnementApplication>();
 
@@ -50,6 +51,7 @@ app.use("/api/central/*", exigerRoles("ADMIN_CENTRAL"));
 app.route("/api/central", routesValidationTerritoire);
 app.route("/api/central/approvisionnements", routesApprovisionnementsCentrales);
 app.route("/api/central/distributions", routesControleDistributions);
+app.route("/api/central", routesControleCentral);
 
 app.use("/api/provincial/*", authMiddleware);
 app.use("/api/provincial/*", csrfSessionMiddleware);
@@ -64,6 +66,13 @@ app.get("/api/provincial/:provinceId/profil", (c) => {
   });
 });
 app.route("/api/provincial/expeditions", routesExpeditionsProvinciales);
+app.route("/api/provincial", routesControleProvincial);
+
+app.use("/api/notifications", authMiddleware);
+app.use("/api/notifications/*", authMiddleware);
+app.use("/api/notifications", csrfSessionMiddleware);
+app.use("/api/notifications/*", csrfSessionMiddleware);
+app.route("/api/notifications", routesNotifications);
 
 app.use("/api/distributions", authMiddleware);
 app.use("/api/distributions/*", authMiddleware);

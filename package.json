@@ -16,7 +16,7 @@
     "db:seed:local": "node scripts/generer-seed-initial.mjs --mode=development && wrangler d1 execute DB --local --file=migrations/0008_seed_initial_data.sql",
     "db:verifier": "node --experimental-sqlite scripts/verifier-schema-local.mjs",
     "preview": "vite preview --config frontend/vite.config.ts",
-    "test:unit": "vitest run --config vitest.config.ts",
+    "test:unit": "vitest run --config vitest.config.ts --pool=threads --maxWorkers=1",
     "test:integration": "node tests/integration/run-auth-worker.mjs",
     "test:e2e": "playwright test"
   },

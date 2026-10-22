@@ -202,7 +202,7 @@ test("Gestion des articles et stocks dans le Worker Cloudflare et D1 locaux", as
   const reception = await sila.requete("/api/stocks/receptions-stock", {
     methode: "POST", corps: corpsReception, cleIdempotence: cleReception,
   });
-  assert.equal(reception.reponse.status, 201, "La réception directe doit être enregistrée.");
+  assert.equal(reception.reponse.status, 201, `La réception directe doit être enregistrée: ${JSON.stringify(reception.donnees)}`);
   const receptionRejouee = await sila.requete("/api/stocks/receptions-stock", {
     methode: "POST", corps: corpsReception, cleIdempotence: cleReception,
   });

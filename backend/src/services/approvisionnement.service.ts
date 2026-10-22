@@ -1,5 +1,6 @@
 import type { UtilisateurSession } from "../bindings";
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
+import { creerInstructionNotification } from "./notifications.service.ts";
 import {
   allouerLotsFefo,
   construireInstructionMouvement,
@@ -261,6 +262,13 @@ export async function validerApprovisionnementCentral(
   if (!approvisionnement) throw new ErreurStock("Approvisionnement introuvable.", 404);
   if (approvisionnement.statut !== "BROUILLON") throw new ErreurStock("Seul un approvisionnement en brouillon peut être validé.", 409);
 
+  const destinations = await db.prepare(
+    `SELECT d.province_id, p.nom AS province_nom
+     FROM destinations_approvisionnement d INNER JOIN provinces p ON p.id = d.province_id
+     WHERE d.approvisionnement_id = ? ORDER BY p.nom, d.province_id`,
+  ).bind(id).all<{ province_id: string; province_nom: string }>();
+  if (destinations.results.length === 0) throw new ErreurStock("L’approvisionnement doit avoir au moins une province destinataire.", 409);
+
   const corps = { id, statut: "VALIDEE" as const };
   const instructions: EcritureCritique[] = [
     {
@@ -270,6 +278,16 @@ export async function validerApprovisionnementCentral(
          WHERE id = ? AND statut = 'BROUILLON'`,
       ).bind(utilisateur.id, id),
     },
+    ...destinations.results.map((destination) => ({
+      operation: "la notification d’un nouvel approvisionnement à la délégation provinciale",
+      instruction: creerInstructionNotification(db,
+        { provinceId: destination.province_id, role: "DELEGUE_PROVINCIAL" },
+        "Nouvel approvisionnement central",
+        `Un approvisionnement central validé est destiné à ${destination.province_nom}. Consultez ses allocations et ses expéditions.`,
+        "ACTION_REQUISE",
+        "/approvisionnements",
+      ),
+    })),
     {
       operation: "l’écriture du journal d’audit",
       instruction: preparationAudit(db, utilisateur, "VALIDATION_APPROVISIONNEMENT", "APPROVISIONNEMENT_CENTRAL", id, adresseIp, corps),
@@ -650,6 +668,22 @@ export async function recevoirExpeditionProvinciale(
     instruction: preparationAudit(db, utilisateur, "RECEPTION_PROVINCIALE_APPROVISIONNEMENT", "RECEPTION_PROVINCIALE", receptionId, adresseIp, {
       expedition_id: expeditionId, province_id: provinceSessionId, nombre_lignes: corps.nombre_lignes,
     }),
+  });
+  const comporteEcarts = lignesExpedition.results.some((ligne) => {
+    const saisie = saisies.get(ligne.id);
+    return !saisie || Math.abs(saisie.quantite_recue_physique - ligne.quantite_expediee) > 0.000001
+      || saisie.quantite_endommagee > 0.000001;
+  });
+  instructions.push({
+    operation: "la notification de la réception à l’administration centrale",
+    instruction: creerInstructionNotification(db, { role: "ADMIN_CENTRAL" },
+      comporteEcarts ? "Réception provinciale avec écarts" : "Réception provinciale enregistrée",
+      comporteEcarts
+        ? `La délégation provinciale a enregistré la réception ${referenceReception} avec des quantités manquantes ou endommagées à rapprocher.`
+        : `La délégation provinciale a enregistré la réception complète ${referenceReception}.`,
+      comporteEcarts ? "ACTION_REQUISE" : "INFO",
+      "/approvisionnements",
+    ),
   });
   const resultat = await executerOperationIdempotente({
     db, utilisateur, routeApi, cle,

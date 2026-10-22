@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const executableWrangler = resolve(racine, "node_modules/wrangler/bin/wrangler.js");
-const persistanceParente = resolve(tmpdir());
+const persistanceParente = resolve(process.env.SIGAD_TEST_STATE_ROOT ?? join(racine, ".wrangler"));
+const temporaireParente = resolve(process.env.SIGAD_TEST_TEMP_ROOT ?? tmpdir());
 let dossierTemporaire;
 let dossierPersistance;
 let processusWorker;
@@ -65,19 +66,19 @@ async function arreterWorker() {
 }
 
 try {
-  dossierTemporaire = await mkdtemp(join(persistanceParente, "sigad-acceptation-worker-"));
+  dossierTemporaire = await mkdtemp(join(temporaireParente, "sigad-acceptation-worker-"));
   const racineTemporaireVerifiee = resolve(dossierTemporaire);
   assert.ok(
-    racineTemporaireVerifiee.startsWith(`${persistanceParente}${sep}`) &&
-    racineTemporaireVerifiee.slice(persistanceParente.length + 1).startsWith("sigad-acceptation-worker-"),
+    racineTemporaireVerifiee.startsWith(`${temporaireParente}${sep}`) &&
+    racineTemporaireVerifiee.slice(temporaireParente.length + 1).startsWith("sigad-acceptation-worker-"),
     "Le répertoire de test doit être un dossier temporaire SIGAD créé par ce script.",
   );
-  dossierPersistance = await mkdtemp(join(racine, ".wrangler", "sigad-acceptation-worker-state-"));
+  dossierPersistance = await mkdtemp(join(persistanceParente, "sigad-acceptation-worker-state-"));
   const racinePersistanceVerifiee = resolve(dossierPersistance);
   assert.ok(
-    racinePersistanceVerifiee.startsWith(`${resolve(racine, ".wrangler")}${sep}`) &&
-    racinePersistanceVerifiee.slice(resolve(racine, ".wrangler").length + 1).startsWith("sigad-acceptation-worker-state-"),
-    "L’état D1 de test doit être créé sous le répertoire Wrangler local du projet.",
+    racinePersistanceVerifiee.startsWith(`${persistanceParente}${sep}`) &&
+    racinePersistanceVerifiee.slice(persistanceParente.length + 1).startsWith("sigad-acceptation-worker-state-"),
+    "L’état D1 doit rester sous le répertoire temporaire explicitement sélectionné pour cette exécution.",
   );
   const fichierCodes = join(dossierTemporaire, "codes-activation.json");
   const dossierD1 = join(dossierPersistance, "v3", "d1", "miniflare-D1DatabaseObject");
@@ -137,12 +138,19 @@ try {
   processusWorker.stderr.on("data", (donnees) => process.stderr.write(donnees));
   await attendreWorker(adresse, processusWorker);
 
-  for (const fichierTest of [
+  const tousLesTests = [
     "auth-worker.test.mjs",
     "stocks-worker.test.mjs",
     "approvisionnements-worker.test.mjs",
     "distributions-worker.test.mjs",
-  ]) {
+  ];
+  const testsSelectionnes = process.env.SIGAD_INTEGRATION_TESTS
+    ? process.env.SIGAD_INTEGRATION_TESTS.split(",").map((nom) => nom.trim()).filter(Boolean)
+    : tousLesTests;
+  if (testsSelectionnes.some((nom) => !tousLesTests.includes(nom))) {
+    throw new Error("La sélection de tests d’intégration contient un nom inconnu.");
+  }
+  for (const fichierTest of testsSelectionnes) {
     executerNode([
       "--experimental-strip-types",
       "--experimental-sqlite",
@@ -163,15 +171,14 @@ try {
   if (contenuSeedInitial) await writeFile(join(racine, "migrations/0008_seed_initial_data.sql"), contenuSeedInitial);
   if (dossierTemporaire) {
     const chemin = resolve(dossierTemporaire);
-    if (!isAbsolute(chemin) || !chemin.startsWith(`${persistanceParente}${sep}`) || !chemin.slice(persistanceParente.length + 1).startsWith("sigad-acceptation-worker-")) {
+    if (!isAbsolute(chemin) || !chemin.startsWith(`${temporaireParente}${sep}`) || !chemin.slice(temporaireParente.length + 1).startsWith("sigad-acceptation-worker-")) {
       throw new Error("Le répertoire temporaire sort du périmètre autorisé de nettoyage.");
     }
     await rm(chemin, { recursive: true, force: true });
   }
   if (dossierPersistance) {
     const chemin = resolve(dossierPersistance);
-    const racineWrangler = resolve(racine, ".wrangler");
-    if (!isAbsolute(chemin) || !chemin.startsWith(`${racineWrangler}${sep}`) || !chemin.slice(racineWrangler.length + 1).startsWith("sigad-acceptation-worker-state-")) {
+    if (!isAbsolute(chemin) || !chemin.startsWith(`${persistanceParente}${sep}`) || !chemin.slice(persistanceParente.length + 1).startsWith("sigad-acceptation-worker-state-")) {
       throw new Error("L’état temporaire D1 sort du périmètre autorisé de nettoyage.");
     }
     await rm(chemin, { recursive: true, force: true });
