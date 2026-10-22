@@ -10,7 +10,7 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 18) throw new Error(`Les dix-huit migrations versionnées attendues jusqu’à la Phase 8 sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 19) throw new Error(`Les dix-neuf migrations versionnées attendues jusqu’à l’indexation de Phase 9 sont requises; ${fichiers.length} trouvées.`);
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -142,6 +142,7 @@ async function verifierBaseD1Locale() {
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
     verifierCorrespondanceProvinces(baseD1, "D1 local");
+    verifierPlansIndexation(baseD1, "D1 local");
     console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 62 tables et colonnes conformes; ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   } finally {
     baseD1.close();
@@ -202,7 +203,16 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 79) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 79 index attendus après l’indexation des rapports.`);
+if (indexesMigrations.size !== 81) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 81 index attendus après l’indexation des listes provinciales.`);
+for (const [nom, definition] of [
+  ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
+  ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
+]) {
+  const definitionVersionnee = indexesMigrations.get(nom)?.replace(/\s+/gu, "").toLowerCase();
+  if (definitionVersionnee !== definition.replace(/\s+/gu, "").toLowerCase()) {
+    throw new Error(`L’index de performance ${nom} est absent ou diffère de sa définition attendue.`);
+  }
+}
 if (declencheursMigrations !== 68) throw new Error(`Les migrations contiennent ${declencheursMigrations} déclencheurs de validation distincts au lieu des 68 attendus après remplacement des déclencheurs historiques.`);
 
 function verifierCorrespondanceProvinces(base, source) {
@@ -225,6 +235,44 @@ function verifierCorrespondanceProvinces(base, source) {
   for (const ligne of correspondances) {
     if (!provincesSource.has(ligne.id)) throw new Error(`${source}: la commune est rattachée à une province non documentée (${ligne.id}).`);
   }
+}
+
+function verifierPlansIndexation(base, source) {
+  const plans = [
+    {
+      nom: "idx_menages_province_date_id",
+      requete: `EXPLAIN QUERY PLAN
+        SELECT m.id, m.code_menage, m.province_id, m.departement_id, m.localite_id,
+          m.nom_chef_menage, m.sexe_chef, m.nombre_personnes, m.telephone,
+          m.categorie_population_id, cp.libelle AS categorie_population, m.statut, m.date_enregistrement
+        FROM menages m INNER JOIN categories_population cp ON cp.id = m.categorie_population_id
+        WHERE m.province_id = 'prov-sila'
+        ORDER BY m.date_enregistrement DESC, m.id LIMIT 26 OFFSET 0`,
+    },
+    {
+      nom: "idx_mouvements_province_date_id",
+      requete: `EXPLAIN QUERY PLAN
+        SELECT m.id, m.reference_mouvement, m.entrepot_id, e.nom AS entrepot, m.province_id,
+          m.article_id, a.code_article, a.designation AS article, m.lot_stock_id, l.numero_lot,
+          m.type_mouvement, m.sens, m.quantite, m.solde_physique_avant, m.solde_physique_apres,
+          m.document_source_type, m.document_source_id, m.motif, m.auteur_id,
+          u.nom_complet AS auteur, m.cree_le
+        FROM mouvements_stock m INNER JOIN entrepots e ON e.id = m.entrepot_id
+        INNER JOIN articles a ON a.id = m.article_id INNER JOIN lots_stock l ON l.id = m.lot_stock_id
+        INNER JOIN utilisateurs u ON u.id = m.auteur_id WHERE m.province_id = 'prov-sila'
+        ORDER BY m.cree_le DESC, m.id LIMIT 26 OFFSET 0`,
+    },
+  ];
+  for (const plan of plans) {
+    const details = base.prepare(plan.requete).all().map((ligne) => Reflect.get(ligne, "detail"));
+    if (!details.some((detail) => typeof detail === "string" && detail.includes(`USING INDEX ${plan.nom}`))) {
+      throw new Error(`${source} n’utilise pas ${plan.nom} dans la requête paginée correspondante.`);
+    }
+    if (details.some((detail) => typeof detail === "string" && detail.includes("USE TEMP B-TREE FOR ORDER BY"))) {
+      throw new Error(`${source} trie encore sur une structure temporaire malgré ${plan.nom}.`);
+    }
+  }
+  console.log(`PASS — EXPLAIN QUERY PLAN (${source}) : listes paginées des ménages et des mouvements utilisent leurs index composites sans tri temporaire.`);
 }
 
 const requireContenuCsvProvinces = await readFile(resolve(racine, "sources/referentiel-territorial/communes-loi-015-2024.csv"), "utf8");
@@ -278,6 +326,7 @@ try {
     throw new Error(`Le référentiel territorial et bénéficiaire est incohérent : ${nombreCommunes} communes (${nombreCommunesEnRelecture} à relire, ${nombreCommunesActives} activées), ${nombreCategoriesPopulation} catégories de population et ${nombreVulnerabilites} vulnérabilités.`);
   }
   verifierCorrespondanceProvinces(base, "SQLite vierge");
+  verifierPlansIndexation(base, "SQLite vierge");
   console.log(`PASS — SQLite vierge : ${fichiers.length} migrations (0001–0007, seed 0008, corrections 0009–${fichiers.at(-1)?.slice(0, 4)}) appliquées; 62 tables et champs conformes à la spécification; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   if (process.argv.includes("--d1-local")) await verifierBaseD1Locale();
 } finally {

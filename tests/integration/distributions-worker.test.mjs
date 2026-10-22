@@ -419,6 +419,12 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
       methode: "POST", cleIdempotence: creerCle("fin-sans-pv-p6"), corps: { observations: null },
     });
     assert.equal(sansPv.reponse.status, 400, "Le procès-verbal est requis avant la déclaration de fin.");
+    const formulaireUsurpe = new FormData();
+    formulaireUsurpe.set("fichier", new Blob(["contenu qui n’est pas un PDF"], { type: "application/pdf" }), "faux.pdf");
+    const usurpation = await sila.requete(`/api/distributions/${brouillon.id}/pv`, {
+      methode: "POST", cleIdempotence: creerCle("pv-usurpe-p6"), corps: formulaireUsurpe,
+    });
+    assert.equal(usurpation.reponse.status, 400, "Un fichier qui déclare un PDF sans signature PDF doit être refusé.");
     const formulaire = new FormData();
     formulaire.set("fichier", new Blob(["%PDF-1.4\nProcès-verbal synthétique Phase 6\n%%EOF"], { type: "application/pdf" }), "pv-phase6.pdf");
     const pv = await sila.requete(`/api/distributions/${brouillon.id}/pv`, {

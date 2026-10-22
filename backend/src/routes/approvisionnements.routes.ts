@@ -12,6 +12,7 @@ import {
   validerApprovisionnementCentral,
 } from "../services/approvisionnement.service";
 import { ErreurStock } from "../services/stock.service";
+import { CorpsDocumentTropVolumineux, lireFormulaireMultipartBorne, typeErreurSecurise } from "../services/fichiers-securite.service.ts";
 import {
   schemaClotureApprovisionnement,
   schemaCreationApprovisionnement,
@@ -69,7 +70,7 @@ function reponseErreur(c: Context<EnvironnementApplication>, erreur: unknown) {
     return c.json({ erreur: "Les données ne respectent pas les règles de gestion ou une opération concurrente a été enregistrée." }, 409);
   }
   console.error(JSON.stringify({ action: "operation_approvisionnement_refusee", chemin: c.req.path,
-    erreur: message }));
+    type_erreur: typeErreurSecurise(erreur) }));
   return c.json({ erreur: "L’opération d’approvisionnement n’a pas pu être enregistrée." }, 500);
 }
 
@@ -520,7 +521,11 @@ routesProvinciales.post("/:id/pv", async (c) => {
   const cle = lireCleIdempotence(c);
   if (!cle) return c.json({ erreur: "Une clé X-Idempotency-Key valide est obligatoire." }, 400);
   let formulaire: FormData;
-  try { formulaire = await c.req.raw.formData(); } catch { return c.json({ erreur: "Le formulaire du procès-verbal est invalide." }, 400); }
+  try { formulaire = await lireFormulaireMultipartBorne(c.req.raw); }
+  catch (erreur) {
+    if (erreur instanceof CorpsDocumentTropVolumineux) return c.json({ erreur: erreur.message }, 413);
+    return c.json({ erreur: "Le formulaire du procès-verbal est invalide." }, 400);
+  }
   const fichier = formulaire.get("fichier");
   if (!(fichier instanceof File)) return c.json({ erreur: "Sélectionnez un fichier de procès-verbal." }, 400);
   try {

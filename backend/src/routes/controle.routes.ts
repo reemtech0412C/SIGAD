@@ -29,6 +29,7 @@ import {
   marquerToutesNotificationsLues,
 } from "../services/notifications.service.ts";
 import { schemaFiltresNotifications } from "../../../shared/validations/controle.ts";
+import { typeErreurSecurise } from "../services/fichiers-securite.service.ts";
 
 export const routesControleCentral = new Hono<EnvironnementApplication>();
 export const routesControleProvincial = new Hono<EnvironnementApplication>();
@@ -70,7 +71,7 @@ function reponseErreur(c: Context<EnvironnementApplication>, erreur: unknown) {
     return c.json({ erreur: "Une règle de contrôle ou de cohérence a refusé l’opération." }, 409);
   }
   console.error(JSON.stringify({ action: "echec_controle_central", chemin: c.req.path,
-    erreur: message }));
+    type_erreur: typeErreurSecurise(erreur) }));
   return c.json({ erreur: "Le service de contrôle n’a pas pu traiter la demande." }, 500);
 }
 

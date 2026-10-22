@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const executableWrangler = resolve(racine, "node_modules/wrangler/bin/wrangler.js");
-const persistanceParente = resolve(process.env.SIGAD_TEST_STATE_ROOT ?? join(racine, ".wrangler"));
+const persistanceParente = resolve(process.env.SIGAD_TEST_STATE_ROOT ?? join(racine, ".wrangler", "sigad-tests-state"));
 const temporaireParente = resolve(process.env.SIGAD_TEST_TEMP_ROOT ?? tmpdir());
 let dossierTemporaire;
 let dossierPersistance;
@@ -66,6 +66,7 @@ async function arreterWorker() {
 }
 
 try {
+  await Promise.all([mkdir(temporaireParente, { recursive: true }), mkdir(persistanceParente, { recursive: true })]);
   dossierTemporaire = await mkdtemp(join(temporaireParente, "sigad-acceptation-worker-"));
   const racineTemporaireVerifiee = resolve(dossierTemporaire);
   assert.ok(
@@ -82,6 +83,15 @@ try {
   );
   const fichierCodes = join(dossierTemporaire, "codes-activation.json");
   const dossierD1 = join(dossierPersistance, "v3", "d1", "miniflare-D1DatabaseObject");
+  const dossierConfigurationWrangler = join(dossierTemporaire, "appdata");
+  await mkdir(dossierConfigurationWrangler, { recursive: true });
+  const environnementWrangler = {
+    ...process.env,
+    APPDATA: dossierConfigurationWrangler,
+    TEMP: dossierTemporaire,
+    TMP: dossierTemporaire,
+    XDG_CONFIG_HOME: join(dossierConfigurationWrangler, "xdg"),
+  };
   contenuSeedInitial = await readFile(join(racine, "migrations/0008_seed_initial_data.sql"));
 
   executerNode([
@@ -98,14 +108,17 @@ try {
     "--local",
     "--persist-to",
     dossierPersistance,
-  ]);
+  ], environnementWrangler);
 
   const environnementTest = {
-    ...process.env,
+    ...environnementWrangler,
     SIGAD_CODES_FILE: fichierCodes,
     SIGAD_D1_STATE_DIR: dossierD1,
     ...(process.env.SIGAD_RUN_PLAYWRIGHT === "1"
-      ? { SIGAD_E2E_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-e2e.txt") }
+      ? {
+        SIGAD_E2E_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-central-e2e.txt"),
+        SIGAD_E2E_SILA_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-sila-e2e.txt"),
+      }
       : {}),
   };
   executerNode([
@@ -133,7 +146,7 @@ try {
     dossierPersistance,
   ], {
     cwd: racine,
-    env: process.env,
+    env: environnementWrangler,
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });

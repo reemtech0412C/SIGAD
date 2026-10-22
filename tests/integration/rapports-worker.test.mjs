@@ -281,8 +281,21 @@ test("Rapports SIGAD: calculs, exports, confidentialité provinciale et archives
   });
   if (process.env.SIGAD_E2E_PASSWORD_FILE) {
     assert.ok(comptes.central.motDePasseActuel);
+    assert.ok(comptes.sila.motDePasseActuel);
+    const baseE2E = ouvrirD1Locale();
+    try {
+      baseE2E.prepare("UPDATE utilisateurs SET doit_changer_mot_de_passe = 1 WHERE identifiant IN ('central', 'sila')")
+        .run();
+    } finally {
+      baseE2E.close();
+    }
     await writeFile(process.env.SIGAD_E2E_PASSWORD_FILE, `${comptes.central.motDePasseActuel}\n`, {
       encoding: "utf8", flag: "w", mode: 0o600,
     });
+    if (process.env.SIGAD_E2E_SILA_PASSWORD_FILE) {
+      await writeFile(process.env.SIGAD_E2E_SILA_PASSWORD_FILE, `${comptes.sila.motDePasseActuel}\n`, {
+        encoding: "utf8", flag: "w", mode: 0o600,
+      });
+    }
   }
 });

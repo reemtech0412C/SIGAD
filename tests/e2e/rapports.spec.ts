@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { randomBytes } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 async function lireMotDePasseCentral(): Promise<string> {
@@ -17,6 +18,11 @@ async function seConnecter(page: import("@playwright/test").Page): Promise<void>
   await page.getByLabel("Identifiant").fill("central");
   await page.getByLabel("Mot de passe").fill(motDePasse);
   await page.getByRole("button", { name: "Se connecter" }).click();
+  await expect(page.getByRole("heading", { name: "Créer un nouveau mot de passe" })).toBeVisible();
+  const nouveauMotDePasse = `E2E-${randomBytes(18).toString("base64url")}Aa9`;
+  await page.getByLabel("Nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
+  await page.getByLabel("Confirmer le nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
+  await page.getByRole("button", { name: "Enregistrer le nouveau mot de passe" }).click();
   await expect(page.getByRole("button", { name: "Rapports et tableaux de bord" })).toBeVisible();
   await page.getByRole("button", { name: "Rapports et tableaux de bord" }).click();
   await expect(page.getByRole("heading", { name: "Rapports et tableaux de bord" })).toBeVisible();

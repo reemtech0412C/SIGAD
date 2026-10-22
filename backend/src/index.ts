@@ -17,13 +17,25 @@ import {
 import { routesControleDistributions, routesDistributions } from "./routes/distributions.routes";
 import { routesControleCentral, routesControleProvincial, routesNotifications } from "./routes/controle.routes.ts";
 import { routesRapports } from "./routes/rapports.routes.ts";
+import { typeErreurSecurise } from "./services/fichiers-securite.service.ts";
 
 const app = new Hono<EnvironnementApplication>();
+
+app.use("*", async (c, suivant) => {
+  await suivant();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Referrer-Policy", "no-referrer");
+  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  c.header("Content-Security-Policy", "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'self' blob:");
+  if (c.req.path.startsWith("/api/")) c.header("Cache-Control", "no-store");
+  if (c.env.ENVIRONMENT === "production") c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+});
 
 app.onError((erreur, c) => {
   console.error(JSON.stringify({
     message: "Échec du traitement de la requête",
-    erreur: erreur instanceof Error ? erreur.message : "Erreur non identifiée",
+    type_erreur: typeErreurSecurise(erreur),
     chemin: c.req.path,
   }));
   return c.json({ erreur: "Une erreur inattendue est survenue. Réessayez plus tard." }, 500);

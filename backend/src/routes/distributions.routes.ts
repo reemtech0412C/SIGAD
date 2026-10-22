@@ -24,6 +24,7 @@ import {
   validerDistributionEtReserver,
 } from "../services/distribution.service.ts";
 import { ErreurStock } from "../services/stock.service.ts";
+import { CorpsDocumentTropVolumineux, lireFormulaireMultipartBorne, typeErreurSecurise } from "../services/fichiers-securite.service.ts";
 import {
   schemaClotureDistribution,
   schemaDeclarationFinDistribution,
@@ -75,7 +76,7 @@ function reponseErreur(c: Context<EnvironnementApplication>, erreur: unknown) {
   if (/DISTRIBUTION_|ZONE_DISTRIBUTION_|MENAGE_DISTRIBUTION_|ARTICLE_DISTRIBUTION_|ALLOCATION_DISTRIBUTION_|RESERVATION_DISTRIBUTION_|REMISE_DISTRIBUTION_|LIGNE_REMISE_DISTRIBUTION_|VALIDATION_DISTRIBUTION_|PLAN_DISTRIBUTION_|TRANSITION_STATUT_|AUDIT_DISTRIBUTION_|MOUVEMENT_STOCK_|MOUVEMENT_SANS_MUTATION_EFFECTIVE|UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint/iu.test(message)) {
     return c.json({ erreur: "La distribution n’a pas été enregistrée car une règle de cohérence a refusé l’opération." }, 409);
   }
-  console.error(JSON.stringify({ action: "operation_distribution_refusee", chemin: c.req.path, erreur: message }));
+  console.error(JSON.stringify({ action: "operation_distribution_refusee", chemin: c.req.path, type_erreur: typeErreurSecurise(erreur) }));
   return c.json({ erreur: "L’opération de distribution n’a pas pu être enregistrée." }, 500);
 }
 
@@ -214,7 +215,11 @@ routesDistributions.post("/:id/pv", async (c) => {
   const cle = lireCleIdempotence(c);
   if (!cle) return c.json({ erreur: "Une clé X-Idempotency-Key valide est obligatoire." }, 400);
   let formulaire: FormData;
-  try { formulaire = await c.req.raw.formData(); } catch { return c.json({ erreur: "Le formulaire de téléversement est invalide." }, 400); }
+  try { formulaire = await lireFormulaireMultipartBorne(c.req.raw); }
+  catch (erreur) {
+    if (erreur instanceof CorpsDocumentTropVolumineux) return c.json({ erreur: erreur.message }, 413);
+    return c.json({ erreur: "Le formulaire de téléversement est invalide." }, 400);
+  }
   const fichier = formulaire.get("fichier");
   if (!(fichier instanceof File)) return c.json({ erreur: "Sélectionnez un procès-verbal au format PDF." }, 400);
   try {

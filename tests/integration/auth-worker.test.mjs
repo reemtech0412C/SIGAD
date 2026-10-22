@@ -233,6 +233,13 @@ const codes = verifierFormatCodes(JSON.parse(await readFile(cheminCodes, "utf8")
 
 test("Authentification et contrôles de sécurité dans le Worker Cloudflare local", async () => {
   await verifierAbsenceCodesDansDepot(codes);
+  const sante = await fetch(new URL("/api/sante", adresseApi));
+  assert.equal(sante.status, 200);
+  assert.equal(sante.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(sante.headers.get("x-frame-options"), "DENY");
+  assert.equal(sante.headers.get("referrer-policy"), "no-referrer");
+  assert.match(sante.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/u);
+  assert.equal(sante.headers.get("cache-control"), "no-store");
   const baseFixtures = ouvrirD1Locale();
   try {
     preparerFixturesTerritoriales(baseFixtures);

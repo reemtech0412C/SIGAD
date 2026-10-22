@@ -18,7 +18,9 @@ export default defineConfig({
     baseURL: urlLocale,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    ...(process.env.SIGAD_PLAYWRIGHT_EXECUTABLE
+      ? { launchOptions: { executablePath: process.env.SIGAD_PLAYWRIGHT_EXECUTABLE } }
+      : {}),
     ...devices["Desktop Chrome"],
   },
   outputDir: "test-results",

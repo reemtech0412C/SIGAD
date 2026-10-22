@@ -170,6 +170,12 @@ async function creerExpedition(client, approvisionnementId, destinationId, entre
 }
 
 async function televerserPv(client, expeditionId) {
+  const formulaireUsurpe = new FormData();
+  formulaireUsurpe.set("fichier", new Blob(["contenu qui n’est pas un PDF"], { type: "application/pdf" }), "faux.pdf");
+  const usurpation = await client.requete(`/api/provincial/expeditions/${expeditionId}/pv`, {
+    methode: "POST", cleIdempotence: creerCle("pv-usurpe-phase5"), corps: formulaireUsurpe,
+  });
+  assert.equal(usurpation.reponse.status, 400, "Un fichier qui déclare un PDF sans signature PDF doit être refusé.");
   const formulaire = new FormData();
   formulaire.set("fichier", new Blob(["%PDF-1.4\nProcès-verbal de test\n%%EOF"], { type: "application/pdf" }), "pv-phase5.pdf");
   const resultat = await client.requete(`/api/provincial/expeditions/${expeditionId}/pv`, {

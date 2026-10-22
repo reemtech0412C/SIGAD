@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings";
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
+import { typeErreurSecurise } from "../services/fichiers-securite.service.ts";
 import {
   ErreurStock,
   enregistrerAjustementStock,
@@ -127,7 +128,7 @@ function reponseErreurStock(c: Context<EnvironnementApplication>, erreur: unknow
   if (/UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint|RATTACHEMENT_ENTREPOT_INVALIDE|MOUVEMENT_SANS_MUTATION_EFFECTIVE/iu.test(message)) {
     return c.json({ erreur: "Une référence existe déjà ou les données ne respectent pas les règles de gestion." }, 409);
   }
-  console.error(JSON.stringify({ action: "operation_stock_refusee", chemin: c.req.path, erreur: message }));
+  console.error(JSON.stringify({ action: "operation_stock_refusee", chemin: c.req.path, type_erreur: typeErreurSecurise(erreur) }));
   return c.json({ erreur: "L’opération n’a pas pu être enregistrée." }, 500);
 }
 

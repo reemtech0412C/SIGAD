@@ -1,4 +1,5 @@
 import type { UtilisateurSession } from "../bindings";
+import { detecterTypeMimeDocument, typeErreurSecurise } from "./fichiers-securite.service.ts";
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
 import { creerInstructionNotification } from "./notifications.service.ts";
 import {
@@ -803,7 +804,8 @@ export async function televerserPvReception(
   if (fichier.size < 1 || fichier.size > 10 * 1024 * 1024) {
     throw new ErreurStock("Le procès-verbal doit peser entre 1 octet et 10 Mo.", 400);
   }
-  if (!["application/pdf", "image/jpeg", "image/png"].includes(fichier.type)) {
+  const typeMimeDeclare = fichier.type.toLowerCase();
+  if (!["application/pdf", "image/jpeg", "image/png"].includes(typeMimeDeclare)) {
     throw new ErreurStock("Le procès-verbal doit être au format PDF, JPEG ou PNG.", 400);
   }
   const expedition = await db.prepare(
@@ -814,7 +816,11 @@ export async function televerserPvReception(
   if (!expedition) throw new ErreurStock("Expédition introuvable dans votre province ou déjà réceptionnée.", 404);
 
   const contenu = new Uint8Array(await fichier.arrayBuffer());
-  const metadonnees = new TextEncoder().encode(`${fichier.name}\n${fichier.type}\n`);
+  const typeMimeReel = detecterTypeMimeDocument(contenu);
+  if (!typeMimeReel || typeMimeReel !== typeMimeDeclare) {
+    throw new ErreurStock("Le contenu du procès-verbal ne correspond pas au format déclaré.", 400);
+  }
+  const metadonnees = new TextEncoder().encode(`${fichier.name}\n${typeMimeReel}\n`);
   const donneesEmpreinte = new Uint8Array(metadonnees.byteLength + contenu.byteLength);
   donneesEmpreinte.set(metadonnees);
   donneesEmpreinte.set(contenu, metadonnees.byteLength);
@@ -845,7 +851,7 @@ export async function televerserPvReception(
   }
   if (!objetExistant) {
     await bucket.put(cleR2, contenu, {
-      httpMetadata: { contentType: fichier.type },
+      httpMetadata: { contentType: typeMimeReel },
       customMetadata: { empreinte_sha256: empreinte, nom_fichier: nomFichier },
     });
   }
@@ -859,21 +865,20 @@ export async function televerserPvReception(
             (id, cle_r2, nom_fichier_original, type_mime, taille_octets, categorie_document,
              entite_liee_type, entite_liee_id, province_id, televerse_par)
            VALUES (?, ?, ?, ?, ?, 'PV_RECEPTION', 'EXPEDITION', ?, ?, ?)`,
-        ).bind(id, cleR2, nomFichier, fichier.type, contenu.byteLength, expeditionId,
+        ).bind(id, cleR2, nomFichier, typeMimeReel, contenu.byteLength, expeditionId,
           utilisateur.province_id, utilisateur.id),
       },
       {
         operation: "l’audit du téléversement du procès-verbal",
         instruction: preparationAudit(db, utilisateur, "TELEVERSEMENT_PV_APPROVISIONNEMENT", "PIECE_JOINTE", id, adresseIp, {
-          expedition_id: expeditionId, taille_octets: contenu.byteLength, type_mime: fichier.type,
+          expedition_id: expeditionId, taille_octets: contenu.byteLength, type_mime: typeMimeReel,
         }),
       },
     ];
     await db.batch(instructions.map((ecriture) => ecriture.instruction));
   } catch (erreur) {
     try { await bucket.delete(cleR2); } catch (erreurSuppression) {
-      console.error(JSON.stringify({ action: "nettoyage_pv_r2_echoue", expedition_id: expeditionId, cle_r2: cleR2,
-        erreur: erreurSuppression instanceof Error ? erreurSuppression.message : "Erreur non identifiée" }));
+      console.error(JSON.stringify({ action: "nettoyage_pv_r2_echoue", type_erreur: typeErreurSecurise(erreurSuppression) }));
     }
     if (erreur instanceof Error && /UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint|AUDIT_APPROVISIONNEMENT/iu.test(erreur.message)) {
       throw new ErreurStock("Le procès-verbal existe déjà ou ses métadonnées ne respectent pas les règles de gestion.", 409);

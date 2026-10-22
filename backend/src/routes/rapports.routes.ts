@@ -11,6 +11,7 @@ import {
   preparerExportRapport,
 } from "../services/rapports.service.ts";
 import { creerFichierRapport } from "../services/rapports-export.service.ts";
+import { typeErreurSecurise } from "../services/fichiers-securite.service.ts";
 import {
   schemaExportRapport,
   schemaFiltresRapport,
@@ -57,7 +58,7 @@ function reponseErreur(c: Context<EnvironnementApplication>, erreur: unknown) {
     return c.json({ erreur: "Une règle de cohérence a refusé l’opération." }, 409);
   }
   console.error(JSON.stringify({ action: "echec_rapports", chemin: c.req.path,
-    erreur: message.slice(0, 500) }));
+    type_erreur: typeErreurSecurise(erreur) }));
   return c.json({ erreur: "Le service de rapports n’a pas pu traiter la demande." }, 500);
 }
 
@@ -211,8 +212,7 @@ routesRapports.post("/:type/export", async (c) => {
     if (cleR2) {
       try { await c.env.BUCKET.delete(cleR2); }
       catch (erreurSuppression) {
-        console.error(JSON.stringify({ action: "archive_rapport_orpheline_a_reconcilier", cle: cleR2,
-          erreur: erreurSuppression instanceof Error ? erreurSuppression.message : "Erreur de suppression R2" }));
+        console.error(JSON.stringify({ action: "archive_rapport_orpheline_a_reconcilier", type_erreur: typeErreurSecurise(erreurSuppression) }));
       }
     }
     return reponseErreur(c, erreur);
@@ -290,8 +290,7 @@ routesRapports.post("/archives/reconciliation", async (c) => {
         supprimees += 1;
       } catch (erreur) {
         echec += 1;
-        console.error(JSON.stringify({ action: "echec_suppression_archive_orpheline", cle: objet.key,
-          erreur: erreur instanceof Error ? erreur.message : "Erreur inconnue" }));
+        console.error(JSON.stringify({ action: "echec_suppression_archive_orpheline", type_erreur: typeErreurSecurise(erreur) }));
       }
     }
     await c.env.DB.batch([creerInstructionAudit(c.env.DB, {

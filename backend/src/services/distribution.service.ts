@@ -1,5 +1,6 @@
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
 import { creerInstructionNotification } from "./notifications.service.ts";
+import { detecterTypeMimeDocument, typeErreurSecurise } from "./fichiers-securite.service.ts";
 import { lireEtatClotureDistribution } from "./controle.service.ts";
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings.ts";
 import { allouerLotsFefo, creerReference, executerOperationIdempotente, rejouerOperationIdempotente, type AllocationLot, type LotFefoD1 } from "./stock.service.ts";
@@ -1566,6 +1567,9 @@ export async function televerserPvDistribution(
     throw new ErreurDistribution("Le procès-verbal doit être un fichier PDF de 1 octet à 10 Mo.", 400);
   }
   const contenu = new Uint8Array(await fichier.arrayBuffer());
+  if (detecterTypeMimeDocument(contenu) !== "application/pdf") {
+    throw new ErreurDistribution("Le contenu du procès-verbal n’est pas un document PDF valide.", 400);
+  }
   const empreinteBuffer = await crypto.subtle.digest("SHA-256", contenu);
   const empreinte = Array.from(new Uint8Array(empreinteBuffer), (octet) => octet.toString(16).padStart(2, "0")).join("");
   const cleR2 = `distributions/${provinceId}/${distributionId}/${cleIdempotence}`;
@@ -1606,8 +1610,7 @@ export async function televerserPvDistribution(
     ]);
   } catch (erreur) {
     try { await bucket.delete(cleR2); } catch (erreurSuppression) {
-      console.error(JSON.stringify({ action: "nettoyage_pv_distribution_echoue", distribution_id: distributionId,
-        erreur: erreurSuppression instanceof Error ? erreurSuppression.message : "Erreur non identifiée" }));
+      console.error(JSON.stringify({ action: "nettoyage_pv_distribution_echoue", type_erreur: typeErreurSecurise(erreurSuppression) }));
     }
     throw new ErreurDistribution("Le procès-verbal n’a pas pu être enregistré avec son journal d’audit.", 500);
   }
