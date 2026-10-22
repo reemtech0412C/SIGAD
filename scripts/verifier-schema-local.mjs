@@ -10,7 +10,7 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 17) throw new Error(`Les dix-sept migrations versionnées attendues jusqu’à la Phase 7 sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 18) throw new Error(`Les dix-huit migrations versionnées attendues jusqu’à la Phase 8 sont requises; ${fichiers.length} trouvées.`);
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -202,7 +202,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 71) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 71 index attendus jusqu’au contrôle Phase 7.`);
+if (indexesMigrations.size !== 79) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 79 index attendus après l’indexation des rapports.`);
 if (declencheursMigrations !== 68) throw new Error(`Les migrations contiennent ${declencheursMigrations} déclencheurs de validation distincts au lieu des 68 attendus après remplacement des déclencheurs historiques.`);
 
 function verifierCorrespondanceProvinces(base, source) {

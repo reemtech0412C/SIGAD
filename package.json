@@ -18,7 +18,7 @@
     "preview": "vite preview --config frontend/vite.config.ts",
     "test:unit": "vitest run --config vitest.config.ts --pool=threads --maxWorkers=1",
     "test:integration": "node tests/integration/run-auth-worker.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "node tests/e2e/run-local.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "5.11.2",

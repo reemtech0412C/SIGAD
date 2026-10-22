@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { strToU8, zipSync } from "fflate";
-import { hacherJeton } from "../../backend/src/services/cryptographie.service.ts";
+import { hacherJeton, verifierMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -241,6 +241,14 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   }
 
   const proprietaire = new ClientLocal();
+  const baseAuthentification = ouvrirD1Locale();
+  const compteProprietaire = baseAuthentification.prepare(
+    "SELECT mot_de_passe_hash, statut FROM utilisateurs WHERE identifiant = 'proprietaire'",
+  ).get();
+  baseAuthentification.close();
+  assert.equal(compteProprietaire?.statut, "ACTIF");
+  assert.equal(await verifierMotDePasse(codePour(codes, "proprietaire"), compteProprietaire?.mot_de_passe_hash), true,
+    "Le code d’activation externe doit correspondre à l’empreinte générée dans le seed D1 local.");
   await proprietaire.initialiserCsrf();
   const connexionSansCsrf = await proprietaire.requete("/api/auth/connexion", {
     methode: "POST",
@@ -268,7 +276,7 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     methode: "POST",
     corps: { identifiant: "proprietaire", mot_de_passe: codePour(codes, "proprietaire") },
   });
-  assert.equal(connexionProprietaire.reponse.status, 200);
+  assert.equal(connexionProprietaire.reponse.status, 200, JSON.stringify(connexionProprietaire.donnees));
   assert.equal(Reflect.get(Reflect.get(connexionProprietaire.donnees, "utilisateur"), "doit_changer_mot_de_passe"), true);
   const accesAvantChangement = await proprietaire.requete("/api/proprietaire/utilisateurs");
   assert.equal(accesAvantChangement.reponse.status, 403, "Les fonctions doivent rester bloquées avant le changement initial du mot de passe.");

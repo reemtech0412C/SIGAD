@@ -363,7 +363,7 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
       const adresse = URL.createObjectURL(fichier);
       const lien = document.createElement("a");
       lien.href = adresse;
-      lien.download = reponse.headers.get("Content-Disposition")?.match(/filename="([^\"]+)"/u)?.[1] ?? "liste-beneficiaires.csv";
+      lien.download = reponse.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/u)?.[1] ?? "liste-beneficiaires.csv";
       document.body.appendChild(lien);
       lien.click();
       lien.remove();

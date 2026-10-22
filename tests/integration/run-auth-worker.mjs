@@ -104,6 +104,9 @@ try {
     ...process.env,
     SIGAD_CODES_FILE: fichierCodes,
     SIGAD_D1_STATE_DIR: dossierD1,
+    ...(process.env.SIGAD_RUN_PLAYWRIGHT === "1"
+      ? { SIGAD_E2E_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-e2e.txt") }
+      : {}),
   };
   executerNode([
     "--experimental-sqlite",
@@ -143,6 +146,7 @@ try {
     "stocks-worker.test.mjs",
     "approvisionnements-worker.test.mjs",
     "distributions-worker.test.mjs",
+    "rapports-worker.test.mjs",
   ];
   const testsSelectionnes = process.env.SIGAD_INTEGRATION_TESTS
     ? process.env.SIGAD_INTEGRATION_TESTS.split(",").map((nom) => nom.trim()).filter(Boolean)
@@ -157,6 +161,22 @@ try {
       "--test",
       "--test-concurrency=1",
       resolve(racine, "tests/integration", fichierTest),
+    ], {
+      ...environnementTest,
+      SIGAD_LOCAL_API_URL: adresse,
+      SIGAD_D1_STATE_DIR: dossierD1,
+    });
+  }
+  if (process.env.SIGAD_RUN_PLAYWRIGHT === "1") {
+    const optionsPlaywright = process.env.SIGAD_PLAYWRIGHT_GREP
+      ? ["--grep", process.env.SIGAD_PLAYWRIGHT_GREP]
+      : [];
+    executerNode([
+      "--experimental-sqlite",
+      resolve(racine, "node_modules/@playwright/test/cli.js"),
+      "test",
+      "--config=playwright.config.ts",
+      ...optionsPlaywright,
     ], {
       ...environnementTest,
       SIGAD_LOCAL_API_URL: adresse,

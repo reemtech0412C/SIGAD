@@ -16,6 +16,7 @@ import {
 } from "./routes/approvisionnements.routes";
 import { routesControleDistributions, routesDistributions } from "./routes/distributions.routes";
 import { routesControleCentral, routesControleProvincial, routesNotifications } from "./routes/controle.routes.ts";
+import { routesRapports } from "./routes/rapports.routes.ts";
 
 const app = new Hono<EnvironnementApplication>();
 
@@ -30,6 +31,12 @@ app.onError((erreur, c) => {
 
 app.get("/api/sante", (c) => c.json({ statut: "operationnel" }));
 app.route("/api/auth", routesAuth);
+
+app.use("/api/rapports/*", authMiddleware);
+app.use("/api/rapports/*", csrfSessionMiddleware);
+app.use("/api/rapports/*", exigerRoles("PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"));
+app.use("/api/rapports/archives/reconciliation*", exigerRoles("PROPRIETAIRE"));
+app.route("/api/rapports", routesRapports);
 
 app.use("/api/gestion/*", authMiddleware);
 app.use("/api/gestion/*", csrfSessionMiddleware);
