@@ -12,18 +12,20 @@
     "dev:interface": "vite --config frontend/vite.config.ts",
     "build": "vite build --config frontend/vite.config.ts",
     "typecheck": "wrangler types --env-interface CloudflareBindings && tsc --noEmit -p tsconfig.json",
-    "db:migrate:local": "node scripts/generer-seed-initial.mjs --mode=development && wrangler d1 migrations apply DB --local",
-    "db:seed:local": "node scripts/generer-seed-initial.mjs --mode=development && wrangler d1 execute DB --local --file=migrations/0008_seed_initial_data.sql",
+    "db:migrate:local": "node scripts/preparer-base-locale.mjs migrate",
+    "db:seed:local": "node scripts/preparer-base-locale.mjs seed",
     "db:verifier": "node --experimental-sqlite scripts/verifier-schema-local.mjs",
     "preview": "vite preview --config frontend/vite.config.ts",
     "test:unit": "vitest run --config vitest.config.ts --pool=threads --maxWorkers=1",
+    "test:security-matrix": "node scripts/generer-matrice-securite-phase9.mjs --check",
     "test:integration": "node tests/integration/run-auth-worker.mjs",
-    "test:e2e": "node tests/e2e/run-local.mjs"
+    "test:e2e": "npm run build && node tests/e2e/run-local.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "5.11.2",
     "fflate": "0.8.3",
     "hono": "4.13.13",
+    "qrcode-generator": "2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.5"

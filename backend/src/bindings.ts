@@ -9,6 +9,7 @@ export interface UtilisateurSession {
   role: RoleUtilisateur;
   province_id: string | null;
   doit_changer_mot_de_passe: number;
+  double_facteur_actif?: number;
   statut: StatutUtilisateur;
 }
 
@@ -16,6 +17,8 @@ export interface SessionActive {
   id: string;
   jeton_csrf: string;
   expire_le: string;
+  mfa_verifiee: number;
+  double_facteur_actif: number;
   utilisateur: UtilisateurSession;
 }
 

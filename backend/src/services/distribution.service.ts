@@ -1,6 +1,7 @@
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
 import { creerInstructionNotification } from "./notifications.service.ts";
 import { detecterTypeMimeDocument, typeErreurSecurise } from "./fichiers-securite.service.ts";
+import { televerserPuisReferencerR2 } from "./stockage-r2.service.ts";
 import { lireEtatClotureDistribution } from "./controle.service.ts";
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings.ts";
 import { allouerLotsFefo, creerReference, executerOperationIdempotente, rejouerOperationIdempotente, type AllocationLot, type LotFefoD1 } from "./stock.service.ts";
@@ -1588,30 +1589,41 @@ export async function televerserPvDistribution(
   if (objetExistant && objetExistant.customMetadata?.empreinte_sha256 !== empreinte) {
     throw new ErreurDistribution("Cette clé d’idempotence est déjà réservée à un autre fichier.", 409);
   }
-  if (!objetExistant) {
-    await bucket.put(cleR2, contenu, {
-      httpMetadata: { contentType: "application/pdf" },
-      customMetadata: { empreinte_sha256: empreinte },
-    });
-  }
   const id = crypto.randomUUID();
   const nom = fichier.name.replace(/[\\/\u0000-\u001f\u007f]/gu, "_").slice(0, 180) || "proces-verbal.pdf";
   try {
-    await db.batch([
-      db.prepare(
-        `INSERT INTO pieces_jointes
-         (id, cle_r2, nom_fichier_original, type_mime, taille_octets, categorie_document,
-          entite_liee_type, entite_liee_id, province_id, televerse_par)
-         VALUES (?, ?, ?, 'application/pdf', ?, 'PV_DISTRIBUTION', 'DISTRIBUTION_PROVINCIALE', ?, ?, ?)`,
-      ).bind(id, cleR2, nom, contenu.byteLength, distributionId, provinceId, utilisateur.id),
-      preparerAudit(db, utilisateur, "TELEVERSEMENT_PV_DISTRIBUTION", "PIECE_JOINTE", id, adresseIp, {
-        distribution_id: distributionId, taille_octets: contenu.byteLength, empreinte_sha256: empreinte,
-      }),
-    ]);
+    await televerserPuisReferencerR2({
+      bucket,
+      cle: cleR2,
+      contenu,
+      options: {
+        httpMetadata: { contentType: "application/pdf" },
+        customMetadata: { empreinte_sha256: empreinte },
+      },
+      televerserObjet: !objetExistant,
+      referenceDejaPresente: async () => Boolean(await db.prepare(
+        "SELECT 1 AS present FROM pieces_jointes WHERE cle_r2 = ?",
+      ).bind(cleR2).first<{ present: number }>()),
+      enregistrerReference: async () => {
+        await db.batch([
+          db.prepare(
+            `INSERT INTO pieces_jointes
+             (id, cle_r2, nom_fichier_original, type_mime, taille_octets, categorie_document,
+              entite_liee_type, entite_liee_id, province_id, televerse_par)
+             VALUES (?, ?, ?, 'application/pdf', ?, 'PV_DISTRIBUTION', 'DISTRIBUTION_PROVINCIALE', ?, ?, ?)`,
+          ).bind(id, cleR2, nom, contenu.byteLength, distributionId, provinceId, utilisateur.id),
+          preparerAudit(db, utilisateur, "TELEVERSEMENT_PV_DISTRIBUTION", "PIECE_JOINTE", id, adresseIp, {
+            distribution_id: distributionId, taille_octets: contenu.byteLength, empreinte_sha256: empreinte,
+          }),
+        ]);
+      },
+      signalerNettoyageImpossible: (phase, erreurNettoyage) => console.error(JSON.stringify({
+        action: "nettoyage_pv_distribution_echoue",
+        phase,
+        type_erreur: typeErreurSecurise(erreurNettoyage),
+      })),
+    });
   } catch (erreur) {
-    try { await bucket.delete(cleR2); } catch (erreurSuppression) {
-      console.error(JSON.stringify({ action: "nettoyage_pv_distribution_echoue", type_erreur: typeErreurSecurise(erreurSuppression) }));
-    }
     throw new ErreurDistribution("Le procès-verbal n’a pas pu être enregistré avec son journal d’audit.", 500);
   }
   return { id, nom_fichier_original: nom, type_mime: "application/pdf", taille_octets: contenu.byteLength };

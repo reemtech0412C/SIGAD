@@ -362,8 +362,10 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
     return () => { actif = false; };
   }, [departementCible, decalageMenagesDisponibles, ecran, estDelegue, rechercheMenages]);
 
+  const correctionEnAttente = detail?.corrections.find((element) => element.statut === "EN_ATTENTE_DELEGUE");
+
   useEffect(() => {
-    const correction = detail?.corrections.find((element) => element.statut === "EN_ATTENTE_DELEGUE");
+    const correction = correctionEnAttente;
     if (!detail || !correction) {
       definirCorrections({});
       definirReponseCorrection("");
@@ -379,7 +381,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
     }
     definirCorrections(valeurs);
     definirReponseCorrection("");
-  }, [detail?.id, detail?.corrections, detail?.observations, detail?.intitule_distribution, detail?.objectif, detail?.date_prevue]);
+  }, [correctionEnAttente?.elements_a_corriger, correctionEnAttente?.id, detail?.date_prevue, detail?.id, detail?.intitule_distribution, detail?.observations, detail?.objectif]);
 
   const chargerDetail = useCallback(async (id: string, pageMenages = 0) => {
     definirChargement(true);
@@ -848,7 +850,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
           <div className="liste-zones-distribution">{lireChampsCorrection(correctionOuverte.elements_a_corriger).map((champ) => <span className="puce-zone" key={champ}>{champ}</span>)}</div>
           <form className="formulaire-correction-distribution" onSubmit={(event) => {
             event.preventDefault();
-            void effectuerAction("corrections", { reponse_delegue: reponseCorrection, corrections });
+            void effectuerAction(`/api/distributions/${detail.id}/corrections`, { reponse_delegue: reponseCorrection, corrections });
           }}>
             <div className="grille-territoriale">{Object.keys(corrections).map((champ) => <div className="champ-territorial" key={champ}><label htmlFor={`correction-${champ}`}>{champCorrection(champ)}</label>{champ === "objectif" || champ === "observations" ? <textarea id={`correction-${champ}`} onChange={(event) => definirCorrections((actuelles) => ({ ...actuelles, [champ]: event.target.value }))} value={corrections[champ] ?? ""} /> : <input id={`correction-${champ}`} onChange={(event) => definirCorrections((actuelles) => ({ ...actuelles, [champ]: event.target.value }))} type={champ === "date_prevue" ? "date" : "text"} value={corrections[champ] ?? ""} />}</div>)}
               <div className="champ-territorial"><label htmlFor="reponse-correction">Réponse du délégué</label><textarea id="reponse-correction" onChange={(event) => definirReponseCorrection(event.target.value)} required rows={3} value={reponseCorrection} /></div>

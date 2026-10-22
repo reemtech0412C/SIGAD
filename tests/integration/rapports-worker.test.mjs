@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { hacherMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
+import { configurerMfaTest, terminerConnexionMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -64,9 +65,10 @@ class ClientLocal {
     const csrf = await this.requete("/api/auth/csrf");
     assert.equal(csrf.reponse.status, 200);
     this.jetonCsrf = csrf.donnees.jeton_csrf;
-    const connexion = await this.requete("/api/auth/connexion", { methode: "POST", corps: { identifiant, mot_de_passe: motDePasse } });
+    let connexion = await this.requete("/api/auth/connexion", { methode: "POST", corps: { identifiant, mot_de_passe: motDePasse } });
     assert.equal(connexion.reponse.status, 200, `La connexion de test ${identifiant} doit réussir.`);
-    if (connexion.donnees.utilisateur.doit_changer_mot_de_passe) {
+    connexion = await terminerConnexionMfaTest(this, identifiant, connexion);
+    if (connexion.donnees?.utilisateur?.doit_changer_mot_de_passe) {
       const nouveauMotDePasse = motDePasseAleatoire();
       const changement = await this.requete("/api/auth/changer-mot-de-passe-initial", {
         methode: "POST", corps: { nouveau_mot_de_passe: nouveauMotDePasse },
@@ -74,6 +76,7 @@ class ClientLocal {
       assert.equal(changement.reponse.status, 200);
       this.motDePasseActuel = nouveauMotDePasse;
     }
+    if (["central", "proprietaire"].includes(identifiant)) await configurerMfaTest(this, identifiant);
   }
 }
 
@@ -278,6 +281,16 @@ test("Rapports SIGAD: calculs, exports, confidentialité provinciale et archives
     assert.equal(reconciliationAdmin.reponse.status, 403);
     const reconciliationProprietaire = await comptes.proprietaire.requete("/api/rapports/archives/reconciliation?limite=20");
     assert.equal(reconciliationProprietaire.reponse.status, 200, JSON.stringify(reconciliationProprietaire.donnees));
+    const suppressionSansConfirmation = await comptes.proprietaire.requete("/api/rapports/archives/reconciliation", {
+      methode: "POST", corps: { limite: 20, confirmer_suppression: false },
+    });
+    assert.equal(suppressionSansConfirmation.reponse.status, 400,
+      "La réconciliation ne peut supprimer un objet R2 sans confirmation explicite.");
+    const reconciliationConfirmee = await comptes.proprietaire.requete("/api/rapports/archives/reconciliation", {
+      methode: "POST", corps: { limite: 20, confirmer_suppression: true },
+    });
+    assert.equal(reconciliationConfirmee.reponse.status, 200, JSON.stringify(reconciliationConfirmee.donnees));
+    assert.equal(reconciliationConfirmee.donnees.echec, 0, "La page locale de réconciliation se termine sans erreur de suppression.");
   });
   if (process.env.SIGAD_E2E_PASSWORD_FILE) {
     assert.ok(comptes.central.motDePasseActuel);

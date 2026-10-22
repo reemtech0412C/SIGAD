@@ -2,6 +2,7 @@ import type { UtilisateurSession } from "../bindings";
 import { detecterTypeMimeDocument, typeErreurSecurise } from "./fichiers-securite.service.ts";
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
 import { creerInstructionNotification } from "./notifications.service.ts";
+import { televerserPuisReferencerR2 } from "./stockage-r2.service.ts";
 import {
   allouerLotsFefo,
   construireInstructionMouvement,
@@ -849,13 +850,6 @@ export async function televerserPvReception(
   if (objetExistant && objetExistant.customMetadata?.empreinte_sha256 !== empreinte) {
     throw new ErreurStock("Cette clé d’idempotence est déjà réservée à un autre fichier.", 409);
   }
-  if (!objetExistant) {
-    await bucket.put(cleR2, contenu, {
-      httpMetadata: { contentType: typeMimeReel },
-      customMetadata: { empreinte_sha256: empreinte, nom_fichier: nomFichier },
-    });
-  }
-
   try {
     const instructions: EcritureCritique[] = [
       {
@@ -875,11 +869,28 @@ export async function televerserPvReception(
         }),
       },
     ];
-    await db.batch(instructions.map((ecriture) => ecriture.instruction));
+    await televerserPuisReferencerR2({
+      bucket,
+      cle: cleR2,
+      contenu,
+      options: {
+        httpMetadata: { contentType: typeMimeReel },
+        customMetadata: { empreinte_sha256: empreinte, nom_fichier: nomFichier },
+      },
+      televerserObjet: !objetExistant,
+      referenceDejaPresente: async () => Boolean(await db.prepare(
+        "SELECT 1 AS present FROM pieces_jointes WHERE cle_r2 = ?",
+      ).bind(cleR2).first<{ present: number }>()),
+      enregistrerReference: async () => {
+        await db.batch(instructions.map((ecriture) => ecriture.instruction));
+      },
+      signalerNettoyageImpossible: (phase, erreurNettoyage) => console.error(JSON.stringify({
+        action: "nettoyage_pv_r2_echoue",
+        phase,
+        type_erreur: typeErreurSecurise(erreurNettoyage),
+      })),
+    });
   } catch (erreur) {
-    try { await bucket.delete(cleR2); } catch (erreurSuppression) {
-      console.error(JSON.stringify({ action: "nettoyage_pv_r2_echoue", type_erreur: typeErreurSecurise(erreurSuppression) }));
-    }
     if (erreur instanceof Error && /UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint|AUDIT_APPROVISIONNEMENT/iu.test(erreur.message)) {
       throw new ErreurStock("Le procès-verbal existe déjà ou ses métadonnées ne respectent pas les règles de gestion.", 409);
     }

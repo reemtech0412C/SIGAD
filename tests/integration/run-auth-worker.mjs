@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -13,7 +14,7 @@ const temporaireParente = resolve(process.env.SIGAD_TEST_TEMP_ROOT ?? tmpdir());
 let dossierTemporaire;
 let dossierPersistance;
 let processusWorker;
-let contenuSeedInitial;
+const cleMfaLocale = randomBytes(32).toString("base64url");
 
 function executerNode(argumentsNode, environnement = process.env) {
   const resultat = spawnSync(process.execPath, argumentsNode, {
@@ -57,12 +58,27 @@ async function attendreWorker(adresse, enfant) {
 
 async function arreterWorker() {
   if (!processusWorker || processusWorker.exitCode !== null) return;
+  async function attendreFermeture(delai) {
+    const enfant = processusWorker;
+    if (!enfant || enfant.exitCode !== null) return;
+    await new Promise((resoudre) => {
+      const fermer = () => {
+        clearTimeout(minuteur);
+        resoudre();
+      };
+      const minuteur = setTimeout(() => {
+        enfant.off("close", fermer);
+        resoudre();
+      }, delai);
+      enfant.once("close", fermer);
+    });
+  }
   processusWorker.kill("SIGINT");
-  await Promise.race([
-    new Promise((resoudre) => processusWorker.once("close", resoudre)),
-    new Promise((resoudre) => setTimeout(resoudre, 8_000)),
-  ]);
-  if (processusWorker.exitCode === null) processusWorker.kill();
+  await attendreFermeture(8_000);
+  if (processusWorker.exitCode === null) {
+    processusWorker.kill();
+    await attendreFermeture(5_000);
+  }
 }
 
 try {
@@ -82,23 +98,30 @@ try {
     "L’état D1 doit rester sous le répertoire temporaire explicitement sélectionné pour cette exécution.",
   );
   const fichierCodes = join(dossierTemporaire, "codes-activation.json");
+  const fichierSeed = join(dossierTemporaire, "seed-initial.sql");
+  const migrationInitiale = await readFile(join(racine, "migrations/0008_seed_initial_data.sql"));
   const dossierD1 = join(dossierPersistance, "v3", "d1", "miniflare-D1DatabaseObject");
   const dossierConfigurationWrangler = join(dossierTemporaire, "appdata");
-  await mkdir(dossierConfigurationWrangler, { recursive: true });
+  await mkdir(join(dossierConfigurationWrangler, "local"), { recursive: true });
   const environnementWrangler = {
     ...process.env,
     APPDATA: dossierConfigurationWrangler,
+    LOCALAPPDATA: join(dossierConfigurationWrangler, "local"),
     TEMP: dossierTemporaire,
     TMP: dossierTemporaire,
     XDG_CONFIG_HOME: join(dossierConfigurationWrangler, "xdg"),
   };
-  contenuSeedInitial = await readFile(join(racine, "migrations/0008_seed_initial_data.sql"));
-
   executerNode([
     resolve(racine, "scripts/generer-seed-initial.mjs"),
     "--mode=development",
     `--fichier-codes=${fichierCodes}`,
+    `--fichier-seed=${fichierSeed}`,
   ]);
+  assert.deepEqual(
+    await readFile(join(racine, "migrations/0008_seed_initial_data.sql")),
+    migrationInitiale,
+    "La génération des secrets de test ne doit modifier aucune migration appliquée.",
+  );
   executerNode([
     executableWrangler,
     "d1",
@@ -109,15 +132,28 @@ try {
     "--persist-to",
     dossierPersistance,
   ], environnementWrangler);
+  executerNode([
+    executableWrangler,
+    "d1",
+    "execute",
+    "DB",
+    "--local",
+    "--persist-to",
+    dossierPersistance,
+    "--file",
+    fichierSeed,
+  ], environnementWrangler);
 
   const environnementTest = {
     ...environnementWrangler,
     SIGAD_CODES_FILE: fichierCodes,
     SIGAD_D1_STATE_DIR: dossierD1,
+    SIGAD_MFA_TEST_KEY: cleMfaLocale,
     ...(process.env.SIGAD_RUN_PLAYWRIGHT === "1"
       ? {
         SIGAD_E2E_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-central-e2e.txt"),
         SIGAD_E2E_SILA_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-sila-e2e.txt"),
+        SIGAD_E2E_EXPEDITION_FILE: join(dossierTemporaire, "expedition-e2e.json"),
       }
       : {}),
   };
@@ -141,6 +177,8 @@ try {
     String(port),
     "--var",
     "ENVIRONMENT:development",
+    "--var",
+    `CLE_CHIFFREMENT_MFA:${cleMfaLocale}`,
     "--show-interactive-dev-session=false",
     "--persist-to",
     dossierPersistance,
@@ -156,6 +194,7 @@ try {
 
   const tousLesTests = [
     "auth-worker.test.mjs",
+    "securite-matrice-worker.test.mjs",
     "stocks-worker.test.mjs",
     "approvisionnements-worker.test.mjs",
     "distributions-worker.test.mjs",
@@ -201,19 +240,23 @@ try {
   process.exitCode = 1;
 } finally {
   await arreterWorker();
-  if (contenuSeedInitial) await writeFile(join(racine, "migrations/0008_seed_initial_data.sql"), contenuSeedInitial);
   if (dossierTemporaire) {
     const chemin = resolve(dossierTemporaire);
     if (!isAbsolute(chemin) || !chemin.startsWith(`${temporaireParente}${sep}`) || !chemin.slice(temporaireParente.length + 1).startsWith("sigad-acceptation-worker-")) {
       throw new Error("Le répertoire temporaire sort du périmètre autorisé de nettoyage.");
     }
-    await rm(chemin, { recursive: true, force: true });
+    await Promise.all([
+      "codes-activation.json",
+      "mot-de-passe-central-e2e.txt",
+      "mot-de-passe-sila-e2e.txt",
+    ].map((nom) => rm(join(chemin, nom), { force: true, maxRetries: 8, retryDelay: 250 })));
+    await rm(chemin, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
   }
   if (dossierPersistance) {
     const chemin = resolve(dossierPersistance);
     if (!isAbsolute(chemin) || !chemin.startsWith(`${persistanceParente}${sep}`) || !chemin.slice(persistanceParente.length + 1).startsWith("sigad-acceptation-worker-state-")) {
       throw new Error("L’état temporaire D1 sort du périmètre autorisé de nettoyage.");
     }
-    await rm(chemin, { recursive: true, force: true });
+    await rm(chemin, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
   }
 }

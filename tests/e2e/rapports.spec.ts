@@ -1,30 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { randomBytes } from "node:crypto";
 import { expect, test } from "@playwright/test";
-
-async function lireMotDePasseCentral(): Promise<string> {
-  const chemin = process.env.SIGAD_E2E_PASSWORD_FILE;
-  if (!chemin) throw new Error("SIGAD_E2E_PASSWORD_FILE doit viser le secret temporaire du Worker local.");
-  const motDePasse = (await readFile(chemin, "utf8")).trim();
-  if (motDePasse.length < 12) throw new Error("Le mot de passe temporaire central est invalide.");
-  return motDePasse;
-}
+import { connecterDansLeNavigateur, ouvrirModule } from "./authentification";
 
 async function seConnecter(page: import("@playwright/test").Page): Promise<void> {
-  const motDePasse = await lireMotDePasseCentral();
-  await page.goto("/");
-  await expect(page.getByLabel("Identifiant")).toBeVisible();
-  await page.getByLabel("Identifiant").fill("central");
-  await page.getByLabel("Mot de passe").fill(motDePasse);
-  await page.getByRole("button", { name: "Se connecter" }).click();
-  await expect(page.getByRole("heading", { name: "Créer un nouveau mot de passe" })).toBeVisible();
-  const nouveauMotDePasse = `E2E-${randomBytes(18).toString("base64url")}Aa9`;
-  await page.getByLabel("Nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
-  await page.getByLabel("Confirmer le nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
-  await page.getByRole("button", { name: "Enregistrer le nouveau mot de passe" }).click();
+  await connecterDansLeNavigateur(page, "central");
   await expect(page.getByRole("button", { name: "Rapports et tableaux de bord" })).toBeVisible();
-  await page.getByRole("button", { name: "Rapports et tableaux de bord" }).click();
+  await ouvrirModule(page, "Rapports et tableaux de bord");
   await expect(page.getByRole("heading", { name: "Rapports et tableaux de bord" })).toBeVisible();
 }
 

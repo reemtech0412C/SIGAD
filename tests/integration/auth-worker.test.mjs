@@ -8,6 +8,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { strToU8, zipSync } from "fflate";
 import { hacherJeton, verifierMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
+import { codeMfaInutilise, configurerMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -231,7 +232,7 @@ function preparerFixturesTerritoriales(base) {
 if (!cheminCodes) throw new Error("Définissez SIGAD_CODES_FILE avec le chemin externe du fichier de codes local.");
 const codes = verifierFormatCodes(JSON.parse(await readFile(cheminCodes, "utf8")));
 
-test("Authentification et contrôles de sécurité dans le Worker Cloudflare local", async () => {
+test("Authentification et contrôles de sécurité dans le Worker Cloudflare local", async (t) => {
   await verifierAbsenceCodesDansDepot(codes);
   const sante = await fetch(new URL("/api/sante", adresseApi));
   assert.equal(sante.status, 200);
@@ -290,6 +291,9 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
 
   const motDePasseProprietaire = nouveauMotDePasse();
   await proprietaire.changerMotDePasse(motDePasseProprietaire);
+  const accesAvantMfaProprietaire = await proprietaire.requete("/api/proprietaire/utilisateurs");
+  assert.equal(accesAvantMfaProprietaire.reponse.status, 403, "Le mot de passe seul ne doit pas ouvrir les fonctions du propriétaire.");
+  await configurerMfaTest(proprietaire, "proprietaire");
   const sessionProprietaire = await proprietaire.requete("/api/auth/session");
   assert.equal(sessionProprietaire.reponse.status, 200);
   assert.equal(Reflect.get(Reflect.get(sessionProprietaire.donnees, "utilisateur"), "doit_changer_mot_de_passe"), false);
@@ -305,13 +309,75 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(Reflect.get(pageProprietaire.donnees, "total"), 25);
   assert.equal(Reflect.get(pageProprietaire.donnees, "elements").length, 10);
 
-  const administrateurCentral = new ClientLocal();
+  let administrateurCentral = new ClientLocal();
   const connexionCentrale = await administrateurCentral.connexion("central", codePour(codes, "central"));
   assert.equal(connexionCentrale.reponse.status, 200);
   assert.equal(Reflect.get(Reflect.get(connexionCentrale.donnees, "utilisateur"), "doit_changer_mot_de_passe"), true);
-  await administrateurCentral.changerMotDePasse(nouveauMotDePasse());
+  const motDePasseCentral = nouveauMotDePasse();
+  await administrateurCentral.changerMotDePasse(motDePasseCentral);
+  const accesAvantMfaCentral = await administrateurCentral.requete("/api/central/controle/observations");
+  assert.equal(accesAvantMfaCentral.reponse.status, 403, "Le mot de passe seul ne doit pas ouvrir les fonctions centrales.");
+  const codesRecuperationCentraux = await configurerMfaTest(administrateurCentral, "central");
   const accesCentralAutorise = await administrateurCentral.requete("/api/central/approvisionnements");
   assert.equal(accesCentralAutorise.reponse.status, 404, "Le rôle central doit franchir le contrôle RBAC; le service métier sera livré dans sa phase dédiée.");
+
+  const connexionMfa = new ClientLocal();
+  const defiMfa = await connexionMfa.connexion("central", motDePasseCentral);
+  assert.equal(defiMfa.reponse.status, 200);
+  assert.equal(Reflect.get(defiMfa.donnees, "mfa_requis"), true, "La connexion avec MFA actif ne doit pas créer directement une session.");
+  assert.equal(connexionMfa.cookies.has("sigad_session"), false, "Aucun cookie de session n’est émis avant le second facteur.");
+  const accesAvecDefiSeulement = await connexionMfa.requete("/api/central/approvisionnements");
+  assert.equal(accesAvecDefiSeulement.reponse.status, 401, "Le défi MFA ne doit pas remplacer une session authentifiée.");
+  const codeTotpCentral = await codeMfaInutilise("central");
+  const verificationMfa = await connexionMfa.requete("/api/auth/mfa/verifier", { methode: "POST", corps: { code: codeTotpCentral } });
+  assert.equal(verificationMfa.reponse.status, 200, "Le second facteur valide ouvre la session.");
+  const sessionsApresMfaValide = ouvrirD1Locale();
+  const nombreSessionsApresMfa = Reflect.get(sessionsApresMfaValide.prepare("SELECT COUNT(*) AS total FROM sessions WHERE utilisateur_id = 'usr-central' AND revoquee = 0").get(), "total");
+  sessionsApresMfaValide.close();
+
+  const connexionRejeu = new ClientLocal();
+  await connexionRejeu.connexion("central", motDePasseCentral);
+  const rejeuTotp = await connexionRejeu.requete("/api/auth/mfa/verifier", { methode: "POST", corps: { code: codeTotpCentral } });
+  assert.equal(rejeuTotp.reponse.status, 401, "Un compteur TOTP déjà accepté ne peut pas être rejoué.");
+  const sessionsApresRejeu = ouvrirD1Locale();
+  assert.equal(Reflect.get(sessionsApresRejeu.prepare("SELECT COUNT(*) AS total FROM sessions WHERE utilisateur_id = 'usr-central' AND revoquee = 0").get(), "total"), nombreSessionsApresMfa,
+    "Le rejeu TOTP ne doit créer aucune session supplémentaire.");
+  sessionsApresRejeu.close();
+
+  const connexionRecuperation = new ClientLocal();
+  await connexionRecuperation.connexion("central", motDePasseCentral);
+  const codeRecuperation = codesRecuperationCentraux[0];
+  assert.equal(typeof codeRecuperation, "string");
+  const authentificationRecuperation = await connexionRecuperation.requete("/api/auth/mfa/verifier", {
+    methode: "POST", corps: { code: codeRecuperation },
+  });
+  assert.equal(authentificationRecuperation.reponse.status, 200, "Un code de récupération valide est accepté.");
+  const connexionRejeuRecuperation = new ClientLocal();
+  await connexionRejeuRecuperation.connexion("central", motDePasseCentral);
+  const rejeuRecuperation = await connexionRejeuRecuperation.requete("/api/auth/mfa/verifier", {
+    methode: "POST", corps: { code: codeRecuperation },
+  });
+  assert.equal(rejeuRecuperation.reponse.status, 401, "Un code de récupération ne peut être utilisé qu’une fois.");
+
+  const codeReinitialisation = await codeMfaInutilise("proprietaire");
+  const reinitialisationMfa = await proprietaire.requete("/api/auth/mfa/reinitialiser/usr-central", {
+    methode: "POST", corps: { code: codeReinitialisation },
+  });
+  assert.equal(reinitialisationMfa.reponse.status, 200, "Le propriétaire peut réinitialiser le MFA du compte central après une preuve fraîche.");
+  const controleReinitialisationMfa = ouvrirD1Locale();
+  try {
+    const etatMfaCentral = controleReinitialisationMfa.prepare("SELECT double_facteur_actif FROM utilisateurs WHERE id = 'usr-central'").get();
+    assert.equal(Reflect.get(etatMfaCentral, "double_facteur_actif"), 0);
+    const sessionsRevoqueesCentral = controleReinitialisationMfa.prepare("SELECT COUNT(*) AS total FROM sessions WHERE utilisateur_id = 'usr-central' AND revoquee = 0").get();
+    assert.equal(Reflect.get(sessionsRevoqueesCentral, "total"), 0, "La réinitialisation doit révoquer les sessions centrales.");
+    const auditMfa = controleReinitialisationMfa.prepare("SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'REINITIALISATION_MFA' AND entite_id = 'usr-central'").get();
+    assert.equal(Reflect.get(auditMfa, "total"), 1, "La réinitialisation MFA doit être auditée.");
+  } finally {
+    controleReinitialisationMfa.close();
+  }
+  administrateurCentral = new ClientLocal();
+  await administrateurCentral.connexion("central", motDePasseCentral);
+  await configurerMfaTest(administrateurCentral, "central");
 
   const delegueSila = new ClientLocal();
   const connexionSila = await delegueSila.connexion("sila", codePour(codes, "sila"));
@@ -692,6 +758,68 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   });
   assert.equal(resultatLotCinqCents.reponse.status, 201, "Un lot de 500 ménages doit être validé par l’import atomique D1.");
   assert.equal(Reflect.get(resultatLotCinqCents.donnees, "nombre_menages"), 500);
+  await t.test("Mesures répétées de la liste des ménages sur D1 local et EXPLAIN QUERY PLAN", async () => {
+    const baseInitiale = ouvrirD1Locale();
+    const nombreInitial = Reflect.get(baseInitiale.prepare(
+      "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND statut = 'ACTIF'",
+    ).get(), "total");
+    baseInitiale.close();
+    const tailles = [...new Set([Math.max(500, nombreInitial), 1_500, 5_000])].filter((taille) => taille <= 5_000).sort((a, b) => a - b);
+    let sequence = nombreInitial;
+    for (const cible of tailles) {
+      const baseMesure = ouvrirD1Locale();
+      const nombreCourant = Reflect.get(baseMesure.prepare(
+        "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND statut = 'ACTIF'",
+      ).get(), "total");
+      if (nombreCourant < cible) {
+        const insertion = baseMesure.prepare(
+          `INSERT INTO menages (id, code_menage, province_id, departement_id,
+            nom_chef_menage, sexe_chef, nombre_personnes, categorie_population_id,
+            date_enregistrement, statut, cree_par)
+           VALUES (?, ?, 'prov-sila', 'dep-test-sila', ?, 'F', 3,
+            'cat-pop-autochtone', '2026-10-22', 'ACTIF', 'usr-sila')`,
+        );
+        baseMesure.exec("BEGIN IMMEDIATE");
+        try {
+          for (; sequence < cible; sequence += 1) {
+            const identifiant = crypto.randomUUID();
+            insertion.run(identifiant, `PERF-SILA-${identifiant}`, `Ménage de mesure ${String(sequence).padStart(6, "0")}`);
+          }
+          baseMesure.exec("COMMIT");
+        } catch (erreur) {
+          baseMesure.exec("ROLLBACK");
+          throw erreur;
+        }
+      }
+      const plan = baseMesure.prepare(`EXPLAIN QUERY PLAN
+        SELECT m.id, m.code_menage, m.province_id, m.departement_id, m.localite_id,
+          m.nom_chef_menage, m.sexe_chef, m.nombre_personnes, m.telephone,
+          m.categorie_population_id, cp.libelle AS categorie_population, m.statut, m.date_enregistrement
+        FROM menages m INNER JOIN categories_population cp ON cp.id = m.categorie_population_id
+        WHERE m.province_id = 'prov-sila' AND m.statut = 'ACTIF'
+        ORDER BY m.date_enregistrement DESC, m.id LIMIT 25 OFFSET 0`).all()
+        .map((ligne) => Reflect.get(ligne, "detail"));
+      assert.ok(plan.some((detail) => typeof detail === "string" && detail.includes("idx_menages_province_statut_date")),
+        `L’index attendu doit couvrir la province, le statut et l’ordre chronologique: ${JSON.stringify(plan)}`);
+      assert.ok(!plan.some((detail) => typeof detail === "string" && detail.includes("USE TEMP B-TREE FOR ORDER BY")),
+        "La page des ménages ne doit pas construire un tri temporaire.");
+      baseMesure.close();
+
+      const durees = [];
+      for (let tentative = 0; tentative < 12; tentative += 1) {
+        const debut = performance.now();
+        const resultat = await delegueSila.requete("/api/gestion/menages?limite=25&decalage=0&statut=ACTIF");
+        const duree = performance.now() - debut;
+        assert.equal(resultat.reponse.status, 200, JSON.stringify(resultat.donnees));
+        assert.ok(resultat.donnees.elements.length <= 25);
+        if (tentative >= 2) durees.push(duree);
+      }
+      const triees = [...durees].sort((a, b) => a - b);
+      const mediane = triees[Math.floor(triees.length / 2)] ?? 0;
+      const p95 = triees[Math.min(triees.length - 1, Math.ceil(triees.length * 0.95) - 1)] ?? 0;
+      console.log(`PERF — liste des ménages: ${cible} ménages actifs, 10 mesures après échauffement; médiane ${mediane.toFixed(2)} ms; p95 ${p95.toFixed(2)} ms; index idx_menages_province_statut_date.`);
+    }
+  });
   const fichierExcel = new FormData();
   fichierExcel.append("fichier", new File([creerClasseurMenageExcel()], "menages.xlsx", {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -835,6 +963,20 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   } finally {
     baseLocale.close();
   }
+
+  const baseObligationInitiale = ouvrirD1Locale();
+  baseObligationInitiale.prepare("UPDATE utilisateurs SET doit_changer_mot_de_passe = 1 WHERE identifiant = 'central'").run();
+  baseObligationInitiale.close();
+  const accesPendantObligationInitiale = await administrateurCentral.requete("/api/central/controle/observations");
+  assert.equal(accesPendantObligationInitiale.reponse.status, 403,
+    "Une session centrale déjà vérifiée par MFA reste bloquée tant que le changement initial du mot de passe n’est pas effectué.");
+  assert.match(Reflect.get(accesPendantObligationInitiale.donnees, "erreur"), /modifier votre mot de passe initial/u);
+  const motDePasseCentralRenouvellement = nouveauMotDePasse();
+  const changementCentralObligatoire = await administrateurCentral.requete("/api/auth/changer-mot-de-passe-initial", {
+    methode: "POST", corps: { nouveau_mot_de_passe: motDePasseCentralRenouvellement },
+  });
+  assert.equal(changementCentralObligatoire.reponse.status, 200,
+    "Le seul chemin d’administration autorisé durant cette obligation est le changement de mot de passe.");
 
   const deconnexionProprietaire = await proprietaire.requete("/api/auth/deconnexion", { methode: "POST" });
   assert.equal(deconnexionProprietaire.reponse.status, 200);

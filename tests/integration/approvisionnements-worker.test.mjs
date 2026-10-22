@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { readdirSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hacherMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
+import { configurerMfaTest, terminerConnexionMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -59,16 +61,18 @@ class ClientLocal {
     const csrf = await this.requete("/api/auth/csrf");
     assert.equal(csrf.reponse.status, 200);
     this.jetonCsrf = csrf.donnees.jeton_csrf;
-    const connexion = await this.requete("/api/auth/connexion", {
+    let connexion = await this.requete("/api/auth/connexion", {
       methode: "POST", corps: { identifiant, mot_de_passe: motDePasse },
     });
     assert.equal(connexion.reponse.status, 200, `La connexion locale du compte ${identifiant} doit réussir.`);
-    if (connexion.donnees.utilisateur.doit_changer_mot_de_passe) {
+    connexion = await terminerConnexionMfaTest(this, identifiant, connexion);
+    if (connexion.donnees?.utilisateur?.doit_changer_mot_de_passe) {
       const changement = await this.requete("/api/auth/changer-mot-de-passe-initial", {
         methode: "POST", corps: { nouveau_mot_de_passe: nouveauMotDePasse() },
       });
       assert.equal(changement.reponse.status, 200, "Le changement du mot de passe initial est obligatoire.");
     }
+    if (["central", "proprietaire"].includes(identifiant)) await configurerMfaTest(this, identifiant);
     return connexion;
   }
 }
@@ -169,6 +173,14 @@ async function creerExpedition(client, approvisionnementId, destinationId, entre
   });
 }
 
+async function televerserPvValide(client, expeditionId, cle) {
+  const formulaire = new FormData();
+  formulaire.set("fichier", new Blob(["%PDF-1.4\nProcès-verbal de test\n%%EOF"], { type: "application/pdf" }), "pv-phase5.pdf");
+  return client.requete(`/api/provincial/expeditions/${expeditionId}/pv`, {
+    methode: "POST", cleIdempotence: cle, corps: formulaire,
+  });
+}
+
 async function televerserPv(client, expeditionId) {
   const formulaireUsurpe = new FormData();
   formulaireUsurpe.set("fichier", new Blob(["contenu qui n’est pas un PDF"], { type: "application/pdf" }), "faux.pdf");
@@ -176,11 +188,7 @@ async function televerserPv(client, expeditionId) {
     methode: "POST", cleIdempotence: creerCle("pv-usurpe-phase5"), corps: formulaireUsurpe,
   });
   assert.equal(usurpation.reponse.status, 400, "Un fichier qui déclare un PDF sans signature PDF doit être refusé.");
-  const formulaire = new FormData();
-  formulaire.set("fichier", new Blob(["%PDF-1.4\nProcès-verbal de test\n%%EOF"], { type: "application/pdf" }), "pv-phase5.pdf");
-  const resultat = await client.requete(`/api/provincial/expeditions/${expeditionId}/pv`, {
-    methode: "POST", cleIdempotence: creerCle("pv-phase5"), corps: formulaire,
-  });
+  const resultat = await televerserPvValide(client, expeditionId, creerCle("pv-phase5"));
   assert.equal(resultat.reponse.status, 201, JSON.stringify(resultat.donnees));
   return resultat.donnees.id;
 }
@@ -312,7 +320,25 @@ test("Approvisionnements centraux, réception provinciale et intégrité atomiqu
     [{ article_approvisionnement_id: repartition.donnees.elements[0].id, quantite_expediee: 1 }], `BORD-${suffixe}-03`);
   assert.equal(depassementAllocation.reponse.status, 409, "Une allocation ne peut être dépassée.");
 
-  const pvComplet = await televerserPv(sila, expeditionComplete.donnees.id);
+  const cleR2ApresEchecReference = creerCle("pv-reference-rollback-phase5");
+  const baseTriggerR2 = ouvrirD1Locale();
+  baseTriggerR2.exec(
+    `CREATE TRIGGER refuser_reference_pv_test BEFORE INSERT ON pieces_jointes
+     WHEN NEW.entite_liee_id = '${expeditionComplete.donnees.id}' AND NEW.categorie_document = 'PV_RECEPTION'
+     BEGIN SELECT RAISE(ABORT, 'TEST_R2_REFERENCE'); END`,
+  );
+  baseTriggerR2.close();
+  const echecReferenceR2 = await televerserPvValide(sila, expeditionComplete.donnees.id, cleR2ApresEchecReference);
+  assert.equal(echecReferenceR2.reponse.status, 500, "Un échec de référence D1 doit échouer l’upload du procès-verbal.");
+  const baseApresEchecReference = ouvrirD1Locale();
+  assert.equal(baseApresEchecReference.prepare(
+    "SELECT COUNT(*) AS total FROM pieces_jointes WHERE entite_liee_id = ? AND categorie_document = 'PV_RECEPTION'",
+  ).get(expeditionComplete.donnees.id).total, 0, "L’échec ne laisse aucun enregistrement de pièce jointe dans D1.");
+  baseApresEchecReference.exec("DROP TRIGGER refuser_reference_pv_test");
+  baseApresEchecReference.close();
+  const repriseReferenceR2 = await televerserPvValide(sila, expeditionComplete.donnees.id, cleR2ApresEchecReference);
+  assert.equal(repriseReferenceR2.reponse.status, 201, "La même demande peut être reprise après rétablissement de D1.");
+  const pvComplet = repriseReferenceR2.donnees.id;
   const detailComplet = await sila.requete(`/api/provincial/expeditions/${expeditionComplete.donnees.id}`);
   assert.equal(detailComplet.reponse.status, 200);
   const lignesCompletes = detailComplet.donnees.lignes.map((ligne) => ({
@@ -613,6 +639,31 @@ test("Approvisionnements centraux, réception provinciale et intégrité atomiqu
   });
   assert.equal(pvTelecharge.status, 200, "Le PV lié à une expédition peut être relu dans le périmètre provincial.");
   assert.equal(pvTelecharge.headers.get("content-type"), "application/pdf");
+  const pvHorsProvince = await ouaddai.requete(`/api/provincial/expeditions/${expeditionComplete.donnees.id}/pv`);
+  assert.equal(pvHorsProvince.reponse.status, 404, "Le procès-verbal de Sila n’est pas accessible depuis le Ouaddaï.");
+
+  if (process.env.SIGAD_E2E_EXPEDITION_FILE) {
+    const operationNavigateur = await creerApprovisionnement(central, corpsApprovisionnement(
+      `APP-${suffixe}-NAVIGATEUR`,
+      [{ province_id: "prov-sila", articles: [{ article_id: ids.articleNfi, quantite_allouee: 2 }] }],
+      { source_articles: "FOURNISSEUR_EXTERNE", partenaire_id: ids.partenaire, nature_aide: "NFI" },
+    ));
+    await validerApprovisionnement(central, operationNavigateur.id);
+    const allocationNavigateur = (await central.requete(`/api/approvisionnements/${operationNavigateur.id}/repartition?limite=10&decalage=0`)).donnees.elements[0];
+    const expeditionNavigateur = await creerExpedition(central, operationNavigateur.id, allocationNavigateur.destination_id, null, [{
+      article_approvisionnement_id: allocationNavigateur.id,
+      quantite_expediee: 2,
+      numero_lot_fournisseur: `FOURN-E2E-${suffixe}`,
+      date_peremption: null,
+    }], `BORD-E2E-${suffixe}`);
+    assert.equal(expeditionNavigateur.reponse.status, 201, JSON.stringify(expeditionNavigateur.donnees));
+    await writeFile(process.env.SIGAD_E2E_EXPEDITION_FILE, JSON.stringify({
+      id: expeditionNavigateur.donnees.id,
+      reference_bordereau: `BORD-E2E-${suffixe}`,
+      entrepot_recepteur_id: ids.entrepotSila,
+      quantite_expediee: 2,
+    }), { encoding: "utf8", mode: 0o600 });
+  }
 });
 
 function ligneReceptionId(receptionId) {

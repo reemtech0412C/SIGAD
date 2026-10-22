@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { enregistrerMotDePasseE2E } from "./authentification";
 
 async function lireMotDePasseSila(): Promise<string> {
   const chemin = process.env.SIGAD_E2E_SILA_PASSWORD_FILE;
@@ -21,6 +22,7 @@ test("parcours du délégué, création et import d’un ménage dans le navigat
   await page.getByLabel("Nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
   await page.getByLabel("Confirmer le nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
   await page.getByRole("button", { name: "Enregistrer le nouveau mot de passe" }).click();
+  await enregistrerMotDePasseE2E("sila", nouveauMotDePasse);
 
   const navigation = page.getByRole("navigation", { name: "Navigation principale" });
   await expect(navigation.getByRole("button", { name: "Gestion des bénéficiaires" })).toBeVisible();

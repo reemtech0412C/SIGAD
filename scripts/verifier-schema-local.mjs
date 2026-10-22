@@ -10,7 +10,7 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 19) throw new Error(`Les dix-neuf migrations versionnées attendues jusqu’à l’indexation de Phase 9 sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 21) throw new Error(`Les vingt et une migrations versionnées attendues jusqu’aux contrôles MFA et à la réconciliation des doublons de Phase 9 sont requises; ${fichiers.length} trouvées.`);
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -91,11 +91,16 @@ async function verifierBaseD1Locale() {
     const nombreTables = baseD1.prepare(
       "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')",
     ).get().total;
-    if (nombreTables !== 62) {
+    if (nombreTables !== 65) {
       const nomsTables = baseD1.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA') ORDER BY name",
       ).all().map((ligne) => ligne.name);
-      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 62: ${nomsTables.join(", ")}.`);
+      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 65 (62 métier et 3 MFA): ${nomsTables.join(", ")}.`);
+    }
+    for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa"]) {
+      if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
+        throw new Error(`D1 local ne contient pas la table technique MFA ${table}.`);
+      }
     }
 
     for (const [nom, champsSpecification] of colonnesAttenduesD1) {
@@ -143,7 +148,7 @@ async function verifierBaseD1Locale() {
     verifierContraintes(baseD1, "D1 local");
     verifierCorrespondanceProvinces(baseD1, "D1 local");
     verifierPlansIndexation(baseD1, "D1 local");
-    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 62 tables et colonnes conformes; ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 65 tables (62 métier et 3 MFA) avec colonnes conformes; ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   } finally {
     baseD1.close();
   }
@@ -203,7 +208,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 81) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 81 index attendus après l’indexation des listes provinciales.`);
+if (indexesMigrations.size !== 83) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 83 index attendus après l’ajout de l’indexation MFA.`);
 for (const [nom, definition] of [
   ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
   ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
@@ -308,7 +313,12 @@ try {
   ).get().total;
   const erreursClesEtrangeres = base.prepare("PRAGMA foreign_key_check").all();
 
-  if (nombreTables !== 62) throw new Error(`Le schéma contient ${nombreTables} tables au lieu des 62 tables détaillées dans la spécification.`);
+  if (nombreTables !== 65) throw new Error(`Le schéma contient ${nombreTables} tables (62 de la spécification et 3 techniques MFA) au lieu de 65.`);
+  for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa"]) {
+    if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
+      throw new Error(`La migration MFA n’a pas créé la table technique ${table}.`);
+    }
+  }
   if (nombreProvinces !== 23) throw new Error(`Le seed contient ${nombreProvinces} provinces au lieu de 23.`);
   if (nombreUtilisateurs !== 25) throw new Error(`Le seed contient ${nombreUtilisateurs} comptes au lieu de 25.`);
   if (comptesAvecActivationSecurisee !== 25) throw new Error("Le seed doit imposer un code d’activation haché et un changement initial aux 25 comptes.");
@@ -327,7 +337,7 @@ try {
   }
   verifierCorrespondanceProvinces(base, "SQLite vierge");
   verifierPlansIndexation(base, "SQLite vierge");
-  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations (0001–0007, seed 0008, corrections 0009–${fichiers.at(-1)?.slice(0, 4)}) appliquées; 62 tables et champs conformes à la spécification; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations (0001–0007, seed 0008, corrections 0009–${fichiers.at(-1)?.slice(0, 4)}) appliquées; 65 tables (62 métier et 3 MFA) avec colonnes conformes à la spécification et à l’extension; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   if (process.argv.includes("--d1-local")) await verifierBaseD1Locale();
 } finally {
   base.close();

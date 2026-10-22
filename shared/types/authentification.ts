@@ -7,6 +7,7 @@ export interface UtilisateurAuthentifie {
   role: RoleUtilisateur;
   province_id: string | null;
   doit_changer_mot_de_passe: boolean;
+  double_facteur_actif: boolean;
 }
 
 export interface SessionAuthentifiee {

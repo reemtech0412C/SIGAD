@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { UtilisateurAuthentifie } from "../../shared/types/authentification";
 import { ChangementMotDePasse } from "./components/connexion/ChangementMotDePasse";
+import { ConfigurationMfa } from "./components/connexion/ConfigurationMfa";
 import { ConnexionPage } from "./components/connexion/ConnexionPage";
 import { TableauGestionBeneficiaires } from "./components/gestion/TableauGestionBeneficiaires";
 import { TableauApprovisionnements } from "./components/gestion/TableauApprovisionnements";
@@ -84,6 +85,9 @@ export default function App() {
   if (!utilisateur) return <ConnexionPage jetonCsrf={jetonCsrf} onConnexion={setUtilisateur} />;
   if (utilisateur.doit_changer_mot_de_passe) {
     return <ChangementMotDePasse jetonCsrf={jetonCsrf} onModification={() => setUtilisateur({ ...utilisateur, doit_changer_mot_de_passe: false })} />;
+  }
+  if ((utilisateur.role === "PROPRIETAIRE" || utilisateur.role === "ADMIN_CENTRAL") && !utilisateur.double_facteur_actif) {
+    return <ConfigurationMfa jetonCsrf={jetonCsrf} onActivation={() => setUtilisateur({ ...utilisateur, double_facteur_actif: true })} />;
   }
   if (utilisateur.role === "PROPRIETAIRE") {
     return (

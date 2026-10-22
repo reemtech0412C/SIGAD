@@ -1,4 +1,4 @@
-import { chmod, readFile, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fichierSpecification = resolve(racine, "sigad_v3_0.md");
-const fichierMigration = resolve(racine, "migrations/0008_seed_initial_data.sql");
 const iterationsPbkdf2 = 310_000;
 
 function encoderBase64Url(octets) {
@@ -83,7 +82,27 @@ function creerCodeActivation(codesDejaUtilises) {
   return code;
 }
 
-async function construireMigration(mode, fichierCodes) {
+function verifierDestinationPrivee(destination, libelle) {
+  const cheminRelatif = relative(racine, destination);
+  if (cheminRelatif === "" || (!cheminRelatif.startsWith(`..${sep}`) && cheminRelatif !== ".." && !isAbsolute(cheminRelatif))) {
+    throw new Error(`Le fichier ${libelle} doit être placé en dehors du dépôt SIGAD.`);
+  }
+}
+
+async function restreindreAcces(destination) {
+  if (process.platform === "win32") {
+    const identifiantSecurite = execFileSync(
+      "powershell.exe",
+      ["-NoProfile", "-Command", "[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value"],
+      { encoding: "utf8" },
+    ).trim();
+    execFileSync("icacls.exe", [destination, "/inheritance:r", "/grant:r", `*${identifiantSecurite}:(F)`], { stdio: "ignore" });
+  } else {
+    await chmod(destination, 0o600);
+  }
+}
+
+async function construireSeed(mode, fichierCodes, fichierSeed) {
   const document = await readFile(fichierSpecification, "utf8");
   const provinces = extraireProvinces(document);
   const utilisateurs = creerListeUtilisateurs(provinces);
@@ -149,7 +168,11 @@ INSERT INTO utilisateurs
   (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, code_activation_hash, doit_changer_mot_de_passe, statut)
 VALUES
 ${utilisateursSql.join(",\n")}
-ON CONFLICT(id) DO NOTHING;
+ON CONFLICT(id) DO UPDATE SET
+  mot_de_passe_hash = excluded.mot_de_passe_hash,
+  code_activation_hash = excluded.code_activation_hash,
+  doit_changer_mot_de_passe = 1,
+  statut = excluded.statut;
 
 INSERT INTO categories_aide (id, code, libelle)
 VALUES
@@ -162,38 +185,39 @@ ${unitesSql}
 ON CONFLICT(id) DO NOTHING;
 `;
 
-  await writeFile(fichierMigration, contenu, "utf8");
-  const destination = fichierCodes ? resolve(fichierCodes) : resolve(tmpdir(), `sigad-codes-activation-${crypto.randomUUID()}.json`);
-  const cheminRelatif = relative(racine, destination);
-  if (cheminRelatif === "" || (!cheminRelatif.startsWith(`..${sep}`) && cheminRelatif !== ".." && !isAbsolute(cheminRelatif))) {
-    throw new Error("Le fichier des codes doit être placé en dehors du dépôt SIGAD.");
-  }
-  await writeFile(destination, `${JSON.stringify(donneesActivation, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  const destinationCodes = fichierCodes ? resolve(fichierCodes) : resolve(tmpdir(), `sigad-codes-activation-${crypto.randomUUID()}.json`);
+  const destinationSeed = fichierSeed ? resolve(fichierSeed) : resolve(tmpdir(), `sigad-seed-initial-${crypto.randomUUID()}.sql`);
+  verifierDestinationPrivee(destinationCodes, "des codes d’activation");
+  verifierDestinationPrivee(destinationSeed, "du seed SQL");
+  await Promise.all([mkdir(dirname(destinationCodes), { recursive: true }), mkdir(dirname(destinationSeed), { recursive: true })]);
+  let seedEcrit = false;
+  let codesEcrits = false;
   try {
-    if (process.platform === "win32") {
-      const identifiantSecurite = execFileSync(
-        "powershell.exe",
-        ["-NoProfile", "-Command", "[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value"],
-        { encoding: "utf8" },
-      ).trim();
-      execFileSync("icacls.exe", [destination, "/inheritance:r", "/grant:r", `*${identifiantSecurite}:(F)`], { stdio: "ignore" });
-    } else {
-      await chmod(destination, 0o600);
-    }
+    await writeFile(destinationSeed, contenu, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    seedEcrit = true;
+    await writeFile(destinationCodes, `${JSON.stringify(donneesActivation, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    codesEcrits = true;
+    await Promise.all([restreindreAcces(destinationSeed), restreindreAcces(destinationCodes)]);
   } catch {
-    await unlink(destination);
-    throw new Error("Les permissions restreintes du fichier de codes n’ont pas pu être appliquées; le fichier a été supprimé.");
+    await Promise.all([
+      ...(seedEcrit ? [unlink(destinationSeed)] : []),
+      ...(codesEcrits ? [unlink(destinationCodes)] : []),
+    ]);
+    throw new Error("La création sécurisée du seed ou des codes a échoué; les fichiers créés ont été supprimés.");
   }
-  return destination;
+  return { destinationCodes, destinationSeed };
 }
 
 const argumentsScript = lireArguments(process.argv.slice(2));
 const mode = argumentsScript.get("mode");
 const fichierCodes = argumentsScript.get("fichier-codes");
+const fichierSeed = argumentsScript.get("fichier-seed");
 if (!mode) throw new Error("Précisez explicitement --mode=development ou --mode=production.");
 if (mode !== "development" && mode !== "production") throw new Error("Le mode doit être development ou production.");
 if (mode === "production" && !fichierCodes) throw new Error("En mode production, fournissez --fichier-codes avec un chemin sécurisé hors du projet.");
+if (mode === "production" && !fichierSeed) throw new Error("En mode production, fournissez --fichier-seed avec un chemin sécurisé hors du projet.");
 
-const destinationCodes = await construireMigration(mode, fichierCodes);
-console.log(`Migration initiale générée pour ${mode === "production" ? "la production" : "le développement local"}.`);
+const { destinationCodes, destinationSeed } = await construireSeed(mode, fichierCodes, fichierSeed);
+console.log(`Seed initial sécurisé généré pour ${mode === "production" ? "la production" : "le développement local"}.`);
+console.log(`Seed SQL conservé hors du dépôt : ${destinationSeed}`);
 console.log(`Codes d’activation conservés hors du dépôt : ${destinationCodes}`);

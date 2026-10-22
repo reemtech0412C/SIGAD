@@ -23,7 +23,7 @@ const montages = {
   routesControleCentral: [{ prefixe: "/api/central", roles: "ADMIN_CENTRAL uniquement", province: "National; filtre provincial validé pour les dossiers ciblés" }],
   routesControleProvincial: [{ prefixe: "/api/provincial", roles: "DELEGUE_PROVINCIAL uniquement", province: "utilisateur.province_id de session et filtre SQL des observations, corrections et audits" }],
   routesNotifications: [{ prefixe: "/api/notifications", roles: "Session authentifiée; chaque notification est limitée à son destinataire", province: "Province et rôle du destinataire comparés à la session en base" }],
-  routesDistributions: [{ prefixe: "/api/distributions", roles: "Lecture selon le rôle; création et exécution par DELEGUE_PROVINCIAL; opérations d’administration selon contrôle du service", province: "Délégué: utilisateur.province_id de session propagé aux requêtes métier et aux ressources enfants" }],
+  routesDistributions: [{ prefixe: "/api/distributions", roles: "PROPRIETAIRE, ADMIN_CENTRAL et DELEGUE_PROVINCIAL selon le contrôle métier; création et exécution par DELEGUE_PROVINCIAL; administration centrale sous /api/central/distributions", province: "Délégué: utilisateur.province_id de session propagé aux requêtes métier et aux ressources enfants" }],
   routesControleDistributions: [{ prefixe: "/api/central/distributions", roles: "ADMIN_CENTRAL uniquement", province: "National; le dossier et ses lignes gardent la province enregistrée en base" }],
   routesRapports: [{ prefixe: "/api/rapports", roles: "PROPRIETAIRE, ADMIN_CENTRAL, DELEGUE_PROVINCIAL; rapprochement d’archives: PROPRIETAIRE uniquement", province: "Délégué: utilisateur.province_id de session pour aperçu, export, archive et téléchargement" }],
 };
@@ -53,9 +53,27 @@ for (const fichier of chemins) {
         roles = "DELEGUE_PROVINCIAL uniquement";
         province = "province_id retourné depuis utilisateur.province_id de la session";
       } else if (variable === "routesAuth") {
-        roles = routeComplete.endsWith("/csrf") || routeComplete.endsWith("/connexion")
-          ? "Public; connexion protégée par CSRF pré-authentification et limitation des tentatives"
-          : "Session authentifiée; changement initial et déconnexion exigent CSRF";
+        if (routeComplete.endsWith("/csrf")) {
+          roles = "Public; émission du jeton CSRF sans données métier";
+          province = "Aucune";
+        } else if (routeComplete.endsWith("/connexion")) {
+          roles = "Public; connexion protégée par CSRF pré-authentification, limitation des tentatives et MFA obligatoire pour les comptes centraux";
+          province = "Aucune avant authentification; province jointe depuis le compte en base";
+        } else if (routeComplete.endsWith("/mfa/verifier")) {
+          roles = "Défi MFA pré-authentifié uniquement; jeton de défi HttpOnly et CSRF pré-authentification requis";
+          province = "Identité et province issues du défi associé au compte en base";
+        } else if (routeComplete.includes("/mfa/reinitialiser/")) {
+          roles = "PROPRIETAIRE uniquement; session MFA vérifiée et code TOTP frais requis";
+          province = "Opération nationale auditée; le compte cible est résolu en base";
+        } else if (routeComplete.endsWith("/mfa/statut")) {
+          roles = "Toute session authentifiée; état technique sans donnée métier";
+          province = "Aucune";
+        } else if (routeComplete.includes("/mfa/")) {
+          roles = "PROPRIETAIRE ou ADMIN_CENTRAL; session authentifiée et périmètre de configuration MFA restreint";
+          province = "Compte de la session authentifiée";
+        } else {
+          roles = "Session authentifiée; changement initial et déconnexion exigent CSRF";
+        }
       } else if (variable === "routesStocks" && mutation && /^\/api\/stocks\/(categories-aide|unites-mesure|conditionnements|articles)/u.test(routeComplete)) {
         roles = "PROPRIETAIRE ou ADMIN_CENTRAL uniquement";
       } else if (variable === "routesStocks" && mutation) {
@@ -95,5 +113,11 @@ if (lignes.length === 0) throw new Error("Aucune route API n’a été trouvée.
 const tableau = lignes.map((ligne) => `| ${ligne.methode} | \`${ligne.chemin}\` | ${ligne.roles} | ${ligne.province} | ${ligne.csrf} | ${ligne.controles} |`);
 const contenu = `# Matrice de sécurité API — Phase 9\n\nGénérée à partir des routes Hono de \`backend/src/routes\` et \`backend/src/index.ts\`. Une nouvelle route non associée à une politique bloque le générateur. Nombre de routes documentées : **${lignes.length}**.\n\nLes opérations déléguées doivent utiliser \`utilisateur.province_id\` issu de la session vérifiée. Un \`province_id\` fourni par le navigateur ne constitue jamais une autorité. Les détails de ressource (remises, allocations, pièces jointes et archives) sont relus par leur relation parente côté service.\n\n| Méthode | Chemin | Rôles admis | Portée et source de province_id | CSRF | Contrôle de sécurité à couvrir |\n|---|---|---|---|---|---|\n${tableau.join("\n")}\n\n## Limites de preuve\n\nLa suite locale d’intégration exerce les parcours d’authentification, des stocks, des approvisionnements, des distributions, des rapports, des archives, du CSRF, de l’idempotence, de la concurrence et de l’isolation Sila/Ouaddaï. Cette matrice décrit le contrôle requis route par route; elle ne transforme pas ces scénarios en preuve d’un appel négatif distinct sur chaque URL. L’audit exhaustif individuel de toutes les routes, notamment les variantes d’identifiants imbriqués, reste à compléter avant de considérer l’isolation de Phase 1 comme entièrement close.\n`;
 
-await writeFile(destination, contenu, "utf8");
-console.log(`Matrice écrite : ${lignes.length} routes API.`);
+if (process.argv.includes("--check")) {
+  const existant = await readFile(destination, "utf8");
+  if (existant !== contenu) throw new Error("La matrice versionnée ne correspond pas aux routes et politiques Hono réelles. Régénérez-la et revoyez chaque entrée.");
+  console.log(`PASS — Matrice de sécurité synchronisée avec ${lignes.length} routes API déclarées.`);
+} else {
+  await writeFile(destination, contenu, "utf8");
+  console.log(`Matrice écrite : ${lignes.length} routes API.`);
+}

@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hacherMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
 import { reserverStockFefo } from "../../backend/src/services/stock.service.ts";
+import { configurerMfaTest, terminerConnexionMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -77,17 +78,19 @@ class ClientLocal {
     const csrf = await this.requete("/api/auth/csrf");
     assert.equal(csrf.reponse.status, 200);
     this.jetonCsrf = csrf.donnees.jeton_csrf;
-    const resultat = await this.requete("/api/auth/connexion", {
+    let resultat = await this.requete("/api/auth/connexion", {
       methode: "POST", corps: { identifiant, mot_de_passe: motDePasse },
     });
     assert.equal(resultat.reponse.status, 200, `La connexion de ${identifiant} doit réussir.`);
-    if (resultat.donnees.utilisateur.doit_changer_mot_de_passe) {
+    resultat = await terminerConnexionMfaTest(this, identifiant, resultat);
+    if (resultat.donnees?.utilisateur?.doit_changer_mot_de_passe) {
       const nouveau = `Test-${crypto.randomUUID()}-Aa9`;
       const changement = await this.requete("/api/auth/changer-mot-de-passe-initial", {
         methode: "POST", corps: { nouveau_mot_de_passe: nouveau },
       });
       assert.equal(changement.reponse.status, 200, "Le changement de mot de passe initial doit être obligatoire et fonctionnel.");
     }
+    if (["central", "proprietaire"].includes(identifiant)) await configurerMfaTest(this, identifiant);
     return resultat;
   }
 }

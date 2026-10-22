@@ -633,8 +633,8 @@ async function enregistrerImport(
 
   const instructions = lignes.map((ligne) => creerInstructionMenage(ligne, utilisateur));
   for (const ligne of lignes) instructions.push(...instructionsMembres(ligne.id, ligne.donnees.membres));
-  instructions.push(...instructionsSignalements(lignes));
   const requetes = instructions.map((instruction) => c.env.DB.prepare(instruction));
+  requetes.push(...instructionsSignalements(lignes).map((instruction) => c.env.DB.prepare(instruction)));
   requetes.push(creerInstructionAudit(c.env.DB, {
     utilisateur,
     action: "IMPORTATION_MENAGES",

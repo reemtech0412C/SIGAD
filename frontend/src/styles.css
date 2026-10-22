@@ -18,6 +18,11 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .page-connexion, .ecran-attente { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .page-connexion { background: radial-gradient(circle at 20% 10%, #e7f0fa 0, #f8fafc 45%, #eef3f8 100%); }
 .carte-connexion, .carte-espace { width: min(100%, 460px); padding: 40px; background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; box-shadow: 0 20px 55px rgb(15 61 110 / 10%); }
+.qr-mfa { display: block; width: min(100%, 260px); aspect-ratio: 1; margin: 20px auto; border: 10px solid #fff; box-shadow: 0 0 0 1px #dbe3ec; }
+.secret-mfa { overflow-wrap: anywhere; padding: 12px; background: #f1f5f9; border-radius: 8px; font-size: .875rem; }
+.liste-codes-mfa { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; list-style: none; padding: 0; margin: 20px 0; }
+.liste-codes-mfa li { padding: 8px; text-align: center; background: #f1f5f9; border-radius: 6px; }
+.message-information { padding: 12px; background: #eff6ff; border-radius: 8px; color: #1e3a8a; }
 .marque-sigad { display: grid; width: 50px; height: 50px; place-items: center; margin-bottom: 22px; border-radius: 14px; color: white; background: #0f3d6e; font-size: 25px; font-weight: 800; }
 .surtitre { margin: 0 0 8px; color: #1e56a0; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 h1, h2, p { margin-top: 0; }

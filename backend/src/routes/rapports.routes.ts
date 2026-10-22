@@ -12,6 +12,7 @@ import {
 } from "../services/rapports.service.ts";
 import { creerFichierRapport } from "../services/rapports-export.service.ts";
 import { typeErreurSecurise } from "../services/fichiers-securite.service.ts";
+import { repererArchivesOrphelines, supprimerArchivesOrphelinesR2, televerserPuisReferencerR2 } from "../services/stockage-r2.service.ts";
 import {
   schemaExportRapport,
   schemaFiltresRapport,
@@ -194,27 +195,39 @@ routesRapports.post("/:type/export", async (c) => {
     if (contenuExport.contenu.byteLength > 18 * 1024 * 1024) {
       throw new ErreurRapport("Le fichier dépasse la taille maximale de 18 Mo. Réduisez la période ou ajoutez des filtres.", 413);
     }
-    if (corps.archiver) {
-      cleR2 = cleArchive(referenceResultat.contexte.province_id, maintenant, id, contenuExport.extension);
-      await c.env.BUCKET.put(cleR2, contenuExport.contenu, {
-        httpMetadata: { contentType: contenuExport.typeMime },
-        customMetadata: { id_rapport: id, province_id: referenceResultat.contexte.province_id ?? "national" },
-      });
-    }
-    await enregistrerRapport(c, {
+    const entreeRapport = {
       id, type, perimetre: referenceResultat.contexte.perimetre,
       provinceId: referenceResultat.contexte.province_id,
-      filtres: corps.filtres, format: corps.format, cleR2,
+      filtres: corps.filtres, format: corps.format, cleR2: null as string | null,
       lignes: referenceResultat.elements.length, exportTronque: referenceResultat.export_tronque,
       lignesLues: referenceResultat.lignes_lues, dureeMs: referenceResultat.duree_requetes_ms,
-    });
-  } catch (erreur) {
-    if (cleR2) {
-      try { await c.env.BUCKET.delete(cleR2); }
-      catch (erreurSuppression) {
-        console.error(JSON.stringify({ action: "archive_rapport_orpheline_a_reconcilier", type_erreur: typeErreurSecurise(erreurSuppression) }));
-      }
+    };
+    if (corps.archiver) {
+      cleR2 = cleArchive(referenceResultat.contexte.province_id, maintenant, id, contenuExport.extension);
+      entreeRapport.cleR2 = cleR2;
+      await televerserPuisReferencerR2({
+        bucket: c.env.BUCKET,
+        cle: cleR2,
+        contenu: contenuExport.contenu,
+        options: {
+          httpMetadata: { contentType: contenuExport.typeMime },
+          customMetadata: { id_rapport: id, province_id: referenceResultat.contexte.province_id ?? "national" },
+        },
+        televerserObjet: true,
+        referenceDejaPresente: async () => Boolean(await c.env.DB.prepare(
+          "SELECT 1 AS present FROM rapports_generes WHERE cle_r2_archive = ?",
+        ).bind(cleR2).first<{ present: number }>()),
+        enregistrerReference: async () => enregistrerRapport(c, entreeRapport),
+        signalerNettoyageImpossible: (phase, erreurNettoyage) => console.error(JSON.stringify({
+          action: "nettoyage_archive_rapport_echoue",
+          phase,
+          type_erreur: typeErreurSecurise(erreurNettoyage),
+        })),
+      });
+    } else {
+      await enregistrerRapport(c, entreeRapport);
     }
+  } catch (erreur) {
     return reponseErreur(c, erreur);
   }
   if (!referenceResultat || !contenuExport) return c.json({ erreur: "La génération du rapport a échoué." }, 500);
@@ -246,7 +259,7 @@ routesRapports.get("/archives/reconciliation", async (c) => {
       WHERE cle_r2_archive IN (${candidats.map(() => "?").join(",")})`)
       .bind(...candidats.map((objet) => objet.key)).all<{ cle_r2_archive: string }>();
     const referencees = new Set(references.results.map((ligne) => ligne.cle_r2_archive));
-    const orphelines = candidats.filter((objet) => !referencees.has(objet.key));
+    const orphelines = repererArchivesOrphelines(candidats, referencees, ageMinimal);
     return c.json({ candidats: orphelines.map((objet) => ({ cle: objet.key, taille_octets: objet.size,
       televerse_le: objet.uploaded.toISOString() })), suite_disponible: page.truncated,
       curseur: page.truncated ? page.cursor : null, delai_securite_heures: 24,
@@ -264,7 +277,8 @@ routesRapports.post("/archives/reconciliation", async (c) => {
   const utilisateur = c.get("utilisateur");
   const page = await c.env.BUCKET.list({ prefix: PREFIXE_ARCHIVES, limit: options.limite,
     ...(options.curseur ? { cursor: options.curseur } : {}) });
-  const candidats = page.objects.filter((objet) => objet.uploaded.getTime() <= Date.now() - DELAI_SECURITE_ORPHELIN_MS);
+  const ageMinimal = Date.now() - DELAI_SECURITE_ORPHELIN_MS;
+  const candidats = page.objects.filter((objet) => objet.uploaded.getTime() <= ageMinimal);
   if (!candidats.length) return c.json({ supprimees: 0, echec: 0, suite_disponible: page.truncated,
     curseur: page.truncated ? page.cursor : null });
   try {
@@ -272,33 +286,31 @@ routesRapports.post("/archives/reconciliation", async (c) => {
       WHERE cle_r2_archive IN (${candidats.map(() => "?").join(",")})`)
       .bind(...candidats.map((objet) => objet.key)).all<{ cle_r2_archive: string }>();
     const referencees = new Set(references.results.map((ligne) => ligne.cle_r2_archive));
-    const orphelines = candidats.filter((objet) => !referencees.has(objet.key));
+    const orphelines = repererArchivesOrphelines(candidats, referencees, ageMinimal);
     const actionId = crypto.randomUUID();
     await c.env.DB.batch([creerInstructionAudit(c.env.DB, {
       utilisateur, action: "RAPPROCHEMENT_ARCHIVES_DEMARRE", entiteType: "ARCHIVES_RAPPORTS",
       entiteId: actionId, adresseIp: c.req.header("CF-Connecting-IP") ?? null,
       donneesApres: JSON.stringify({ candidats: orphelines.length, curseur: options.curseur ?? null }),
     })]);
-    let supprimees = 0;
-    let echec = 0;
-    for (const objet of orphelines) {
-      try {
-        const reference = await c.env.DB.prepare("SELECT id FROM rapports_generes WHERE cle_r2_archive = ?")
-          .bind(objet.key).first<{ id: string }>();
-        if (reference) continue;
-        await c.env.BUCKET.delete(objet.key);
-        supprimees += 1;
-      } catch (erreur) {
-        echec += 1;
-        console.error(JSON.stringify({ action: "echec_suppression_archive_orpheline", type_erreur: typeErreurSecurise(erreur) }));
-      }
-    }
+    const resultatSuppression = await supprimerArchivesOrphelinesR2({
+      bucket: c.env.BUCKET,
+      objets: orphelines,
+      referencesD1: new Set(),
+      dateLimiteSecurite: ageMinimal,
+      referenceDejaPresente: async (cle) => Boolean(await c.env.DB.prepare(
+        "SELECT 1 AS present FROM rapports_generes WHERE cle_r2_archive = ?",
+      ).bind(cle).first<{ present: number }>()),
+      signalerEchec: (_cle, erreur) => console.error(JSON.stringify({
+        action: "echec_suppression_archive_orpheline", type_erreur: typeErreurSecurise(erreur),
+      })),
+    });
     await c.env.DB.batch([creerInstructionAudit(c.env.DB, {
       utilisateur, action: "RAPPROCHEMENT_ARCHIVES_TERMINE", entiteType: "ARCHIVES_RAPPORTS",
       entiteId: actionId, adresseIp: c.req.header("CF-Connecting-IP") ?? null,
-      donneesApres: JSON.stringify({ supprimees, echec, verifiees: orphelines.length }),
+      donneesApres: JSON.stringify(resultatSuppression),
     })]);
-    return c.json({ supprimees, echec, suite_disponible: page.truncated,
+    return c.json({ ...resultatSuppression, suite_disponible: page.truncated,
       curseur: page.truncated ? page.cursor : null });
   } catch (erreur) {
     return reponseErreur(c, erreur);

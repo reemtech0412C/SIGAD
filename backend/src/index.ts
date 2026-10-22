@@ -1,5 +1,6 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import type { EnvironnementApplication } from "./bindings";
+import type { RoleUtilisateur } from "../../shared/constantes/roles";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { csrfSessionMiddleware } from "./middlewares/csrf.middleware";
 import { isolationProvinciale, exigerRoles } from "./middlewares/rbac.middleware";
@@ -52,10 +53,47 @@ app.route("/api/rapports", routesRapports);
 
 app.use("/api/gestion/*", authMiddleware);
 app.use("/api/gestion/*", csrfSessionMiddleware);
+const limiterMutationsGestion: MiddlewareHandler<EnvironnementApplication> = async (c, suivant) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+    await suivant();
+    return;
+  }
+  const chemin = c.req.path;
+  const rolesAutorises: readonly RoleUtilisateur[] = chemin === "/api/gestion/partenaires"
+    ? ["PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const
+    : chemin.endsWith("/validation") || /^\/api\/gestion\/signalements-doublons\/[^/]+\/decision$/u.test(chemin)
+      ? ["PROPRIETAIRE", "ADMIN_CENTRAL"] as const
+      : ["ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const;
+  if (!rolesAutorises.includes(c.get("utilisateur").role)) {
+    return c.json({ erreur: "Votre rôle ne permet pas cette opération de gestion." }, 403);
+  }
+  await suivant();
+  return;
+};
+app.use("/api/gestion", limiterMutationsGestion);
+app.use("/api/gestion/*", limiterMutationsGestion);
 app.route("/api/gestion", routesGestion);
 
 app.use("/api/stocks/*", authMiddleware);
 app.use("/api/stocks/*", csrfSessionMiddleware);
+const limiterMutationsStocks: MiddlewareHandler<EnvironnementApplication> = async (c, suivant) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+    await suivant();
+    return;
+  }
+  const chemin = c.req.path;
+  const reference = /^\/api\/stocks\/(categories-aide|unites-mesure|conditionnements|articles)(?:\/|$)/u.test(chemin);
+  const rolesAutorises: readonly RoleUtilisateur[] = reference
+    ? ["PROPRIETAIRE", "ADMIN_CENTRAL"] as const
+    : ["ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const;
+  if (!rolesAutorises.includes(c.get("utilisateur").role)) {
+    return c.json({ erreur: "Votre rôle ne permet pas cette opération de stock." }, 403);
+  }
+  await suivant();
+  return;
+};
+app.use("/api/stocks", limiterMutationsStocks);
+app.use("/api/stocks/*", limiterMutationsStocks);
 app.route("/api/stocks", routesStocks);
 
 app.use("/api/proprietaire/*", authMiddleware);
@@ -97,6 +135,15 @@ app.use("/api/distributions", authMiddleware);
 app.use("/api/distributions/*", authMiddleware);
 app.use("/api/distributions", csrfSessionMiddleware);
 app.use("/api/distributions/*", csrfSessionMiddleware);
+const limiterMutationsDistributions: MiddlewareHandler<EnvironnementApplication> = async (c, suivant) => {
+  if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && c.get("utilisateur").role !== "DELEGUE_PROVINCIAL") {
+    return c.json({ erreur: "Seul un délégué provincial peut modifier une distribution provinciale." }, 403);
+  }
+  await suivant();
+  return;
+};
+app.use("/api/distributions", limiterMutationsDistributions);
+app.use("/api/distributions/*", limiterMutationsDistributions);
 app.route("/api/distributions", routesDistributions);
 
 app.use("/api/approvisionnements", authMiddleware);
@@ -106,6 +153,14 @@ app.route("/api/approvisionnements", routesApprovisionnementsLecture);
 app.use("/api/territoire/*", authMiddleware);
 app.use("/api/territoire/*", isolationProvinciale);
 app.use("/api/territoire/*", csrfSessionMiddleware);
+const limiterPropositionsTerritoriales: MiddlewareHandler<EnvironnementApplication> = async (c, suivant) => {
+  if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && c.get("utilisateur").role !== "DELEGUE_PROVINCIAL") {
+    return c.json({ erreur: "Seul un délégué provincial peut proposer une modification territoriale." }, 403);
+  }
+  await suivant();
+  return;
+};
+app.use("/api/territoire/*", limiterPropositionsTerritoriales);
 app.route("/api/territoire", routesTerritoire);
 
 app.notFound((c) => {
