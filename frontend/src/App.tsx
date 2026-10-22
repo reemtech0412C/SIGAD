@@ -5,6 +5,7 @@ import { ConnexionPage } from "./components/connexion/ConnexionPage";
 import { TableauGestionBeneficiaires } from "./components/gestion/TableauGestionBeneficiaires";
 import { TableauApprovisionnements } from "./components/gestion/TableauApprovisionnements";
 import { TableauGestionStocks } from "./components/gestion/TableauGestionStocks";
+import { TableauDistributions } from "./components/gestion/TableauDistributions";
 import { TableauProprietaire } from "./components/proprietaire/TableauProprietaire";
 import { ErreurApi, chargerJetonCsrf, requeteApi } from "./services/api";
 
@@ -21,10 +22,12 @@ export default function App() {
   const [chargement, setChargement] = useState(true);
   const [afficherStocks, setAfficherStocks] = useState(false);
   const [afficherApprovisionnements, setAfficherApprovisionnements] = useState(false);
+  const [afficherDistributions, setAfficherDistributions] = useState(false);
 
-  function choisirModule(module: "comptes" | "stocks" | "approvisionnements" | "beneficiaires"): void {
+  function choisirModule(module: "comptes" | "stocks" | "approvisionnements" | "beneficiaires" | "distributions"): void {
     setAfficherStocks(module === "stocks");
     setAfficherApprovisionnements(module === "approvisionnements");
+    setAfficherDistributions(module === "distributions");
   }
 
   useEffect(() => {
@@ -82,9 +85,10 @@ export default function App() {
         <aside className="barre-laterale">
           <div className="logo-barre"><span>S</span><div><strong>SIGAD</strong><small>République du Tchad</small></div></div>
           <nav aria-label="Navigation principale">
-            <button className={!afficherStocks && !afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("comptes")} type="button">Administration des comptes</button>
+            <button className={!afficherStocks && !afficherApprovisionnements && !afficherDistributions ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("comptes")} type="button">Administration des comptes</button>
             <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("stocks")} type="button">Articles et stocks</button>
             <button className={afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("approvisionnements")} type="button">Approvisionnements</button>
+            <button className={afficherDistributions ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("distributions")} type="button">Distributions provinciales</button>
           </nav>
           <div className="profil-barre">
             <span className="avatar">{utilisateur.nom_complet.charAt(0).toUpperCase()}</span>
@@ -94,7 +98,9 @@ export default function App() {
         <main className="zone-principale">
           <header className="barre-haute"><span>Gestion intégrée des aides et des distributions</span><button className="bouton bouton-discret" onClick={() => void deconnexion()} type="button">Se déconnecter</button></header>
           {erreurAction && <p className="message-erreur bandeau-erreur" role="alert">{erreurAction}</p>}
-          {afficherApprovisionnements
+          {afficherDistributions
+            ? <TableauDistributions utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+            : afficherApprovisionnements
             ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
             : afficherStocks
               ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
@@ -109,9 +115,10 @@ export default function App() {
       <aside className="barre-laterale">
         <div className="logo-barre"><span>S</span><div><strong>SIGAD</strong><small>République du Tchad</small></div></div>
         <nav aria-label="Navigation principale">
-          <button className={!afficherStocks && !afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("beneficiaires")} type="button">Gestion des bénéficiaires</button>
+          <button className={!afficherStocks && !afficherApprovisionnements && !afficherDistributions ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("beneficiaires")} type="button">Gestion des bénéficiaires</button>
           <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("stocks")} type="button">Articles et stocks</button>
           <button className={afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("approvisionnements")} type="button">Approvisionnements</button>
+          <button className={afficherDistributions ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("distributions")} type="button">Distributions provinciales</button>
         </nav>
         <div className="profil-barre">
           <span className="avatar">{utilisateur.nom_complet.charAt(0).toUpperCase()}</span>
@@ -121,11 +128,13 @@ export default function App() {
       <main className="zone-principale">
         <header className="barre-haute"><span>Gestion intégrée des aides et des distributions</span><button className="bouton bouton-discret" onClick={() => void deconnexion()} type="button">Se déconnecter</button></header>
         {erreurAction && <p className="message-erreur bandeau-erreur">{erreurAction}</p>}
-        {afficherApprovisionnements
-          ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-          : afficherStocks
-            ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : <TableauGestionBeneficiaires utilisateur={utilisateur} jetonCsrf={jetonCsrf} />}
+        {afficherDistributions
+          ? <TableauDistributions utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+          : afficherApprovisionnements
+            ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+            : afficherStocks
+              ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
+              : <TableauGestionBeneficiaires utilisateur={utilisateur} jetonCsrf={jetonCsrf} />}
       </main>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   routesApprovisionnementsLecture,
   routesExpeditionsProvinciales,
 } from "./routes/approvisionnements.routes";
+import { routesControleDistributions, routesDistributions } from "./routes/distributions.routes";
 
 const app = new Hono<EnvironnementApplication>();
 
@@ -48,6 +49,7 @@ app.use("/api/central/*", csrfSessionMiddleware);
 app.use("/api/central/*", exigerRoles("ADMIN_CENTRAL"));
 app.route("/api/central", routesValidationTerritoire);
 app.route("/api/central/approvisionnements", routesApprovisionnementsCentrales);
+app.route("/api/central/distributions", routesControleDistributions);
 
 app.use("/api/provincial/*", authMiddleware);
 app.use("/api/provincial/*", csrfSessionMiddleware);
@@ -62,6 +64,12 @@ app.get("/api/provincial/:provinceId/profil", (c) => {
   });
 });
 app.route("/api/provincial/expeditions", routesExpeditionsProvinciales);
+
+app.use("/api/distributions", authMiddleware);
+app.use("/api/distributions/*", authMiddleware);
+app.use("/api/distributions", csrfSessionMiddleware);
+app.use("/api/distributions/*", csrfSessionMiddleware);
+app.route("/api/distributions", routesDistributions);
 
 app.use("/api/approvisionnements", authMiddleware);
 app.use("/api/approvisionnements/*", authMiddleware);

@@ -82,7 +82,7 @@ export interface EcritureCritique {
   changementsAttendus?: number;
 }
 
-interface AllocationLot {
+export interface AllocationLot {
   lot: LotFefoD1;
   quantite: number;
 }
@@ -192,7 +192,7 @@ export async function executerOperationIdempotente<T>(options: {
     if (ligneConcurrente) return verifierRejeu<T>(ligneConcurrente, options.utilisateur, options.routeApi, empreinte);
     if (erreur instanceof ErreurStock) throw erreur;
     const texte = erreur instanceof Error ? erreur.message : "";
-    if (/STOCK_|PERIMETRE_|SOLDE_STOCK_|MOUVEMENT_STOCK_|MOUVEMENT_SANS_MUTATION_EFFECTIVE|APPROVISIONNEMENT_|DESTINATION_APPROVISIONNEMENT_|ARTICLE_DESTINATION_|EXPEDITION_|LIGNE_EXPEDITION_|RECEPTION_PROVINCIALE_|LIGNE_RECEPTION_PROVINCIALE_|JUSTIFICATION_ECART_|AUDIT_APPROVISIONNEMENT_|UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint/iu.test(texte)) {
+    if (/STOCK_|PERIMETRE_|SOLDE_STOCK_|MOUVEMENT_STOCK_|MOUVEMENT_SANS_MUTATION_EFFECTIVE|APPROVISIONNEMENT_|DESTINATION_APPROVISIONNEMENT_|ARTICLE_DESTINATION_|EXPEDITION_|LIGNE_EXPEDITION_|RECEPTION_PROVINCIALE_|LIGNE_RECEPTION_PROVINCIALE_|JUSTIFICATION_ECART_|AUDIT_APPROVISIONNEMENT_|DISTRIBUTION_|ZONE_DISTRIBUTION_|MENAGE_DISTRIBUTION_|ARTICLE_DISTRIBUTION_|ALLOCATION_DISTRIBUTION_|RESERVATION_DISTRIBUTION_|REMISE_DISTRIBUTION_|LIGNE_REMISE_DISTRIBUTION_|VALIDATION_DISTRIBUTION_|PLAN_DISTRIBUTION_|AUDIT_DISTRIBUTION_|TRANSITION_STATUT_|UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint/iu.test(texte)) {
       throw new ErreurStock("Le stock a changé ou une contrainte de cohérence a refusé l’opération. Rechargez les données avant de réessayer.", 409);
     }
     throw new ErreurStock("L’opération de stock n’a pas pu être enregistrée.", 500);
@@ -682,7 +682,7 @@ export async function reserverStockFefo(
         entrepotId: entrepot.id, provinceId: entree.province_id, articleId: entree.article_id,
         lotId: allocation.lot.id, type: "RESERVATION", sens: "NEUTRE_RESERVATION",
         quantite: allocation.quantite, avant: physique, apres: physique,
-        documentType: "RESERVATION_STOCK", documentId: reserveId,
+        documentType: "RESERVATION_STOCK", documentId: reservationId,
         motif: `Réservation de stock pour la distribution ${entree.distribution_id}`,
       }),
     });

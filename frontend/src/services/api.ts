@@ -15,7 +15,7 @@ export class ErreurApi extends Error {
 export async function requeteApi<T>(
   chemin: string,
   options: {
-    methode?: "GET" | "POST" | "PATCH";
+    methode?: "GET" | "POST" | "PATCH" | "PUT";
     jetonCsrf?: string;
     cleIdempotence?: string;
     corps?: unknown;

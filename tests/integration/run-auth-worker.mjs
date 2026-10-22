@@ -141,6 +141,7 @@ try {
     "auth-worker.test.mjs",
     "stocks-worker.test.mjs",
     "approvisionnements-worker.test.mjs",
+    "distributions-worker.test.mjs",
   ]) {
     executerNode([
       "--experimental-strip-types",

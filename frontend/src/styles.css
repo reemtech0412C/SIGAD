@@ -150,11 +150,39 @@ tbody tr:hover { background: #fbfdff; }
 .formulaire-cloture .bouton { grid-column: 1 / -1; }
 .pagination .bouton:disabled { opacity: .55; }
 
+.module-distributions .formulaire-distribution { display: grid; gap: 20px; }
+.module-distributions .formulaire-distribution > .titre-section { margin: 4px 0 -2px; }
+.module-distributions .formulaire-distribution .grille-territoriale { align-items: start; }
+.ligne-destination, .ligne-allocation { margin: 8px 0 14px; }
+.liste-chips, .liste-zones-distribution { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.puce-zone { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 10px; border: 1px solid #cfe0ef; border-radius: 999px; color: #164574; background: #f0f6fb; font-size: 12px; font-weight: 700; }
+.puce-zone button { width: 21px; height: 21px; padding: 0; border: 0; border-radius: 50%; color: #8b2c2c; background: #fff; font-size: 16px; line-height: 1; }
+.pied-formulaire-distribution { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-top: 17px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
+.pied-formulaire-distribution .bouton { flex: 0 0 auto; }
+.bandeau-detail-distribution { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.bandeau-detail-distribution > div:first-child p { margin: 10px 0 0; color: #64748b; font-size: 12px; }
+.grille-indicateurs-distribution { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.grille-indicateurs-distribution > div { display: grid; gap: 5px; min-width: 0; padding: 13px; border: 1px solid #e3eaf1; border-radius: 9px; background: #f8fafc; }
+.grille-indicateurs-distribution strong { color: #164574; font-size: 21px; font-variant-numeric: tabular-nums; }
+.grille-indicateurs-distribution span { color: #64748b; font-size: 11px; }
+.formulaire-remise-distribution, .formulaire-correction-distribution { display: grid; gap: 16px; margin-top: 18px; padding: 18px; border: 1px solid #dce5ee; border-radius: 11px; background: #f8fafc; }
+.formulaire-remise-distribution .titre-section, .formulaire-correction-distribution .titre-section { margin-bottom: 0; }
+.formulaire-remise-distribution .bouton-principal, .formulaire-correction-distribution > .bouton { justify-self: start; }
+.formulaire-remise-distribution input[type="number"] { width: 130px; min-height: 36px; padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 7px; color: #263b51; }
+.panneau-document-distribution { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(200px, auto); align-items: end; gap: 15px; margin-top: 18px; padding: 16px; border: 1px solid #dce5ee; border-radius: 10px; background: #f8fafc; }
+.panneau-document-distribution .champ-appro-large { grid-column: 1 / -1; max-width: none; margin: 0; }
+.panneau-document-distribution > .bouton { justify-self: start; }
+.liste-corrections-distribution { display: grid; gap: 10px; }
+.liste-corrections-distribution article { padding: 14px; border: 1px solid #e2e8f0; border-radius: 9px; background: #f8fafc; }
+.liste-corrections-distribution article p { margin: 8px 0 0; color: #52677d; font-size: 12px; line-height: 1.5; }
+.module-distributions .tableau-defilement input[type="checkbox"] { width: 16px; height: 16px; accent-color: #0f3d6e; }
+
 @media (max-width: 900px) {
   .barre-laterale { width: 220px; }
   .zone-principale { width: calc(100% - 220px); margin-left: 220px; }
   .barre-haute { padding-inline: 16px; }
   .contenu-tableau { padding: 24px 16px 40px; }
+  .grille-indicateurs-distribution { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
@@ -174,6 +202,10 @@ tbody tr:hover { background: #fbfdff; }
   .destination-editoriale, .formulaire-cloture .champ-territorial, .formulaire-cloture .bouton { grid-column: auto; }
   .ligne-allocation, .ligne-destination { grid-template-columns: minmax(0, 1fr); }
   .barre-filtres-stock { grid-template-columns: minmax(0, 1fr); }
+  .pied-formulaire-distribution, .bandeau-detail-distribution { align-items: stretch; flex-direction: column; }
+  .grille-indicateurs-distribution { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .panneau-document-distribution { grid-template-columns: minmax(0, 1fr); }
+  .panneau-document-distribution .champ-appro-large { grid-column: auto; }
   .choix-roles { grid-column: auto; }
   .champ-documentation { grid-column: auto; }
   .barre-haute > span { max-width: 52%; }
