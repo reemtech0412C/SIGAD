@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { webcrypto } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -244,12 +244,21 @@ try {
   const portCourriel = await choisirPortLibre();
   const adresseCourriel = `http://127.0.0.1:${portCourriel}`;
   const persistanceCourriel = join(dossierPersistance, "email-provider");
-  await mkdir(persistanceCourriel, { recursive: true });
+  const dossierConfigurationCourriel = join(dossierTemporaire, "email-provider");
+  const configurationCourriel = join(dossierConfigurationCourriel, "wrangler.toml");
+  await Promise.all([
+    mkdir(persistanceCourriel, { recursive: true }),
+    mkdir(dossierConfigurationCourriel, { recursive: true }),
+  ]);
+  await Promise.all([
+    copyFile(join(racine, "tests/fixtures/email-provider/wrangler.toml"), configurationCourriel),
+    copyFile(join(racine, "tests/fixtures/email-provider/worker.mjs"), join(dossierConfigurationCourriel, "worker.mjs")),
+  ]);
   processusCourriel = spawn(process.execPath, [
     executableWrangler,
     "dev",
     "--config",
-    "tests/fixtures/email-provider/wrangler.toml",
+    configurationCourriel,
     "--local",
     "--ip",
     "127.0.0.1",
