@@ -11,7 +11,7 @@
     "dev:api": "wrangler dev --config wrangler.toml",
     "dev:interface": "vite --config frontend/vite.config.ts",
     "build": "vite build --config frontend/vite.config.ts",
-    "typecheck": "wrangler types --env-interface CloudflareBindings && tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:migrate:local": "node scripts/preparer-base-locale.mjs migrate",
     "db:seed:local": "node scripts/preparer-base-locale.mjs seed",
     "db:verifier": "node --experimental-sqlite scripts/verifier-schema-local.mjs",
@@ -19,7 +19,9 @@
     "preview": "vite preview --config frontend/vite.config.ts",
     "test:unit": "vitest run --config vitest.config.ts --pool=threads --maxWorkers=1",
     "test:security-matrix": "node scripts/generer-matrice-securite-phase9.mjs --check",
-    "test:integration": "node tests/integration/run-auth-worker.mjs",
+    "test:integration": "node scripts/verify.mjs --integration-only",
+    "verify": "node scripts/verify.mjs",
+    "verify:rapide": "node scripts/verify.mjs --rapide",
     "test:e2e": "npm run build && node tests/e2e/run-local.mjs"
   },
   "dependencies": {

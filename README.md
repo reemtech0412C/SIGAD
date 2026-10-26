@@ -34,6 +34,9 @@ Le SQL produit est un seed à exécuter séparément après les migrations; il c
 npm run typecheck
 npm run build
 npm run test:unit
+npm run verify
 ```
 
 Les ressources D1 et R2 configurées dans `wrangler.toml` sont utilisées localement par Wrangler. Aucune ressource distante n’est sélectionnée par les commandes de développement.
+
+`npm run verify` regroupe TypeScript sans génération, les tests unitaires, le contrôle de la matrice des permissions, la vérification du schéma et des migrations en mémoire, puis l’intégration Wrangler locale. L’intégration crée une configuration éphémère et une D1 sous le répertoire temporaire; elle utilise le fournisseur de courriel local, passe les commandes Wrangler en mode `--local` et retire les identifiants Cloudflare/API de l’environnement des sous-processus. Le fichier `wrangler.toml` n’est pas chargé par cette vérification. Le rapport horodaté est enregistré dans `docs/architecture-modernization/evidence/`. `npm run verify:rapide` exécute les mêmes contrôles sans l’intégration.

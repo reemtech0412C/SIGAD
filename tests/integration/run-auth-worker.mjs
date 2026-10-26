@@ -11,8 +11,16 @@ import { fileURLToPath } from "node:url";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const executableWrangler = resolve(racine, "node_modules/wrangler/bin/wrangler.js");
+const racineVerification = process.env.SIGAD_VERIFY_TEMP_ROOT ? resolve(process.env.SIGAD_VERIFY_TEMP_ROOT) : null;
+const fichierConfigurationWrangler = process.env.SIGAD_WRANGLER_CONFIG ? resolve(process.env.SIGAD_WRANGLER_CONFIG) : null;
 const persistanceParente = resolve(process.env.SIGAD_TEST_STATE_ROOT ?? join(racine, ".wrangler", "sigad-tests-state"));
 const temporaireParente = resolve(process.env.SIGAD_TEST_TEMP_ROOT ?? tmpdir());
+const motifsVariablesSensibles = /CLOUDFLARE|(^|_)CF_|API[_-]?KEY|ACCESS[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY|DATABASE_URL|SIGAD_EMAIL_API_URL|(^|_)PROD(uction)?(_|$)|(^|_)STAGING(_|$)|^(HTTP|HTTPS|ALL)_PROXY$/iu;
+const environnementLocal = Object.fromEntries(
+  Object.entries(process.env).filter(([nom]) => !motifsVariablesSensibles.test(nom)),
+);
+environnementLocal.WRANGLER_SEND_METRICS = "false";
+environnementLocal.DO_NOT_TRACK = "1";
 let dossierTemporaire;
 let dossierPersistance;
 let processusWorker;
@@ -23,7 +31,7 @@ const clePubliqueOperateurLocale = Buffer.from(JSON.stringify(await webcrypto.su
 const clePriveeOperateurLocale = JSON.stringify(await webcrypto.subtle.exportKey("jwk", paireOperateurLocale.privateKey));
 const identiteOperateurLocale = "operateur-local-test";
 
-function executerNode(argumentsNode, environnement = process.env) {
+function executerNode(argumentsNode, environnement = environnementLocal) {
   const resultat = spawnSync(process.execPath, argumentsNode, {
     cwd: racine,
     env: environnement,
@@ -32,6 +40,28 @@ function executerNode(argumentsNode, environnement = process.env) {
   });
   if (resultat.error) throw resultat.error;
   if (resultat.status !== 0) throw new Error(`La commande Node s’est terminée avec le code ${resultat.status ?? "inconnu"}.`);
+}
+
+if (!racineVerification || !fichierConfigurationWrangler) {
+  throw new Error("Le Worker d’intégration exige la configuration locale temporaire créée par npm run verify.");
+}
+if (!racineVerification.startsWith(`${resolve(tmpdir())}${sep}`) || !racineVerification.slice(resolve(tmpdir()).length + 1).startsWith("sigad-verify-")) {
+  throw new Error("La racine de vérification doit être un dossier temporaire SIGAD créé par le pipeline.");
+}
+for (const chemin of [fichierConfigurationWrangler, temporaireParente, persistanceParente]) {
+  if (!chemin.startsWith(`${racineVerification}${sep}`) && chemin !== racineVerification) {
+    throw new Error("La configuration et les états Wrangler doivent rester dans la racine temporaire de vérification.");
+  }
+}
+const configurationWranglerLocale = await readFile(fichierConfigurationWrangler, "utf8");
+if (
+  !/name\s*=\s*"sigad-verify-local"/u.test(configurationWranglerLocale) ||
+  !/database_name\s*=\s*"sigad-verify-local"/u.test(configurationWranglerLocale) ||
+  !/database_id\s*=\s*"00000000-0000-4000-8000-000000000001"/u.test(configurationWranglerLocale) ||
+  !/service\s*=\s*"sigad-email-mock"/u.test(configurationWranglerLocale) ||
+  /^\s*(?:account_id|zone_id|routes|remote)\s*=/imu.test(configurationWranglerLocale)
+) {
+  throw new Error("La configuration Wrangler ne respecte pas les garde-fous locaux du pipeline.");
 }
 
 async function choisirPortLibre() {
@@ -143,7 +173,7 @@ try {
   const dossierConfigurationWrangler = join(dossierTemporaire, "appdata");
   await mkdir(join(dossierConfigurationWrangler, "local"), { recursive: true });
   const environnementWrangler = {
-    ...process.env,
+    ...environnementLocal,
     APPDATA: dossierConfigurationWrangler,
     LOCALAPPDATA: join(dossierConfigurationWrangler, "local"),
     TEMP: dossierTemporaire,
@@ -168,7 +198,7 @@ try {
     "apply",
     "DB",
     "--config",
-    "wrangler.integration.toml",
+    fichierConfigurationWrangler,
     "--local",
     "--persist-to",
     dossierPersistance,
@@ -179,7 +209,7 @@ try {
     "execute",
     "DB",
     "--config",
-    "wrangler.integration.toml",
+    fichierConfigurationWrangler,
     "--local",
     "--persist-to",
     dossierPersistance,
@@ -213,6 +243,8 @@ try {
 
   const portCourriel = await choisirPortLibre();
   const adresseCourriel = `http://127.0.0.1:${portCourriel}`;
+  const persistanceCourriel = join(dossierPersistance, "email-provider");
+  await mkdir(persistanceCourriel, { recursive: true });
   processusCourriel = spawn(process.execPath, [
     executableWrangler,
     "dev",
@@ -224,6 +256,8 @@ try {
     "--port",
     String(portCourriel),
     "--show-interactive-dev-session=false",
+    "--persist-to",
+    persistanceCourriel,
   ], {
     cwd: racine,
     env: environnementWrangler,
@@ -241,7 +275,7 @@ try {
     executableWrangler,
     "dev",
     "--config",
-    "wrangler.integration.toml",
+    fichierConfigurationWrangler,
     "--local",
     "--ip",
     "127.0.0.1",
