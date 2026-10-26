@@ -1,0 +1,1229 @@
+/* ==========================================================================
+   SIGAD DESIGN SYSTEM — TOKENS ET STYLES FONDAMENTAUX
+   Esthétique administrative tchadienne haut de gamme : sobre, moderne, pérenne.
+   ========================================================================== */
+
+:root {
+  /* --- PALETTE GRAPHIQUE INSTITUTIONNELLE (SHADCN ADMIN / SIGAD) --- */
+  /* Bleu Nuit Profond (Sidebar principale, Structure, En-têtes) */
+  --sigad-navy-950: #071526;
+  --sigad-navy-900: #0b223d;
+  --sigad-navy-850: #0d2f54;
+  --sigad-navy-800: #0F3D6E;
+  --sigad-navy-secondary: #0F3D6E;
+  --sigad-navy-700: #164b84;
+
+  /* Bleu Institutionnel (Actions principales, Liens, Accents) */
+  --sigad-blue-700: #154580;
+  --sigad-blue-600: #1E56A0;
+  --sigad-blue-500: #2563eb;
+  --sigad-blue-400: #3b82f6;
+  --sigad-blue-100: #e0edff;
+  --sigad-blue-50:  #f0f6ff;
+
+  /* Neutres et Surfaces (Clarté, sobriété, lisibilité) */
+  --sigad-surface-page: #F6F8FB;
+  --sigad-surface-card: #FFFFFF;
+  --sigad-surface-subtle: #F1F5F9;
+  --sigad-surface-muted: #E5EAF2;
+
+  /* Textes et Encres */
+  --sigad-text-primary: #0f172a;
+  --sigad-text-secondary: #475569;
+  --sigad-text-tertiary: #64748b;
+  --sigad-text-disabled: #94a3b8;
+  --sigad-text-inverse: #ffffff;
+
+  /* Bordures */
+  --sigad-border-light: #E5EAF2;
+  --sigad-border-default: #E5EAF2;
+  --sigad-border-focus: #1E56A0;
+
+  /* États Fonctionnels & Alertes (Discrets et normatifs) */
+  --sigad-success-text: #166534;
+  --sigad-success-border: #bbf7d0;
+  --sigad-success-bg: #f0fdf4;
+  --sigad-success-dot: #22c55e;
+
+  --sigad-warning-text: #9a3412;
+  --sigad-warning-border: #fed7aa;
+  --sigad-warning-bg: #fff7ed;
+  --sigad-warning-dot: #f97316;
+
+  --sigad-danger-text: #991b1b;
+  --sigad-danger-border: #fecaca;
+  --sigad-danger-bg: #fef2f2;
+  --sigad-danger-dot: #ef4444;
+
+  --sigad-info-text: #1e40af;
+  --sigad-info-border: #bfdbfe;
+  --sigad-info-bg: #eff6ff;
+  --sigad-info-dot: #3b82f6;
+
+  /* --- TYPOGRAPHIE --- */
+  --sigad-font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sigad-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Échelle de tailles */
+  --sigad-text-2xs: 10px;
+  --sigad-text-xs:  11px;
+  --sigad-text-sm:  12px;
+  --sigad-text-base: 13.5px;
+  --sigad-text-md:  15px;
+  --sigad-text-lg:  18px;
+  --sigad-text-xl:  22px;
+  --sigad-text-2xl: 26px;
+
+  /* --- RAYONS (BORDURES ARRONDIES SOBRES) --- */
+  --sigad-radius-xs: 4px;
+  --sigad-radius-sm: 6px;
+  --sigad-radius-md: 8px;
+  --sigad-radius-lg: 12px;
+  --sigad-radius-xl: 16px;
+  --sigad-radius-full: 9999px;
+
+  /* --- OMBRES PORTÉES (SUBTILES, NON AGRESSIVES) --- */
+  --sigad-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --sigad-shadow-md: 0 3px 6px -1px rgb(15 23 42 / 0.06), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+  --sigad-shadow-lg: 0 8px 16px -2px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.04);
+  --sigad-shadow-modal: 0 20px 35px -5px rgb(11 31 56 / 0.22), 0 10px 15px -5px rgb(11 31 56 / 0.12);
+
+  /* --- FOCUS ET ACCESSIBILITÉ --- */
+  --sigad-focus-ring: 0 0 0 3px rgb(30 86 160 / 0.22);
+  --sigad-focus-danger: 0 0 0 3px rgb(239 68 68 / 0.25);
+
+  /* --- HAUTEURS DE CONTRÔLE --- */
+  --sigad-control-h-sm: 32px;
+  --sigad-control-h-md: 40px;
+  --sigad-control-h-lg: 48px;
+
+  /* --- TRANSITIONS --- */
+  --sigad-transition-fast: 120ms ease;
+  --sigad-transition-normal: 180ms ease;
+}
+
+/* ==========================================================================
+   MODE SOMBRE COHÉRENT (THÈME PROFESSIONNEL)
+   ========================================================================== */
+.sigad-preview--sombre,
+.sigad-admin--sombre,
+[data-theme="dark"] {
+  --sigad-surface-page: #0b1523;
+  --sigad-surface-card: #112033;
+  --sigad-surface-subtle: #16293f;
+  --sigad-surface-muted: #1e3652;
+
+  --sigad-text-primary: #f1f5f9;
+  --sigad-text-secondary: #94a3b8;
+  --sigad-text-tertiary: #64748b;
+  --sigad-text-disabled: #475569;
+
+  --sigad-border-light: #182e46;
+  --sigad-border-default: #244161;
+  --sigad-border-focus: #3b82f6;
+
+  --sigad-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --sigad-shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.4);
+  --sigad-shadow-lg: 0 10px 20px -3px rgb(0 0 0 / 0.5);
+  --sigad-shadow-modal: 0 25px 45px -5px rgb(0 0 0 / 0.7);
+
+  --sigad-success-bg: rgb(34 197 94 / 0.12);
+  --sigad-success-border: rgb(34 197 94 / 0.3);
+  --sigad-success-text: #86efac;
+
+  --sigad-warning-bg: rgb(249 115 22 / 0.12);
+  --sigad-warning-border: rgb(249 115 22 / 0.3);
+  --sigad-warning-text: #fdba74;
+
+  --sigad-danger-bg: rgb(239 68 68 / 0.12);
+  --sigad-danger-border: rgb(239 68 68 / 0.3);
+  --sigad-danger-text: #fca5a5;
+
+  --sigad-info-bg: rgb(59 130 246 / 0.12);
+  --sigad-info-border: rgb(59 130 246 / 0.3);
+  --sigad-info-text: #93c5fd;
+}
+
+/* ==========================================================================
+   CLASSES D'APPLICATION DU DESIGN SYSTEM
+   ========================================================================== */
+
+/* --- TYPOGRAPHIE ET CHIFFRES TABULAIRES --- */
+.sigad-tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* --- BOUTONS UNIFIÉS --- */
+.sigad-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--sigad-font-sans);
+  font-weight: 600;
+  border-radius: var(--sigad-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+  transition: background-color var(--sigad-transition-fast), border-color var(--sigad-transition-fast), box-shadow var(--sigad-transition-fast);
+}
+
+.sigad-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sigad-focus-ring);
+}
+
+.sigad-btn:disabled,
+.sigad-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Tailles de bouton */
+.sigad-btn--sm {
+  height: var(--sigad-control-h-sm);
+  padding: 0 10px;
+  font-size: var(--sigad-text-xs);
+  border-radius: var(--sigad-radius-sm);
+}
+
+.sigad-btn--md {
+  height: var(--sigad-control-h-md);
+  padding: 0 16px;
+  font-size: var(--sigad-text-base);
+}
+
+.sigad-btn--lg {
+  height: var(--sigad-control-h-lg);
+  padding: 0 22px;
+  font-size: var(--sigad-text-md);
+}
+
+.sigad-btn--icon {
+  width: var(--sigad-control-h-md);
+  height: var(--sigad-control-h-md);
+  padding: 0;
+  border-radius: var(--sigad-radius-md);
+}
+
+.sigad-btn--icon.sigad-btn--sm {
+  width: var(--sigad-control-h-sm);
+  height: var(--sigad-control-h-sm);
+  border-radius: var(--sigad-radius-sm);
+}
+
+.sigad-btn--full {
+  width: 100%;
+}
+
+/* Variantes de bouton */
+.sigad-btn--primary {
+  background-color: var(--sigad-blue-600);
+  color: var(--sigad-text-inverse);
+  border-color: var(--sigad-blue-700);
+  box-shadow: var(--sigad-shadow-sm);
+}
+.sigad-btn--primary:hover:not(:disabled) {
+  background-color: var(--sigad-blue-700);
+  border-color: var(--sigad-navy-800);
+}
+
+.sigad-btn--secondary {
+  background-color: var(--sigad-surface-card);
+  color: var(--sigad-text-primary);
+  border-color: var(--sigad-border-default);
+  box-shadow: var(--sigad-shadow-sm);
+}
+.sigad-btn--secondary:hover:not(:disabled) {
+  background-color: var(--sigad-surface-subtle);
+  border-color: var(--sigad-text-tertiary);
+}
+
+.sigad-btn--outline {
+  background-color: transparent;
+  color: var(--sigad-blue-600);
+  border-color: var(--sigad-blue-600);
+}
+.sigad-btn--outline:hover:not(:disabled) {
+  background-color: var(--sigad-blue-50);
+}
+
+.sigad-btn--ghost {
+  background-color: transparent;
+  color: var(--sigad-text-secondary);
+  border-color: transparent;
+}
+.sigad-btn--ghost:hover:not(:disabled) {
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-primary);
+}
+
+.sigad-btn--danger {
+  background-color: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
+  box-shadow: var(--sigad-shadow-sm);
+}
+.sigad-btn--danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+  border-color: #991b1b;
+}
+.sigad-btn--danger:focus-visible {
+  box-shadow: var(--sigad-focus-danger);
+}
+
+/* Spinner de chargement bouton */
+.sigad-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sigad-spin 0.65s linear infinite;
+}
+
+@keyframes sigad-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- BADGES ET PASTILLES DE STATUT --- */
+.sigad-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font-family: var(--sigad-font-sans);
+  font-size: var(--sigad-text-xs);
+  font-weight: 600;
+  border-radius: var(--sigad-radius-full);
+  border: 1px solid transparent;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.sigad-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sigad-badge--success {
+  background-color: var(--sigad-success-bg);
+  border-color: var(--sigad-success-border);
+  color: var(--sigad-success-text);
+}
+.sigad-badge--success .sigad-badge__dot { background-color: var(--sigad-success-dot); }
+
+.sigad-badge--warning {
+  background-color: var(--sigad-warning-bg);
+  border-color: var(--sigad-warning-border);
+  color: var(--sigad-warning-text);
+}
+.sigad-badge--warning .sigad-badge__dot { background-color: var(--sigad-warning-dot); }
+
+.sigad-badge--danger {
+  background-color: var(--sigad-danger-bg);
+  border-color: var(--sigad-danger-border);
+  color: var(--sigad-danger-text);
+}
+.sigad-badge--danger .sigad-badge__dot { background-color: var(--sigad-danger-dot); }
+
+.sigad-badge--info {
+  background-color: var(--sigad-info-bg);
+  border-color: var(--sigad-info-border);
+  color: var(--sigad-info-text);
+}
+.sigad-badge--info .sigad-badge__dot { background-color: var(--sigad-info-dot); }
+
+.sigad-badge--neutral {
+  background-color: var(--sigad-surface-subtle);
+  border-color: var(--sigad-border-default);
+  color: var(--sigad-text-secondary);
+}
+.sigad-badge--neutral .sigad-badge__dot { background-color: var(--sigad-text-tertiary); }
+
+/* --- CARTES ET PANNEAUX INSTITUTIONNELS --- */
+.sigad-card {
+  background-color: var(--sigad-surface-card);
+  border: 1px solid var(--sigad-border-default);
+  border-radius: var(--sigad-radius-lg);
+  box-shadow: var(--sigad-shadow-sm);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.sigad-card__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sigad-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background-color: var(--sigad-surface-card);
+}
+
+.sigad-card__title-group {
+  min-width: 0;
+}
+
+.sigad-card__title {
+  margin: 0;
+  font-size: var(--sigad-text-md);
+  font-weight: 700;
+  color: var(--sigad-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.sigad-card__subtitle {
+  margin: 2px 0 0;
+  font-size: var(--sigad-text-xs);
+  color: var(--sigad-text-tertiary);
+}
+
+.sigad-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sigad-card__body {
+  padding: 20px;
+}
+
+.sigad-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--sigad-border-light);
+  background-color: var(--sigad-surface-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* --- FORMULAIRES UNIFIÉS --- */
+.sigad-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.sigad-form-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--sigad-text-sm);
+  font-weight: 600;
+  color: var(--sigad-text-primary);
+}
+
+.sigad-form-label__required {
+  color: #dc2626;
+  margin-left: 3px;
+}
+
+.sigad-form-label__optional {
+  font-size: var(--sigad-text-2xs);
+  font-weight: 400;
+  color: var(--sigad-text-tertiary);
+}
+
+.sigad-input,
+.sigad-select,
+.sigad-textarea {
+  width: 100%;
+  font-family: var(--sigad-font-sans);
+  font-size: var(--sigad-text-base);
+  color: var(--sigad-text-primary);
+  background-color: var(--sigad-surface-card);
+  border: 1px solid var(--sigad-border-default);
+  border-radius: var(--sigad-radius-md);
+  padding: 0 12px;
+  height: var(--sigad-control-h-md);
+  outline: none;
+  transition: border-color var(--sigad-transition-fast), box-shadow var(--sigad-transition-fast);
+}
+
+.sigad-textarea {
+  height: auto;
+  min-height: 84px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.sigad-input:focus,
+.sigad-select:focus,
+.sigad-textarea:focus {
+  border-color: var(--sigad-border-focus);
+  box-shadow: var(--sigad-focus-ring);
+}
+
+.sigad-input--error,
+.sigad-select--error,
+.sigad-textarea--error {
+  border-color: #ef4444;
+  background-color: var(--sigad-danger-bg);
+}
+
+.sigad-input--error:focus,
+.sigad-select--error:focus,
+.sigad-textarea--error:focus {
+  box-shadow: var(--sigad-focus-danger);
+}
+
+.sigad-form-help {
+  font-size: var(--sigad-text-xs);
+  color: var(--sigad-text-tertiary);
+  margin-top: 2px;
+}
+
+.sigad-form-error {
+  font-size: var(--sigad-text-xs);
+  font-weight: 600;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* --- TABLEAUX NORMATIFS --- */
+.sigad-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--sigad-border-default);
+  border-radius: var(--sigad-radius-lg);
+  background-color: var(--sigad-surface-card);
+  box-shadow: var(--sigad-shadow-sm);
+  -webkit-overflow-scrolling: touch;
+}
+
+.sigad-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--sigad-text-sm);
+  line-height: 1.45;
+}
+
+.sigad-table thead th {
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-tertiary);
+  font-size: var(--sigad-text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--sigad-border-default);
+  white-space: nowrap;
+}
+
+.sigad-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--sigad-border-light);
+  color: var(--sigad-text-primary);
+  vertical-align: middle;
+}
+
+.sigad-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sigad-table tbody tr:hover {
+  background-color: var(--sigad-surface-subtle);
+}
+
+/* --- PAGINATION CENTRALISÉE --- */
+.sigad-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  font-size: var(--sigad-text-xs);
+  color: var(--sigad-text-secondary);
+  border-top: 1px solid var(--sigad-border-light);
+  background-color: var(--sigad-surface-card);
+}
+
+.sigad-pagination__info {
+  font-weight: 500;
+}
+
+.sigad-pagination__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- FENÊTRES MODALES PARTAGÉES (PRIORITÉ MAJEURE) --- */
+.sigad-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background-color: rgb(7 21 38 / 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: sigad-fade-in 150ms ease-out;
+}
+
+@keyframes sigad-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sigad-modal-container {
+  background-color: var(--sigad-surface-card);
+  border: 1px solid var(--sigad-border-default);
+  border-radius: var(--sigad-radius-xl);
+  box-shadow: var(--sigad-shadow-modal);
+  width: 100%;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sigad-zoom-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sigad-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Dimensions standardisées */
+.sigad-modal--sm   { max-width: 440px; }
+.sigad-modal--md   { max-width: 580px; }
+.sigad-modal--lg   { max-width: 760px; }
+.sigad-modal--xl   { max-width: 960px; }
+.sigad-modal--full { max-width: 95vw; height: 92vh; }
+
+.sigad-modal__header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--sigad-border-light);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  background-color: var(--sigad-surface-card);
+  flex-shrink: 0;
+}
+
+.sigad-modal__header-content {
+  min-width: 0;
+}
+
+.sigad-modal__title {
+  margin: 0;
+  font-size: var(--sigad-text-lg);
+  font-weight: 700;
+  color: var(--sigad-text-primary);
+  letter-spacing: -0.015em;
+}
+
+.sigad-modal__description {
+  margin: 4px 0 0;
+  font-size: var(--sigad-text-sm);
+  color: var(--sigad-text-tertiary);
+  line-height: 1.4;
+}
+
+.sigad-modal__close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sigad-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--sigad-text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--sigad-transition-fast), color var(--sigad-transition-fast);
+}
+
+.sigad-modal__close:hover {
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-primary);
+}
+
+.sigad-modal__body {
+  padding: 24px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+}
+
+.sigad-modal__footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--sigad-border-light);
+  background-color: var(--sigad-surface-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Variante modale de confirmation destructive */
+.sigad-modal--danger .sigad-modal__header {
+  border-left: 5px solid #dc2626;
+}
+
+/* --- ALERTES ET MESSAGES --- */
+.sigad-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--sigad-radius-md);
+  border: 1px solid transparent;
+  font-size: var(--sigad-text-base);
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.sigad-alert__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sigad-alert__content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sigad-alert__title {
+  font-weight: 700;
+  margin: 0 0 2px;
+  font-size: var(--sigad-text-base);
+}
+
+.sigad-alert--success {
+  background-color: var(--sigad-success-bg);
+  border-color: var(--sigad-success-border);
+  color: var(--sigad-success-text);
+}
+
+.sigad-alert--warning {
+  background-color: var(--sigad-warning-bg);
+  border-color: var(--sigad-warning-border);
+  color: var(--sigad-warning-text);
+}
+
+.sigad-alert--danger {
+  background-color: var(--sigad-danger-bg);
+  border-color: var(--sigad-danger-border);
+  color: var(--sigad-danger-text);
+}
+
+.sigad-alert--info {
+  background-color: var(--sigad-info-bg);
+  border-color: var(--sigad-info-border);
+  color: var(--sigad-info-text);
+}
+
+/* --- ONGLETS (TABS) INSTITUTIONNELS --- */
+.sigad-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--sigad-border-default);
+  margin-bottom: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sigad-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-family: var(--sigad-font-sans);
+  font-size: var(--sigad-text-sm);
+  font-weight: 600;
+  color: var(--sigad-text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--sigad-transition-fast), border-color var(--sigad-transition-fast);
+}
+
+.sigad-tab:hover {
+  color: var(--sigad-blue-600);
+}
+
+.sigad-tab--active {
+  color: var(--sigad-blue-600);
+  border-bottom-color: var(--sigad-blue-600);
+}
+
+.sigad-tab__badge {
+  font-size: var(--sigad-text-2xs);
+  padding: 1px 6px;
+  border-radius: var(--sigad-radius-full);
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-tertiary);
+}
+
+.sigad-tab--active .sigad-tab__badge {
+  background-color: var(--sigad-blue-100);
+  color: var(--sigad-blue-600);
+}
+
+/* --- CARTES DE STATISTIQUES (KPIs) --- */
+.sigad-stat-card {
+  background-color: var(--sigad-surface-card);
+  border: 1px solid var(--sigad-border-default);
+  border-radius: var(--sigad-radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--sigad-shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sigad-stat-card__content {
+  min-width: 0;
+}
+
+.sigad-stat-card__title {
+  margin: 0;
+  font-size: var(--sigad-text-xs);
+  font-weight: 600;
+  color: var(--sigad-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sigad-stat-card__value {
+  margin: 6px 0 0;
+  font-size: var(--sigad-text-2xl);
+  font-weight: 800;
+  color: var(--sigad-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.sigad-stat-card__desc {
+  margin: 4px 0 0;
+  font-size: var(--sigad-text-xs);
+  color: var(--sigad-text-secondary);
+}
+
+.sigad-stat-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--sigad-radius-md);
+  display: grid;
+  place-items: center;
+  background-color: var(--sigad-blue-50);
+  color: var(--sigad-blue-600);
+  flex-shrink: 0;
+}
+
+/* --- ÉTAT VIDE (EMPTY STATE) --- */
+.sigad-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  background-color: var(--sigad-surface-card);
+  border-radius: var(--sigad-radius-lg);
+}
+
+.sigad-empty-state__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-tertiary);
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+}
+
+.sigad-empty-state__title {
+  margin: 0;
+  font-size: var(--sigad-text-md);
+  font-weight: 700;
+  color: var(--sigad-text-primary);
+}
+
+.sigad-empty-state__desc {
+  margin: 6px 0 16px;
+  font-size: var(--sigad-text-sm);
+  color: var(--sigad-text-tertiary);
+  max-width: 440px;
+}
+
+/* ==========================================================================
+   PANNEAUX LATÉRAUX ANIMÉS (SIGADSidePanel / Detail / Form / Wizard / Confirm)
+   Spécifications :
+   - Ouverture droite : 240 ms cubic-bezier(0.16, 1, 0.3, 1)
+   - Fermeture : 180 ms ease-in
+   - Largeur standard : 520px (480–560 px)
+   - Largeur étendue : 700px (640–760 px)
+   - Pleine largeur sur petits écrans
+   - Header et Footer fixes, corps central défilant
+   ========================================================================== */
+
+.sigad-side-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background-color: rgb(7 21 38 / 0.48);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+}
+
+.sigad-side-panel-backdrop--open {
+  animation: sigad-backdrop-fade-in 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.sigad-side-panel-backdrop--closing {
+  animation: sigad-backdrop-fade-out 180ms ease-in forwards;
+}
+
+@keyframes sigad-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sigad-backdrop-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.sigad-side-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100%;
+  background-color: var(--sigad-surface-card);
+  color: var(--sigad-text-primary);
+  border-left: 1px solid var(--sigad-border-default);
+  box-shadow: -12px 0 36px -4px rgb(7 21 38 / 0.22), -4px 0 12px -2px rgb(7 21 38 / 0.1);
+  outline: none;
+  overflow: hidden;
+}
+
+.sigad-side-panel--left {
+  margin-right: auto;
+  border-left: none;
+  border-right: 1px solid var(--sigad-border-default);
+}
+
+/* Largeurs normalisées selon spécification */
+.sigad-side-panel--sm {
+  max-width: 480px;
+}
+
+.sigad-side-panel--md {
+  max-width: 540px;
+}
+
+.sigad-side-panel--lg {
+  max-width: 680px;
+}
+
+.sigad-side-panel--xl {
+  max-width: 760px;
+}
+
+.sigad-side-panel--full {
+  max-width: 92vw;
+}
+
+@media (max-width: 640px) {
+  .sigad-side-panel--sm,
+  .sigad-side-panel--md,
+  .sigad-side-panel--lg,
+  .sigad-side-panel--xl,
+  .sigad-side-panel--full {
+    max-width: 100vw;
+    width: 100vw;
+    border-left: none;
+  }
+}
+
+/* Animations d'ouverture (240ms) et de fermeture (180ms) */
+.sigad-side-panel--right.sigad-side-panel--open {
+  animation: sigad-panel-slide-in-right 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.sigad-side-panel--right.sigad-side-panel--closing {
+  animation: sigad-panel-slide-out-right 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.sigad-side-panel--left.sigad-side-panel--open {
+  animation: sigad-panel-slide-in-left 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.sigad-side-panel--left.sigad-side-panel--closing {
+  animation: sigad-panel-slide-out-left 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes sigad-panel-slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sigad-panel-slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes sigad-panel-slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sigad-panel-slide-out-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+/* En-tête fixe du panneau latéral */
+.sigad-side-panel__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--sigad-border-default);
+  background-color: var(--sigad-surface-card);
+}
+
+.sigad-side-panel--danger .sigad-side-panel__header {
+  border-bottom-color: var(--sigad-danger-border);
+  background: linear-gradient(to bottom, var(--sigad-danger-bg), var(--sigad-surface-card));
+}
+
+.sigad-side-panel__header-content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sigad-side-panel__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sigad-side-panel__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sigad-blue-600);
+}
+
+.sigad-side-panel--danger .sigad-side-panel__eyebrow {
+  color: var(--sigad-danger-text);
+}
+
+.sigad-side-panel__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--sigad-text-primary);
+  letter-spacing: -0.015em;
+}
+
+.sigad-side-panel__description {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--sigad-text-secondary);
+}
+
+.sigad-side-panel__close {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--sigad-radius-md);
+  border: 1px solid var(--sigad-border-default);
+  background-color: var(--sigad-surface-card);
+  color: var(--sigad-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.sigad-side-panel__close:hover:not(:disabled) {
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-primary);
+}
+
+.sigad-side-panel__close:focus-visible {
+  outline: none;
+  box-shadow: var(--sigad-focus-ring);
+}
+
+/* Garde contre l'abandon de modifications non enregistrées */
+.sigad-side-panel__unsaved-guard {
+  flex-shrink: 0;
+  padding: 12px 24px;
+  background-color: var(--sigad-warning-bg);
+  border-bottom: 1px solid var(--sigad-warning-border);
+  color: var(--sigad-warning-text);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sigad-side-panel__unsaved-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.sigad-side-panel__unsaved-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Corps défilant du panneau latéral */
+.sigad-side-panel__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px 28px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Pied fixe du panneau latéral */
+.sigad-side-panel__footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--sigad-border-default);
+  background-color: var(--sigad-surface-subtle);
+}
+
+/* Wizard Stepper dans SIGADWizardPanel */
+.sigad-wizard-panel__stepper {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--sigad-border-default);
+  overflow-x: auto;
+}
+
+.sigad-wizard-panel__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--sigad-radius-md);
+  border: 1px solid var(--sigad-border-default);
+  background-color: var(--sigad-surface-subtle);
+  color: var(--sigad-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.sigad-wizard-panel__step--active {
+  background-color: var(--sigad-blue-50);
+  border-color: var(--sigad-blue-600);
+  color: var(--sigad-blue-600);
+}
+
+.sigad-wizard-panel__step--done {
+  background-color: var(--sigad-success-bg);
+  border-color: var(--sigad-success-border);
+  color: var(--sigad-success-text);
+}
+
+.sigad-wizard-panel__step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: currentColor;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sigad-wizard-panel__stage {
+  animation: sigad-stage-slide 160ms ease-out;
+}
+
+@keyframes sigad-stage-slide {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sigad-detail-panel__content {
+  animation: sigad-detail-fade 180ms ease-out;
+}
+
+@keyframes sigad-detail-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sigad-side-panel-backdrop--open,
+  .sigad-side-panel-backdrop--closing,
+  .sigad-side-panel--open,
+  .sigad-side-panel--closing,
+  .sigad-wizard-panel__stage,
+  .sigad-detail-panel__content {
+    animation: none !important;
+    transition: none !important;
+  }
+}

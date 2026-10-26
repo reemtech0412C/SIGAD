@@ -1,0 +1,675 @@
+.sigad-admin {
+  --sp-fond: #F6F8FB;
+  --sp-surface: #FFFFFF;
+  --sp-surface-2: #F1F5F9;
+  --sp-encre: #0f172a;
+  --sp-encre-secondaire: #475569;
+  --sp-bordure: #E5EAF2;
+  --sp-ombre: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  min-height: 100vh;
+  color: var(--sp-encre);
+  background: var(--sp-fond);
+  font-family: var(--sp-font-fr);
+}
+
+/* Navigation générale exclusivement supérieure, en rangées desktop et liste mobile. */
+.sigad-app-shell { display:flex; width:100%; max-width:100%; min-height:100vh; flex-direction:column; overflow-x:clip; background:var(--sp-fond); }
+.sigad-app-header { position:sticky; z-index:80; top:0; flex:0 0 auto; background:var(--sp-surface); box-shadow:0 4px 16px rgb(15 35 56 / .05); }
+.sigad-admin .sigad-preview__entete-institutionnelle.sigad-app-masthead { min-height:68px; justify-content:space-between; gap:18px; padding:8px clamp(18px,4vw,54px); border-bottom:1px solid var(--sp-bordure); background:var(--sp-surface); }
+.sigad-app-masthead__marque,.sigad-app-brand { display:flex; min-width:0; align-items:center; }
+.sigad-app-masthead__marque { gap:12px; }
+.sigad-app-brand { gap:12px; color:var(--sp-encre); text-decoration:none; }
+.sigad-app-brand:focus-visible { outline:2px solid #5ca7d7; outline-offset:4px; border-radius:5px; }
+.sigad-app-brand__logo { display:block; width:auto; height:54px; flex:0 0 auto; overflow:visible; }
+.sigad-app-brand__logo img { display:block; width:auto; max-width:180px; height:54px; object-fit:contain; }
+.sigad-app-brand__identity { display:grid; min-width:0; gap:1px; line-height:1.2; }
+.sigad-app-brand__identity strong { max-width:720px; color:var(--sp-encre); font-size:clamp(14px,1.2vw,17px); font-weight:700; letter-spacing:-.015em; line-height:1.2; white-space:normal; }
+.sigad-admin--sombre .sigad-app-brand__identity strong { color:#f3f7fb; }
+.sigad-admin .sigad-app-header__actions { flex:0 0 auto; gap:9px; }
+.sigad-app-header__actions .sigad-preview__badge-session { max-width:250px; overflow:hidden; text-overflow:ellipsis; }
+.sigad-app-profile-trigger[aria-current="page"] { border-color:#b9d6ea; background:#edf5fb; }
+.sigad-admin--sombre .sigad-app-profile-trigger[aria-current="page"] { border-color:#405e78; background:#22364a; }
+.sigad-app-profile-trigger__logout { margin-top:4px; border-top:1px solid var(--sp-bordure) !important; }
+
+.sigad-top-navigation { position:relative; display:block; min-width:0; border-bottom:1px solid var(--sp-bordure); background:var(--sp-surface); }
+.sigad-top-navigation__groups { display:flex; min-height:52px; align-items:stretch; justify-content:center; gap:3px; padding:0 clamp(14px,3.2vw,44px); }
+.sigad-top-navigation__group { position:relative; display:flex; min-width:0; align-items:stretch; }
+.sigad-top-navigation__trigger { display:inline-flex; min-height:52px; align-items:center; gap:8px; padding:0 12px; border:0; border-bottom:2px solid transparent; color:#50637a; background:transparent; font:inherit; font-size:12px; font-weight:650; white-space:nowrap; transition:color 170ms ease,background-color 170ms ease,border-color 170ms ease; }
+.sigad-top-navigation__trigger:hover,.sigad-top-navigation__trigger[aria-expanded="true"] { color:#164e78; background:#f2f7fb; }
+.sigad-top-navigation__group--active>.sigad-top-navigation__trigger,.sigad-top-navigation__trigger:focus-visible { border-bottom-color:#3282b4; color:#164e78; }
+.sigad-top-navigation__trigger:focus-visible,.sigad-top-navigation__item:focus-visible { outline:2px solid #5ca7d7; outline-offset:-2px; }
+.sigad-top-navigation__trigger>.sigad-preview__icone { color:#52728f; }
+.sigad-top-navigation__chevron { flex:0 0 auto; transition:transform 180ms ease; }
+.sigad-top-navigation__group--open .sigad-top-navigation__chevron { transform:rotate(180deg); }
+.sigad-admin--sombre .sigad-top-navigation { border-color:#28394d; background:#182536; }
+.sigad-admin--sombre .sigad-top-navigation__trigger { color:#bdcad8; }
+.sigad-admin--sombre .sigad-top-navigation__trigger:hover,.sigad-admin--sombre .sigad-top-navigation__trigger[aria-expanded="true"] { color:#eaf4fc; background:#20344a; }
+.sigad-admin--sombre .sigad-top-navigation__group--active>.sigad-top-navigation__trigger,.sigad-admin--sombre .sigad-top-navigation__trigger:focus-visible { border-bottom-color:#6aa6d2; color:#f4f8fc; }
+.sigad-admin--sombre .sigad-top-navigation__trigger>.sigad-preview__icone { color:#92b6d2; }
+.sigad-top-navigation__panel { position:absolute; z-index:100; top:calc(100% + 7px); left:0; display:grid; width:min(360px,calc(100vw - 24px)); gap:4px; padding:9px; border:1px solid #dbe4ed; border-radius:11px; background:#fff; box-shadow:0 16px 38px rgb(18 39 62 / .16); animation:sigad-top-menu-in 180ms cubic-bezier(.2,.75,.25,1) both; }
+.sigad-top-navigation__panel[hidden] { display:none; }
+.sigad-top-navigation__panel--mega { width:min(590px,calc(100vw - 24px)); grid-template-columns:repeat(2,minmax(0,1fr)); }
+.sigad-top-navigation__group:nth-last-child(-n+2) .sigad-top-navigation__panel { right:0; left:auto; }
+.sigad-top-navigation__item { display:flex; min-width:0; min-height:48px; align-items:center; gap:10px; padding:7px 9px; border:0; border-radius:7px; color:#334b63; background:transparent; font:inherit; text-align:left; transition:color 150ms ease,background-color 150ms ease; }
+.sigad-top-navigation__item:hover,.sigad-top-navigation__item[aria-current="page"] { color:#153f60; background:#edf5fb; }
+.sigad-top-navigation__item-icon { display:grid; width:30px; height:30px; flex:0 0 auto; place-items:center; border-radius:7px; color:#25628b; background:#e9f2f9; }
+.sigad-top-navigation__item-copy { display:grid; min-width:0; gap:2px; }
+.sigad-top-navigation__item-copy strong { overflow:hidden; font-size:12px; font-weight:650; text-overflow:ellipsis; }
+.sigad-top-navigation__item-copy small { color:#71839a; font-size:10px; }
+.sigad-top-navigation__item-arrow { flex:0 0 auto; margin-left:auto; opacity:.45; }
+.sigad-admin--sombre .sigad-top-navigation__panel { border-color:#34465b; background:#1b293b; box-shadow:0 16px 38px rgb(0 0 0 / .32); }
+.sigad-admin--sombre .sigad-top-navigation__item { color:#d3deea; }
+.sigad-admin--sombre .sigad-top-navigation__item:hover,.sigad-admin--sombre .sigad-top-navigation__item[aria-current="page"] { color:#fff; background:#2a3c52; }
+.sigad-admin--sombre .sigad-top-navigation__item-icon { color:#a9cce5; background:#263d53; }
+.sigad-admin--sombre .sigad-top-navigation__item-copy small { color:#9eafc2; }
+@keyframes sigad-top-menu-in { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+.sigad-workspace { display:flex; width:100%; min-width:0; min-height:calc(100vh - 120px); flex-direction:column; }
+
+@media (max-width:1100px) and (min-width:961px) {
+  .sigad-admin .sigad-preview__entete-institutionnelle.sigad-app-masthead { padding-right:24px; padding-left:24px; }
+  .sigad-top-navigation__groups { gap:0; padding-right:12px; padding-left:12px; }
+  .sigad-top-navigation__trigger { gap:6px; padding-right:9px; padding-left:9px; font-size:11px; }
+}
+@media (max-width:960px) {
+  .sigad-admin .sigad-preview__entete-institutionnelle.sigad-app-masthead { min-height:62px; gap:9px; padding:7px 16px; }
+  .sigad-preview__bouton-menu-mobile { display:grid; width:36px; height:36px; }
+  .sigad-app-brand__logo,.sigad-app-brand__logo img { height:46px; }
+  .sigad-top-navigation { display:none; max-height:calc(100dvh - 62px); overflow-y:auto; overscroll-behavior:contain; }
+  .sigad-top-navigation--mobile-open { display:block; }
+  .sigad-top-navigation__groups { display:flex; min-height:0; flex-direction:column; align-items:stretch; gap:2px; padding:8px 14px 12px; }
+  .sigad-top-navigation__group { display:block; }
+  .sigad-top-navigation__trigger { display:flex; width:100%; min-height:44px; justify-content:flex-start; padding:0 11px; border:0; border-radius:7px; text-align:left; }
+  .sigad-top-navigation__trigger>span { flex:1 1 auto; text-align:left; }
+  .sigad-top-navigation__group--active>.sigad-top-navigation__trigger { box-shadow:inset 3px 0 #3282b4; }
+  .sigad-top-navigation__panel,.sigad-top-navigation__panel--mega,.sigad-top-navigation__group:nth-last-child(-n+2) .sigad-top-navigation__panel { position:static; width:100%; max-height:none; grid-template-columns:minmax(0,1fr); margin:2px 0 7px; padding:5px; border-radius:8px; box-shadow:none; animation:sigad-mobile-menu-in 170ms ease both; }
+  .sigad-top-navigation__item { min-height:43px; }
+  .sigad-app-header__actions .sigad-preview__badge-session { display:none; }
+  .sigad-admin .sigad-app-header__actions { gap:5px; }
+  .sigad-app-profile-trigger { gap:4px; padding:3px; }
+  .sigad-app-profile-trigger .sigad-preview__profil-identite,.sigad-app-profile-trigger>.sigad-preview__icone { display:none; }
+  .sigad-app-profile-trigger .sigad-preview__avatar--entete { width:32px; height:32px; }
+  .sigad-admin__zone-contenu { padding-right:24px; padding-left:24px; }
+}
+@keyframes sigad-mobile-menu-in { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:760px) {
+  .sigad-admin .sigad-preview__entete-institutionnelle.sigad-app-masthead { display:grid; min-height:0; grid-template-columns:minmax(0,1fr); gap:5px; padding:9px 14px 8px; }
+  .sigad-app-masthead__marque { grid-column:1; justify-content:center; }
+  .sigad-app-brand { justify-content:center; gap:9px; }
+  .sigad-app-brand__identity strong { max-width:calc(100vw - 200px); font-size:12px; text-align:left; }
+  .sigad-admin .sigad-app-header__actions { grid-column:1; justify-content:space-between; }
+  .sigad-preview__bouton-menu-mobile { display:grid; }
+}
+@media (max-width:600px) {
+  .sigad-admin .sigad-preview__entete-institutionnelle.sigad-app-masthead { padding-right:10px; padding-left:10px; }
+  .sigad-preview__bouton-menu-mobile { width:34px; height:34px; }
+  .sigad-app-brand__logo,.sigad-app-brand__logo img { height:42px; }
+  .sigad-app-brand__identity strong { max-width:calc(100vw - 192px); font-size:11px; }
+  .sigad-admin .sigad-app-header__actions { gap:3px; }
+  .sigad-app-header__actions>.sigad-preview__bouton-icone,.sigad-app-header__actions .sigad-app-profile-trigger { width:33px; min-width:33px; height:34px; justify-content:center; }
+  .sigad-app-header__actions>.sigad-preview__bouton-icone { padding:0; }
+  .sigad-app-profile-trigger>.sigad-preview__icone { display:none; }
+  .sigad-admin__zone-contenu { padding:18px 14px 28px; }
+  .sigad-preview__menu-liste,.sigad-preview__menu-liste--droite { position:absolute; top:calc(100% + 5px); right:0; left:auto; width:min(300px,calc(100vw - 20px)); max-width:calc(100vw - 20px); }
+}
+@media (max-width:370px) {
+  .sigad-admin .sigad-preview__entete-institutionnelle.sigad-app-masthead { padding-right:10px; padding-left:10px; }
+  .sigad-app-brand__logo,.sigad-app-brand__logo img { height:40px; }
+  .sigad-app-brand__identity strong { max-width:calc(100vw - 180px); font-size:11px; }
+  .sigad-app-header__actions>.sigad-preview__bouton-icone,.sigad-app-header__actions .sigad-app-profile-trigger { width:30px; min-width:30px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .sigad-top-navigation__panel { animation:none; }
+  .sigad-top-navigation__trigger,.sigad-top-navigation__chevron { transition:none; }
+}
+.sigad-admin__zone-contenu {
+  width: 100%;
+  max-width: 1660px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 16px clamp(18px, 5.2vw, 70px) 32px;
+}
+
+.sigad-admin .sigad-compact-toolbar { display:flex; min-width:0; align-items:center; justify-content:flex-end; gap:12px; margin:0 0 12px; }
+.sigad-admin .sigad-compact-meta { display:flex; min-width:0; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; margin:0 0 12px; }
+.sigad-admin .sigad-comptes-toolbar { justify-content:space-between; flex-wrap:wrap; }
+.sigad-admin .sigad-territoire-meta { justify-content:space-between; }
+.sigad-admin .sigad-territoire-meta__description { flex:1 1 420px; margin:0; color:var(--sp-encre-secondaire); font-size:12px; line-height:1.45; }
+
+.sigad-admin .sigad-preview__contenu.sigad-admin__dashboard {
+  max-width: none;
+  padding: 0;
+}
+
+.sigad-admin .contenu-tableau {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  color: var(--sp-encre);
+}
+
+.sigad-admin .entete-section,
+.sigad-admin .entete-module {
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.sigad-admin .entete-section h1,
+.sigad-admin .entete-module h1,
+.sigad-admin .contenu-tableau > h1 {
+  color: var(--sp-encre);
+  font-size: clamp(24px, 2.2vw, 31px);
+  font-weight: 700;
+  letter-spacing: -.025em;
+  line-height: 1.2;
+}
+
+.sigad-admin .surtitre {
+  color: #3b82b8;
+  font-size: 10px;
+  letter-spacing: .09em;
+}
+
+.sigad-admin .texte-secondaire,
+.sigad-admin .entete-section p,
+.sigad-admin .entete-module p {
+  color: var(--sp-encre-secondaire);
+}
+
+.sigad-admin .carte-section,
+.sigad-admin .panneau-tableau-rapport,
+.sigad-admin .detail-reception,
+.sigad-admin .carte-ecarts,
+.sigad-admin .formulaire-remise-distribution,
+.sigad-admin .formulaire-correction-distribution {
+  border-color: var(--sp-bordure);
+  border-radius: 10px;
+  background: var(--sp-surface);
+  box-shadow: var(--sp-ombre);
+}
+
+.sigad-admin .titre-section h2,
+.sigad-admin .titre-section h3,
+.sigad-admin .carte-section h2,
+.sigad-admin .carte-section h3,
+.sigad-admin .module-approvisionnements h3 {
+  color: var(--sp-encre);
+}
+
+.sigad-admin .titre-section p,
+.sigad-admin .compteur,
+.sigad-admin .selection-resumee,
+.sigad-admin .pagination,
+.sigad-admin .pagination-territoriale {
+  color: var(--sp-encre-secondaire);
+}
+
+.sigad-admin .navigation-gestion,
+.sigad-admin .onglets-controle {
+  gap: 5px;
+  border-color: var(--sp-bordure);
+  border-radius: 9px;
+  background: var(--sp-surface);
+}
+
+.sigad-admin .lien-gestion,
+.sigad-admin .onglet-controle {
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--sp-encre-secondaire);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.sigad-admin .lien-gestion:hover,
+.sigad-admin .lien-gestion.actif,
+.sigad-admin .onglet-controle:hover,
+.sigad-admin .onglet-controle.actif {
+  border-color: #d5e5f2;
+  color: #224e73;
+  background: #edf5fb;
+}
+
+.sigad-admin input:not([type="checkbox"]):not([type="radio"]),
+.sigad-admin select,
+.sigad-admin textarea,
+.sigad-admin .champ-territorial input,
+.sigad-admin .champ-territorial select,
+.sigad-admin .champ-territorial textarea,
+.sigad-admin .formulaire-gestion input,
+.sigad-admin .formulaire-gestion select,
+.sigad-admin .formulaire-gestion textarea {
+  border-color: var(--sp-bordure);
+  border-radius: 7px;
+  color: var(--sp-encre);
+  background: var(--sp-surface);
+}
+
+.sigad-admin input:focus-visible,
+.sigad-admin select:focus-visible,
+.sigad-admin textarea:focus-visible {
+  outline: 2px solid rgb(59 130 184 / 45%);
+  outline-offset: 1px;
+}
+
+.sigad-admin .bouton-principal,
+.sigad-admin .bouton-primaire,
+.sigad-admin .bouton:not(.bouton-discret):not(.bouton-secondaire) {
+  border-color: #274f73;
+  border-radius: 7px;
+  color: #fff;
+  background: #274f73;
+}
+
+.sigad-admin .bouton-principal:hover:not(:disabled),
+.sigad-admin .bouton-primaire:hover:not(:disabled),
+.sigad-admin .bouton:not(.bouton-discret):not(.bouton-secondaire):hover:not(:disabled) {
+  background: #356b96;
+}
+
+.sigad-admin .bouton-discret,
+.sigad-admin .bouton-secondaire {
+  border-color: var(--sp-bordure);
+  border-radius: 7px;
+  color: var(--sp-encre);
+  background: var(--sp-surface);
+}
+
+.sigad-admin .badge-role,
+.sigad-admin .badge-perimetre {
+  border: 1px solid #d5e5f2;
+  color: #285581;
+  background: #edf5fc;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.sigad-admin .tableau-defilement {
+  border: 1px solid var(--sp-bordure);
+  border-radius: 8px;
+  background: var(--sp-surface);
+}
+
+.sigad-admin table {
+  color: var(--sp-encre);
+  font-size: 12px;
+}
+
+.sigad-admin th {
+  border-color: var(--sp-bordure);
+  color: #64778d;
+  background: var(--sp-surface-2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .045em;
+}
+
+.sigad-admin td {
+  border-color: var(--sp-bordure);
+  color: var(--sp-encre);
+}
+
+.sigad-admin tbody tr:hover { background: var(--sp-surface-2); }
+.sigad-admin .texte-gras { color: var(--sp-encre); }
+.sigad-admin .cellule-vide,
+.sigad-admin .etat-vide,
+.sigad-admin .note-perimetre { color: var(--sp-encre-secondaire); }
+.sigad-admin .message-erreur { border: 1px solid #f1c5c8; }
+.sigad-admin .message-succes { border: 1px solid #bfe5ce; }
+.sigad-admin__alerte { margin: 14px clamp(18px, 5.2vw, 70px) 0; }
+.sigad-admin__attente { padding: 24px; color: var(--sp-encre-secondaire); }
+
+.sigad-admin--sombre {
+  --sp-fond: #111b29;
+  --sp-surface: #192638;
+  --sp-surface-2: #202f43;
+  --sp-encre: #e2ebf5;
+  --sp-encre-secondaire: #a8b8ca;
+  --sp-bordure: #304158;
+  --sp-ombre: 0 3px 12px rgb(0 0 0 / 13%);
+}
+
+.sigad-admin--sombre .entete-section h1,
+.sigad-admin--sombre .entete-module h1,
+.sigad-admin--sombre .titre-section h2,
+.sigad-admin--sombre .titre-section h3,
+.sigad-admin--sombre .carte-section h2,
+.sigad-admin--sombre .carte-section h3,
+.sigad-admin--sombre .module-approvisionnements h3 { color: var(--sp-encre); }
+.sigad-admin--sombre .champ-territorial label,
+.sigad-admin--sombre .formulaire-import label,
+.sigad-admin--sombre .choix-roles label,
+.sigad-admin--sombre .barre-filtres-stock label,
+.sigad-admin--sombre .champ-appro-large,
+.sigad-admin--sombre .panneau-filtres label,
+.sigad-admin--sombre .formulaire-filtres-rapport label,
+.sigad-admin--sombre .filtres-controle label,
+.sigad-admin--sombre .filtres-audit label,
+.sigad-admin--sombre .formulaire-controle label,
+.sigad-admin--sombre .formulaire-correction-controle label { color: var(--sp-encre); }
+.sigad-admin--sombre .panneau-filtres,
+.sigad-admin--sombre .panneau-tableau-rapport,
+.sigad-admin--sombre .carte-indicateur-rapport,
+.sigad-admin--sombre .formulaire-controle,
+.sigad-admin--sombre .formulaire-correction-controle,
+.sigad-admin--sombre .carte-controle,
+.sigad-admin--sombre .indicateurs-controle > div,
+.sigad-admin--sombre .notification-lue,
+.sigad-admin--sombre .bloc-destination { border-color: var(--sp-bordure); color: var(--sp-encre); background: var(--sp-surface-2); }
+.sigad-admin--sombre .carte-indicateur-rapport { background: linear-gradient(145deg, var(--sp-surface), var(--sp-surface-2)); }
+.sigad-admin--sombre .carte-indicateur-rapport span,
+.sigad-admin--sombre .indicateurs-controle span,
+.sigad-admin--sombre .notification-lue { color: var(--sp-encre-secondaire); }
+.sigad-admin--sombre .carte-indicateur-rapport strong,
+.sigad-admin--sombre .indicateurs-controle strong,
+.sigad-admin--sombre .formulaire-controle h2,
+.sigad-admin--sombre .bloc-destination legend { color: #c9e0f2; }
+.sigad-admin--sombre .gravite-critique,
+.sigad-admin--sombre .statut-bloque { color: #f1b0aa; background: #492c31; }
+.sigad-admin--sombre .gravite-avertissement { color: #f0d08e; background: #4a3c24; }
+.sigad-admin--sombre .lien-gestion:hover,
+.sigad-admin--sombre .lien-gestion.actif,
+.sigad-admin--sombre .onglet-controle:hover,
+.sigad-admin--sombre .onglet-controle.actif { border-color: #3a5873; color: #e4eff9; background: #243a50; }
+.sigad-admin--sombre .detail-reception,
+.sigad-admin--sombre .carte-ecarts,
+.sigad-admin--sombre .formulaire-remise-distribution,
+.sigad-admin--sombre .formulaire-correction-distribution { color: var(--sp-encre); background: var(--sp-surface-2); }
+.sigad-admin--sombre .badge-role,
+.sigad-admin--sombre .badge-perimetre { border-color: #3a536b; color: #c5d9eb; background: #243a50; }
+.sigad-admin--sombre .puce-zone { border-color: #3a536b; color: #d4e5f4; background: #24374b; }
+.sigad-admin--sombre .grille-indicateurs-distribution > div,
+.sigad-admin--sombre .carte-indicateur-rapport { border-color: var(--sp-bordure); background: var(--sp-surface-2); }
+.sigad-admin--sombre .grille-indicateurs-distribution strong { color: #c9e0f2; }
+.sigad-admin--sombre .grille-indicateurs-distribution span,
+.sigad-admin--sombre .note-perimetre { color: var(--sp-encre-secondaire); }
+.sigad-admin--sombre .statut-information { color: #a5e9ef; background: #21434a; }
+.sigad-admin--sombre .statut-actif { color: #9de0b4; background: #1d4032; }
+.sigad-admin--sombre .statut-suspendu { color: #f3b5b5; background: #4a2b34; }
+.sigad-admin--sombre .statut-verrouille { color: #f0d49a; background: #4b3d23; }
+.sigad-admin--sombre .message-erreur { border-color: #76474d; color: #f2c9cc; background: #3a252d; }
+.sigad-admin--sombre .message-succes { border-color: #315d49; color: #b8e6c8; background: #20392f; }
+.sigad-admin.sigad-admin--sombre .contenu-tableau input:not([type="checkbox"]):not([type="radio"]),
+.sigad-admin.sigad-admin--sombre .contenu-tableau select,
+.sigad-admin.sigad-admin--sombre .contenu-tableau textarea {
+  color-scheme: dark;
+  border-color: var(--sp-bordure);
+  color: var(--sp-encre);
+  background-color: var(--sp-surface);
+}
+.sigad-admin.sigad-admin--sombre .module-rapports .entete-module h1,
+.sigad-admin.sigad-admin--sombre .module-rapports .entete-section-rapport h2 {
+  color: var(--sp-encre);
+}
+.sigad-admin.sigad-admin--sombre .module-rapports .entete-module p,
+.sigad-admin.sigad-admin--sombre .module-rapports .entete-section-rapport p,
+.sigad-admin.sigad-admin--sombre .module-rapports .entete-section-rapport > span {
+  color: var(--sp-encre-secondaire);
+}
+.sigad-admin.sigad-admin--sombre .module-rapports th {
+  color: var(--sp-encre-secondaire);
+  background: var(--sp-surface-2);
+}
+.sigad-admin.sigad-admin--sombre .module-rapports td {
+  border-color: var(--sp-bordure);
+  color: var(--sp-encre);
+}
+.sigad-admin.sigad-admin--sombre .module-rapports .note-perimetre {
+  border-color: #426c58;
+  color: #c2e0cb;
+  background: #20392f;
+}
+
+@media (max-width: 1100px) and (min-width: 701px) {
+  .sigad-admin__zone-contenu { padding-right: 28px; padding-left: 28px; }
+}
+
+@media (max-width: 700px) {
+  .sigad-admin__zone-contenu { padding: 18px 14px 28px; }
+  .sigad-admin .sigad-compact-toolbar,.sigad-admin .sigad-compact-meta { justify-content:flex-start; }
+  .sigad-admin .entete-section,
+  .sigad-admin .entete-module { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .sigad-admin .carte-section { padding: 15px; }
+  .sigad-admin .navigation-gestion { overflow-x: auto; flex-wrap: nowrap; }
+  .sigad-admin .lien-gestion { flex: 0 0 auto; }
+  .sigad-admin .pagination { align-items: flex-start; flex-direction: column; }
+  .sigad-admin .grille-indicateurs-distribution { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sigad-admin .ligne-destination,
+  .sigad-admin .ligne-allocation { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sigad-pwa-update { position:fixed; z-index:180; right:18px; bottom:18px; display:flex; width:min(620px,calc(100vw - 28px)); align-items:center; justify-content:space-between; gap:18px; padding:14px 16px; border:1px solid #a7c5dd; border-radius:12px; color:#19364f; background:#f5fbff; box-shadow:0 16px 40px rgb(15 35 56 / .2); }
+.sigad-admin--sombre .sigad-pwa-update { border-color:#49647d; color:#e7f2fa; background:#1a2b3e; }
+.sigad-pwa-update__copy { display:grid; min-width:0; gap:4px; font-size:12px; line-height:1.45; }
+.sigad-pwa-update__copy strong { font-size:13px; }
+.sigad-pwa-update__actions { display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+.sigad-pwa-update__actions button { min-height:40px; padding:8px 11px; border:1px solid #b9cad8; border-radius:7px; color:inherit; background:transparent; font:inherit; font-size:12px; font-weight:650; }
+.sigad-pwa-update__actions button:focus-visible { outline:2px solid #3282b4; outline-offset:2px; }
+.sigad-pwa-update__actions .sigad-pwa-update__primary { border-color:#0f4c75; color:#fff; background:#0f4c75; }
+@media (max-width:600px) {
+  .sigad-pwa-update { right:10px; bottom:10px; flex-direction:column; align-items:stretch; gap:10px; padding:12px; }
+  .sigad-pwa-update__actions { justify-content:flex-start; }
+}
+
+.sigad-pwa-update { position:fixed; z-index:180; right:18px; bottom:18px; display:flex; width:min(620px,calc(100vw - 28px)); align-items:center; justify-content:space-between; gap:18px; padding:14px 16px; border:1px solid #a7c5dd; border-radius:12px; color:#19364f; background:#f5fbff; box-shadow:0 16px 40px rgb(15 35 56 / .2); }
+.sigad-admin--sombre .sigad-pwa-update { border-color:#49647d; color:#e7f2fa; background:#1a2b3e; }
+.sigad-pwa-update__copy { display:grid; min-width:0; gap:4px; font-size:12px; line-height:1.45; }
+.sigad-pwa-update__copy strong { font-size:13px; }
+.sigad-pwa-update__actions { display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+.sigad-pwa-update__actions button { min-height:40px; padding:8px 11px; border:1px solid #b9cad8; border-radius:7px; color:inherit; background:transparent; font:inherit; font-size:12px; font-weight:650; }
+.sigad-pwa-update__actions button:focus-visible { outline:2px solid #3282b4; outline-offset:2px; }
+.sigad-pwa-update__actions .sigad-pwa-update__primary { border-color:#0f4c75; color:#fff; background:#0f4c75; }
+@media (max-width:600px) {
+  .sigad-pwa-update { right:10px; bottom:10px; flex-direction:column; align-items:stretch; gap:10px; padding:12px; }
+  .sigad-pwa-update__actions { justify-content:flex-start; }
+}
+
+.sigad-admin .sigad-filter-bar {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 16px;
+}
+
+.sigad-admin .sigad-filter-bar__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sigad-admin .sigad-filter-bar__primary,
+.sigad-admin .sigad-filter-bar__primary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sigad-admin .sigad-filter-bar__primary:has(> .sigad-filter-bar__primary-grid) {
+  display: block;
+}
+
+.sigad-admin .sigad-filter-bar__actions {
+  display: flex;
+  align-items: end;
+}
+
+.sigad-admin .sigad-filter-bar__actions .bouton,
+.sigad-admin .sigad-filter-bar__toggle {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.sigad-admin .sigad-filter-bar__toggle {
+  padding: 0 12px;
+  border: 1px solid var(--sp-bordure);
+  border-radius: 7px;
+  color: var(--sp-encre);
+  background: var(--sp-surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.sigad-admin .sigad-filter-bar__toggle:hover,
+.sigad-admin .sigad-filter-bar__toggle:focus-visible {
+  border-color: #8ab6d4;
+  background: var(--sp-surface-2);
+}
+
+.sigad-admin .sigad-filter-bar__toggle:focus-visible {
+  outline: 2px solid rgb(59 130 184 / 45%);
+  outline-offset: 2px;
+}
+
+.sigad-admin .sigad-filter-bar__advanced,
+.sigad-admin .sigad-filter-bar__advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.sigad-admin .sigad-filter-bar__fields.panneau-filtres {
+  display: block;
+  margin: 0;
+  padding: 16px;
+}
+
+.sigad-admin .sigad-filter-bar__fields.panneau-filtres .sigad-filter-bar__primary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
+}
+
+.sigad-admin .sigad-filter-bar label,
+.sigad-admin .sigad-filter-bar .champ-territorial {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--sp-encre-secondaire);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.sigad-admin .sigad-filter-bar input:not([type="checkbox"]):not([type="radio"]),
+.sigad-admin .sigad-filter-bar select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--sp-bordure);
+  border-radius: 7px;
+  color: var(--sp-encre);
+  background: var(--sp-surface);
+  font: inherit;
+}
+
+.sigad-admin .sigad-filter-bar .barre-filtres-stock {
+  max-width: none;
+  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
+.sigad-admin .sigad-filter-bar .filtres-controle {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.sigad-admin .sigad-filter-bar .panneau-filtres {
+  max-width: none;
+  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+.sigad-admin .sigad-filter-bar .formulaire-filtres-rapport {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.sigad-admin .formulaire-gestion {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+
+.sigad-admin .formulaire-gestion > .bouton {
+  min-height: 44px;
+}
+
+.sigad-admin .formulaire-gestion .choix-roles,
+.sigad-admin .formulaire-gestion .destination-editoriale,
+.sigad-admin .formulaire-gestion .option-stock,
+.sigad-admin .formulaire-gestion .pied-formulaire-distribution {
+  grid-column: 1 / -1;
+}
+
+.sigad-admin .formulaire-gestion .champ-territorial,
+.sigad-admin .formulaire-approvisionnement > .champ-territorial {
+  min-width: 0;
+}
+
+.sigad-admin .formulaire-gestion .champ-territorial input,
+.sigad-admin .formulaire-gestion .champ-territorial select,
+.sigad-admin .formulaire-gestion .champ-territorial textarea,
+.sigad-admin .formulaire-approvisionnement > .champ-territorial input,
+.sigad-admin .formulaire-approvisionnement > .champ-territorial select,
+.sigad-admin .formulaire-approvisionnement > .champ-territorial textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.sigad-admin .formulaire-controle,
+.sigad-admin .formulaire-correction-controle {
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .sigad-admin .sigad-filter-bar__primary,
+  .sigad-admin .sigad-filter-bar__primary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sigad-admin .sigad-filter-bar .formulaire-filtres-rapport {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .sigad-admin .sigad-filter-bar__fields,
+  .sigad-admin .sigad-filter-bar .barre-filtres-stock,
+  .sigad-admin .sigad-filter-bar .filtres-controle,
+  .sigad-admin .sigad-filter-bar .panneau-filtres,
+  .sigad-admin .sigad-filter-bar .formulaire-filtres-rapport,
+  .sigad-admin .formulaire-gestion {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sigad-admin .sigad-filter-bar__primary,
+  .sigad-admin .sigad-filter-bar__primary-grid,
+  .sigad-admin .sigad-filter-bar__advanced,
+  .sigad-admin .sigad-filter-bar__advanced-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sigad-admin .sigad-filter-bar__actions,
+  .sigad-admin .sigad-filter-bar__toggle {
+    width: 100%;
+  }
+
+  .sigad-admin .sigad-filter-bar__actions .bouton {
+    width: 100%;
+  }
+
+  .sigad-admin .formulaire-gestion .choix-roles,
+  .sigad-admin .formulaire-gestion .destination-editoriale,
+  .sigad-admin .formulaire-gestion .option-stock,
+  .sigad-admin .formulaire-gestion .pied-formulaire-distribution {
+    grid-column: auto;
+  }
+}

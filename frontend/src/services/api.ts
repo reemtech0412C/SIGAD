@@ -1,7 +1,3 @@
-export interface ReponseErreur {
-  erreur?: string;
-}
-
 export class ErreurApi extends Error {
   readonly statutHttp: number;
 
@@ -15,7 +11,7 @@ export class ErreurApi extends Error {
 export async function requeteApi<T>(
   chemin: string,
   options: {
-    methode?: "GET" | "POST" | "PATCH" | "PUT";
+    methode?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
     jetonCsrf?: string;
     cleIdempotence?: string;
     corps?: unknown;

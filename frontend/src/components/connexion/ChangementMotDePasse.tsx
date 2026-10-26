@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { requeteApi } from "../../services/api";
+import { SIGADAlert, SIGADButton, SIGADFormField, SIGADInput } from "../ui";
 
 interface ChangementMotDePasseProps {
   jetonCsrf: string;
@@ -39,33 +40,52 @@ export function ChangementMotDePasse({ jetonCsrf, onModification }: ChangementMo
     <main className="page-connexion">
       <section className="carte-connexion" aria-labelledby="titre-changement">
         <p className="surtitre">Sécurité du compte</p>
-        <h1 id="titre-changement">Créer un nouveau mot de passe</h1>
-        <p className="texte-secondaire">Cette modification est obligatoire avant l’accès aux fonctions de l’application.</p>
-        <form className="formulaire" onSubmit={(event) => void soumettre(event)}>
-          <label htmlFor="nouveau-mot-de-passe">Nouveau mot de passe</label>
-          <input
-            autoComplete="new-password"
-            id="nouveau-mot-de-passe"
-            minLength={12}
+        <h1 id="titre-changement" style={{ color: "var(--sigad-primary-dark)", marginBottom: "0.5rem" }}>
+          Créer un nouveau mot de passe
+        </h1>
+        <p className="texte-secondaire" style={{ marginBottom: "1.5rem" }}>
+          Cette modification est obligatoire avant l’accès aux fonctions de l’application.
+        </p>
+
+        {erreur && <SIGADAlert type="danger" message={erreur} style={{ marginBottom: "1rem" }} />}
+
+        <form onSubmit={(event) => void soumettre(event)} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <SIGADFormField
+            label="Nouveau mot de passe"
+            hint="12 caractères minimum, avec une majuscule, une minuscule et un chiffre."
             required
-            type="password"
-            value={nouveauMotDePasse}
-            onChange={(event) => setNouveauMotDePasse(event.currentTarget.value)}
-          />
-          <p className="aide-saisie">12 caractères minimum, avec une majuscule, une minuscule et un chiffre.</p>
-          <label htmlFor="confirmation-mot-de-passe">Confirmer le nouveau mot de passe</label>
-          <input
-            autoComplete="new-password"
-            id="confirmation-mot-de-passe"
-            required
-            type="password"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.currentTarget.value)}
-          />
-          {erreur && <p className="message-erreur" role="alert">{erreur}</p>}
-          <button className="bouton bouton-principal bouton-large" disabled={chargement} type="submit">
+          >
+            <SIGADInput
+              autoComplete="new-password"
+              id="nouveau-mot-de-passe"
+              minLength={12}
+              required
+              type="password"
+              value={nouveauMotDePasse}
+              onChange={(event) => setNouveauMotDePasse(event.currentTarget.value)}
+            />
+          </SIGADFormField>
+
+          <SIGADFormField label="Confirmer le nouveau mot de passe" required>
+            <SIGADInput
+              autoComplete="new-password"
+              id="confirmation-mot-de-passe"
+              required
+              type="password"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.currentTarget.value)}
+            />
+          </SIGADFormField>
+
+          <SIGADButton
+            variant="primary"
+            size="lg"
+            loading={chargement}
+            type="submit"
+            style={{ width: "100%", marginTop: "0.5rem" }}
+          >
             {chargement ? "Enregistrement en cours…" : "Enregistrer le nouveau mot de passe"}
-          </button>
+          </SIGADButton>
         </form>
       </section>
     </main>

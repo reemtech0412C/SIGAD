@@ -1,20 +1,111 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import type { UtilisateurAuthentifie } from "../../shared/types/authentification";
 import { ChangementMotDePasse } from "./components/connexion/ChangementMotDePasse";
 import { ConfigurationMfa } from "./components/connexion/ConfigurationMfa";
 import { ConnexionPage } from "./components/connexion/ConnexionPage";
-import { TableauGestionBeneficiaires } from "./components/gestion/TableauGestionBeneficiaires";
-import { TableauApprovisionnements } from "./components/gestion/TableauApprovisionnements";
-import { TableauGestionStocks } from "./components/gestion/TableauGestionStocks";
-import { TableauDistributions } from "./components/gestion/TableauDistributions";
-import { TableauControle } from "./components/gestion/TableauControle";
-import { TableauRapports } from "./components/gestion/TableauRapports";
-import { TableauProprietaire } from "./components/proprietaire/TableauProprietaire";
+import {
+  SIGADAppShell,
+  type ModuleAdministration,
+  type VueControleAdministration,
+} from "./components/administration/SIGADAppShell";
+import type { VueTerritoireOperationnel } from "./components/territoire/EspaceTerritorialOperationnel";
 import { ErreurApi, chargerJetonCsrf, requeteApi } from "./services/api";
+
+const TableauBordPilote = lazy(() => import("./components/pilote/TableauBordPilote").then((module) => ({ default: module.TableauBordPilote })));
+const TableauOperationsCentrales = lazy(() => import("./components/gestion/TableauOperationsCentrales").then((module) => ({ default: module.TableauOperationsCentrales })));
+const TableauGestionBeneficiaires = lazy(() => import("./components/gestion/TableauGestionBeneficiaires").then((module) => ({ default: module.TableauGestionBeneficiaires })));
+const TableauGestionStocks = lazy(() => import("./components/gestion/TableauGestionStocks").then((module) => ({ default: module.TableauGestionStocks })));
+const TableauApprovisionnements = lazy(() => import("./components/gestion/TableauApprovisionnements").then((module) => ({ default: module.TableauApprovisionnements })));
+const TableauDistributions = lazy(() => import("./components/gestion/TableauDistributions").then((module) => ({ default: module.TableauDistributions })));
+const TableauControle = lazy(() => import("./components/gestion/TableauControle").then((module) => ({ default: module.TableauControle })));
+const TableauRapports = lazy(() => import("./components/gestion/TableauRapports").then((module) => ({ default: module.TableauRapports })));
+const TableauProprietaire = lazy(() => import("./components/proprietaire/TableauProprietaire").then((module) => ({ default: module.TableauProprietaire })));
+const AdministrationTerritoriale = lazy(() => import("./components/proprietaire/AdministrationTerritoriale").then((module) => ({ default: module.AdministrationTerritoriale })));
+const EspaceTerritorialOperationnel = lazy(() => import("./components/territoire/EspaceTerritorialOperationnel").then((module) => ({ default: module.EspaceTerritorialOperationnel })));
+const MonCompte = lazy(() => import("./components/administration/MonCompte").then((module) => ({ default: module.MonCompte })));
+const AdministrationComptes = lazy(() => import("./components/administration/AdministrationComptes").then((module) => ({ default: module.AdministrationComptes })));
 
 interface ReponseSession {
   utilisateur: UtilisateurAuthentifie;
   expire_le: string;
+}
+
+const routes: Record<ModuleAdministration, string> = {
+  dashboard: "/tableau-de-bord",
+  operations: "/operations-centrales",
+  beneficiaires: "/gestion/beneficiaires",
+  stocks: "/stocks",
+  approvisionnements: "/approvisionnements",
+  distributions: "/distributions",
+  territoire: "/territoire",
+  controle: "/controle",
+  rapports: "/rapports",
+  comptes: "/administration/comptes",
+  "mon-compte": "/mon-compte",
+};
+
+function moduleDepuisAdresse(
+  adresse: string,
+  role: UtilisateurAuthentifie["role"],
+): ModuleAdministration {
+  const chemin = adresse.split("?", 1)[0] ?? "/";
+  if (chemin === "/ui-preview") return "dashboard";
+  const module = (Object.entries(routes) as Array<[ModuleAdministration, string]>).find(
+    ([, route]) => route === chemin,
+  )?.[0];
+  return module ?? (role === "PROPRIETAIRE" ? "comptes" : "beneficiaires");
+}
+
+function autorise(
+  module: ModuleAdministration,
+  role: UtilisateurAuthentifie["role"],
+): boolean {
+  if (module === "mon-compte") return true;
+  if (module === "comptes") return role === "PROPRIETAIRE" || role === "ADMIN_CENTRAL";
+  if (role === "CONSULTATION_INSTITUTIONNELLE") {
+    return module === "dashboard" || module === "operations" || module === "rapports";
+  }
+  if (module === "beneficiaires") return role !== "PROPRIETAIRE";
+  return true;
+}
+
+function adresseModule(
+  module: ModuleAdministration,
+  vueControle?: VueControleAdministration,
+): string {
+  const adresse = routes[module];
+  return module === "controle" && vueControle
+    ? `${adresse}?vue=${encodeURIComponent(vueControle)}`
+    : adresse;
+}
+
+function vueControleDepuisAdresse(adresse: string): VueControleAdministration | null {
+  const valeur = new URLSearchParams(adresse.split("?", 2)[1] ?? "").get("vue");
+  const vues: VueControleAdministration[] = [
+    "tableau",
+    "observations",
+    "corrections",
+    "fermetures",
+    "audit",
+    "notifications",
+  ];
+  return valeur && vues.includes(valeur as VueControleAdministration)
+    ? (valeur as VueControleAdministration)
+    : null;
+}
+
+function vueTerritoireDepuisAdresse(adresse: string): VueTerritoireOperationnel {
+  const valeur = new URLSearchParams(adresse.split("?", 2)[1] ?? "").get("vue");
+  const vues: VueTerritoireOperationnel[] = [
+    "dashboard",
+    "arborescence",
+    "recherche",
+    "sites",
+    "corrections",
+  ];
+  return valeur && vues.includes(valeur as VueTerritoireOperationnel)
+    ? (valeur as VueTerritoireOperationnel)
+    : "dashboard";
 }
 
 export default function App() {
@@ -23,19 +114,21 @@ export default function App() {
   const [erreurDemarrage, setErreurDemarrage] = useState<string | null>(null);
   const [erreurAction, setErreurAction] = useState<string | null>(null);
   const [chargement, setChargement] = useState(true);
-  const [afficherStocks, setAfficherStocks] = useState(false);
-  const [afficherApprovisionnements, setAfficherApprovisionnements] = useState(false);
-  const [afficherDistributions, setAfficherDistributions] = useState(false);
-  const [afficherControle, setAfficherControle] = useState(false);
-  const [afficherRapports, setAfficherRapports] = useState(false);
-
-  function choisirModule(module: "comptes" | "stocks" | "approvisionnements" | "beneficiaires" | "distributions" | "controle" | "rapports"): void {
-    setAfficherStocks(module === "stocks");
-    setAfficherApprovisionnements(module === "approvisionnements");
-    setAfficherDistributions(module === "distributions");
-    setAfficherControle(module === "controle");
-    setAfficherRapports(module === "rapports");
-  }
+  const [adresseCourante, setAdresseCourante] = useState(
+    () => `${window.location.pathname}${window.location.search}`,
+  );
+  const moduleDemande = moduleDepuisAdresse(
+    adresseCourante,
+    utilisateur?.role ?? "DELEGUE_PROVINCIAL",
+  );
+  const moduleActif =
+    utilisateur && autorise(moduleDemande, utilisateur.role)
+      ? moduleDemande
+      : utilisateur?.role === "PROPRIETAIRE"
+        ? "comptes"
+        : utilisateur?.role === "CONSULTATION_INSTITUTIONNELLE"
+          ? "dashboard"
+          : "beneficiaires";
 
   useEffect(() => {
     let actif = true;
@@ -48,116 +141,225 @@ export default function App() {
           if (actif) setUtilisateur(session.utilisateur);
         } catch (cause) {
           if (!(cause instanceof ErreurApi) || cause.statutHttp !== 401) {
-            if (actif) setErreurDemarrage(cause instanceof Error ? cause.message : "La session n’a pas pu être chargée.");
+            if (actif) {
+              setErreurDemarrage(
+                cause instanceof Error ? cause.message : "La session n’a pas pu être chargée.",
+              );
+            }
           }
         }
       } catch (cause) {
-        if (actif) setErreurDemarrage(cause instanceof Error ? cause.message : "Le service est momentanément indisponible.");
+        if (actif) {
+          setErreurDemarrage(
+            cause instanceof Error ? cause.message : "Le service est momentanément indisponible.",
+          );
+        }
       } finally {
         if (actif) setChargement(false);
       }
     }
     void initialiser();
-    return () => { actif = false; };
+    return () => {
+      actif = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (adresseCourante.split("?", 1)[0] === "/mon-compte") return;
+    if (
+      !utilisateur ||
+      moduleDemande === moduleActif ||
+      utilisateur.doit_changer_mot_de_passe ||
+      ((utilisateur.role === "PROPRIETAIRE" || utilisateur.role === "ADMIN_CENTRAL") &&
+        !utilisateur.double_facteur_actif)
+    ) {
+      return;
+    }
+    const destination = routes[moduleActif];
+    window.history.replaceState(null, "", destination);
+    setAdresseCourante(destination);
+  }, [adresseCourante, moduleActif, moduleDemande, utilisateur]);
+
+  useEffect(() => {
+    function suivreHistorique(): void {
+      setAdresseCourante(`${window.location.pathname}${window.location.search}`);
+    }
+    window.addEventListener("popstate", suivreHistorique);
+    return () => window.removeEventListener("popstate", suivreHistorique);
   }, []);
 
   async function deconnexion(): Promise<void> {
     if (!jetonCsrf) return;
     setErreurAction(null);
     try {
-      await requeteApi<{ message: string }>("/api/auth/deconnexion", { methode: "POST", jetonCsrf });
+      await requeteApi<{ message: string }>("/api/auth/deconnexion", {
+        methode: "POST",
+        jetonCsrf,
+      });
       setUtilisateur(null);
       setJetonCsrf(await chargerJetonCsrf());
+      window.history.replaceState(null, "", "/");
+      setAdresseCourante("/");
     } catch (cause) {
       setErreurAction(cause instanceof Error ? cause.message : "La déconnexion a échoué.");
     }
   }
 
+  function naviguer(
+    module: ModuleAdministration,
+    vueControle?: VueControleAdministration,
+    cheminExplicite?: string,
+  ): void {
+    const destination = cheminExplicite ?? adresseModule(module, vueControle);
+    if (`${window.location.pathname}${window.location.search}` !== destination) {
+      window.history.pushState(null, "", destination);
+    }
+    setAdresseCourante(destination);
+  }
+
+  function ouvrirMonCompte(): void {
+    const destination = "/mon-compte";
+    if (`${window.location.pathname}${window.location.search}` !== destination) {
+      window.history.pushState(null, "", destination);
+    }
+    setAdresseCourante(destination);
+  }
+
   if (chargement) {
-    return <main className="ecran-attente"><p>Chargement de votre espace sécurisé…</p></main>;
+    return (
+      <main className="ecran-attente">
+        <p>Chargement de votre espace sécurisé…</p>
+      </main>
+    );
   }
   if (erreurDemarrage) {
-    return <main className="ecran-attente"><p className="message-erreur">{erreurDemarrage}</p></main>;
+    return (
+      <main className="ecran-attente">
+        <p className="message-erreur">{erreurDemarrage}</p>
+      </main>
+    );
   }
   if (!jetonCsrf) {
-    return <main className="ecran-attente"><p className="message-erreur">Le contrôle de sécurité n’a pas pu être initialisé.</p></main>;
+    return (
+      <main className="ecran-attente">
+        <p className="message-erreur">Le contrôle de sécurité n’a pas pu être initialisé.</p>
+      </main>
+    );
   }
   if (!utilisateur) return <ConnexionPage jetonCsrf={jetonCsrf} onConnexion={setUtilisateur} />;
   if (utilisateur.doit_changer_mot_de_passe) {
-    return <ChangementMotDePasse jetonCsrf={jetonCsrf} onModification={() => setUtilisateur({ ...utilisateur, doit_changer_mot_de_passe: false })} />;
-  }
-  if ((utilisateur.role === "PROPRIETAIRE" || utilisateur.role === "ADMIN_CENTRAL") && !utilisateur.double_facteur_actif) {
-    return <ConfigurationMfa jetonCsrf={jetonCsrf} onActivation={() => setUtilisateur({ ...utilisateur, double_facteur_actif: true })} />;
-  }
-  if (utilisateur.role === "PROPRIETAIRE") {
     return (
-      <div className="application">
-        <aside className="barre-laterale">
-          <div className="logo-barre"><span>S</span><div><strong>SIGAD</strong><small>République du Tchad</small></div></div>
-          <nav aria-label="Navigation principale">
-            <button className={!afficherStocks && !afficherApprovisionnements && !afficherDistributions && !afficherControle && !afficherRapports ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("comptes")} type="button">Administration des comptes</button>
-            <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("stocks")} type="button">Articles et stocks</button>
-            <button className={afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("approvisionnements")} type="button">Approvisionnements</button>
-            <button className={afficherDistributions ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("distributions")} type="button">Distributions provinciales</button>
-            <button className={afficherControle ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("controle")} type="button">Audit et notifications</button>
-            <button className={afficherRapports ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("rapports")} type="button">Rapports et tableaux de bord</button>
-          </nav>
-          <div className="profil-barre">
-            <span className="avatar">{utilisateur.nom_complet.charAt(0).toUpperCase()}</span>
-            <div><strong>{utilisateur.nom_complet}</strong><small>Propriétaire</small></div>
-          </div>
-        </aside>
-        <main className="zone-principale">
-          <header className="barre-haute"><span>Gestion intégrée des aides et des distributions</span><button className="bouton bouton-discret" onClick={() => void deconnexion()} type="button">Se déconnecter</button></header>
-          {erreurAction && <p className="message-erreur bandeau-erreur" role="alert">{erreurAction}</p>}
-          {afficherRapports
-            ? <TableauRapports utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : afficherControle
-            ? <TableauControle utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : afficherDistributions
-            ? <TableauDistributions utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : afficherApprovisionnements
-            ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : afficherStocks
-              ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-              : <TableauProprietaire jetonCsrf={jetonCsrf} />}
-        </main>
-      </div>
+      <ChangementMotDePasse
+        jetonCsrf={jetonCsrf}
+        onModification={() => setUtilisateur({ ...utilisateur, doit_changer_mot_de_passe: false })}
+      />
+    );
+  }
+  if (
+    (utilisateur.role === "PROPRIETAIRE" ||
+      utilisateur.role === "ADMIN_CENTRAL" ||
+      utilisateur.role === "CONSULTATION_INSTITUTIONNELLE") &&
+    !utilisateur.double_facteur_actif
+  ) {
+    return (
+      <ConfigurationMfa
+        jetonCsrf={jetonCsrf}
+        onActivation={() => setUtilisateur({ ...utilisateur, double_facteur_actif: true })}
+      />
     );
   }
 
+  if (adresseCourante.split("?", 1)[0] === "/mon-compte") {
+    return (
+      <SIGADAppShell
+        adresseCourante={adresseCourante}
+        erreur={erreurAction}
+        moduleActif="mon-compte"
+        onDeconnexion={deconnexion}
+        onMonCompte={ouvrirMonCompte}
+        onNaviguer={naviguer}
+        utilisateur={utilisateur}
+      >
+        <Suspense fallback={<p className="sigad-admin__attente">Chargement de votre compte…</p>}>
+          <MonCompte jetonCsrf={jetonCsrf} />
+        </Suspense>
+      </SIGADAppShell>
+    );
+  }
+
+  const vueControleInitiale = vueControleDepuisAdresse(adresseCourante) ?? undefined;
+  let contenu: ReactNode;
+  switch (moduleActif) {
+    case "dashboard":
+      contenu = <TableauBordPilote utilisateur={utilisateur} />;
+      break;
+    case "operations":
+      contenu = <TableauOperationsCentrales utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;
+      break;
+    case "beneficiaires":
+      contenu = <TableauGestionBeneficiaires utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;
+      break;
+    case "stocks":
+      contenu = <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;
+      break;
+    case "approvisionnements":
+      contenu = <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;
+      break;
+    case "distributions":
+      contenu = <TableauDistributions utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;
+      break;
+    case "territoire":
+      contenu =
+        utilisateur.role === "PROPRIETAIRE" ? (
+          <div className="contenu-tableau">
+            <AdministrationTerritoriale jetonCsrf={jetonCsrf} />
+          </div>
+        ) : (
+          <EspaceTerritorialOperationnel
+            utilisateur={utilisateur}
+            jetonCsrf={jetonCsrf}
+            vueInitiale={vueTerritoireDepuisAdresse(adresseCourante)}
+          />
+        );
+      break;
+    case "controle":
+      contenu = (
+        <TableauControle
+          utilisateur={utilisateur}
+          jetonCsrf={jetonCsrf}
+          vueInitiale={vueControleInitiale}
+        />
+      );
+      break;
+    case "rapports":
+      contenu = <TableauRapports utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;
+      break;
+    case "comptes":
+    case "mon-compte":
+      contenu =
+        utilisateur.role === "PROPRIETAIRE" ? (
+          <TableauProprietaire jetonCsrf={jetonCsrf} />
+        ) : (
+          <AdministrationComptes jetonCsrf={jetonCsrf} />
+        );
+      break;
+  }
+
+  const cleInterface = `${moduleActif}:${adresseCourante}`;
   return (
-    <div className="application">
-      <aside className="barre-laterale">
-        <div className="logo-barre"><span>S</span><div><strong>SIGAD</strong><small>République du Tchad</small></div></div>
-        <nav aria-label="Navigation principale">
-          <button className={!afficherStocks && !afficherApprovisionnements && !afficherDistributions && !afficherControle && !afficherRapports ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("beneficiaires")} type="button">Gestion des bénéficiaires</button>
-          <button className={afficherStocks ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("stocks")} type="button">Articles et stocks</button>
-          <button className={afficherApprovisionnements ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("approvisionnements")} type="button">Approvisionnements</button>
-          <button className={afficherDistributions ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("distributions")} type="button">Distributions provinciales</button>
-          <button className={afficherControle ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("controle")} type="button">{utilisateur.role === "ADMIN_CENTRAL" ? "Contrôle central" : "Contrôle et notifications"}</button>
-          <button className={afficherRapports ? "lien-module actif" : "lien-module"} onClick={() => choisirModule("rapports")} type="button">Rapports et tableaux de bord</button>
-        </nav>
-        <div className="profil-barre">
-          <span className="avatar">{utilisateur.nom_complet.charAt(0).toUpperCase()}</span>
-          <div><strong>{utilisateur.nom_complet}</strong><small>{utilisateur.role === "ADMIN_CENTRAL" ? "Administration centrale" : "Délégation provinciale"}</small></div>
-        </div>
-      </aside>
-      <main className="zone-principale">
-        <header className="barre-haute"><span>Gestion intégrée des aides et des distributions</span><button className="bouton bouton-discret" onClick={() => void deconnexion()} type="button">Se déconnecter</button></header>
-        {erreurAction && <p className="message-erreur bandeau-erreur">{erreurAction}</p>}
-        {afficherRapports
-          ? <TableauRapports utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-          : afficherControle
-          ? <TableauControle utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-          : afficherDistributions
-          ? <TableauDistributions utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-          : afficherApprovisionnements
-            ? <TableauApprovisionnements utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-            : afficherStocks
-              ? <TableauGestionStocks utilisateur={utilisateur} jetonCsrf={jetonCsrf} />
-              : <TableauGestionBeneficiaires utilisateur={utilisateur} jetonCsrf={jetonCsrf} />}
-      </main>
-    </div>
+    <SIGADAppShell
+      adresseCourante={adresseCourante}
+      erreur={erreurAction}
+      key={cleInterface}
+      moduleActif={moduleActif}
+      onDeconnexion={deconnexion}
+      onMonCompte={ouvrirMonCompte}
+      onNaviguer={naviguer}
+      utilisateur={utilisateur}
+    >
+      <Suspense fallback={<p className="sigad-admin__attente" role="status">Chargement du module…</p>}>
+        {contenu}
+      </Suspense>
+    </SIGADAppShell>
   );
 }

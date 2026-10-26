@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type JSX } from "react";
 import type { UtilisateurAuthentifie } from "../../../../shared/types/authentification";
+import { SIGADFilterBar } from "../administration/SIGADFilterBar";
+import { SIGADFormGrid } from "../administration/SIGADFormGrid";
 import { ErreurApi, requeteApi } from "../../services/api";
+import { SIGADPagination } from "../ui";
 
 interface Props {
   utilisateur: UtilisateurAuthentifie;
@@ -26,6 +29,8 @@ interface DistributionApi {
   nombre_menages_cibles: number;
   nombre_personnes_cibles: number;
   modifie_le: string;
+  operation_centrale_id?: string | null;
+  dossier_execution_id?: string | null;
 }
 
 type StatutDistribution = "BROUILLON" | "EN_PREPARATION" | "VALIDEE_PROVINCE" | "EN_EXECUTION" | "TERMINEE_PROVINCE" | "RETOURNEE_POUR_CORRECTION" | "CLOTUREE_CENTRAL";
@@ -38,6 +43,7 @@ interface PartenaireRef { id: string; nom: string; sigle: string | null; role: s
 interface LocaliteRef { id: string; nom: string; type_localite: string; departement_id: string; departement_nom: string; }
 interface SiteRef { id: string; nom: string; code_site: string | null; categorie_site: string; departement_id: string; }
 interface ListeRef { id: string; reference_liste: string; intitule: string; nombre_menages_cibles: number; statut: string; }
+interface DossierRef { id: string; operation_centrale_id: string; code_operation: string; intitule_operation: string; }
 
 interface MenageCible {
   id: string;
@@ -218,22 +224,6 @@ function lireChampsCorrection(texte: string): string[] {
   }
 }
 
-function Pagination(props: { total: number; decalage: number; limite: number; chargement: boolean; changer: (decalage: number) => void }): JSX.Element {
-  const totalPages = Math.max(1, Math.ceil(props.total / props.limite));
-  const page = Math.floor(props.decalage / props.limite) + 1;
-  return (
-    <div className="pagination">
-      <span>Page {page} sur {totalPages} · {props.total} éléments</span>
-      <div className="actions-ligne">
-        <button className="bouton bouton-discret" disabled={props.decalage === 0 || props.chargement}
-          onClick={() => props.changer(Math.max(0, props.decalage - props.limite))} type="button">Précédente</button>
-        <button className="bouton bouton-discret" disabled={props.decalage + props.limite >= props.total || props.chargement}
-          onClick={() => props.changer(props.decalage + props.limite)} type="button">Suivante</button>
-      </div>
-    </div>
-  );
-}
-
 export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Element {
   const estDelegue = utilisateur.role === "DELEGUE_PROVINCIAL";
   const estCentral = utilisateur.role === "ADMIN_CENTRAL";
@@ -262,6 +252,8 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
   }>({ entrepots: [], articles: [], partenaires: [], localites: [], sites: [], listes: [] });
 
   const [distributionIdEdition, definirDistributionIdEdition] = useState<string | null>(null);
+  const [dossiersProvinciaux, definirDossiersProvinciaux] = useState<DossierRef[]>([]);
+  const [dossierExecutionId, definirDossierExecutionId] = useState("");
   const [intitule, definirIntitule] = useState("");
   const [objectif, definirObjectif] = useState("");
   const [datePrevue, definirDatePrevue] = useState(new Date().toISOString().slice(0, 10));
@@ -320,18 +312,20 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
     let actif = true;
     async function chargerReferentiels(): Promise<void> {
       try {
-        const [entrepots, articles, partenaires, localites, sites, listes] = await Promise.all([
+        const [entrepots, articles, partenaires, localites, sites, listes, dossiers] = await Promise.all([
           requeteApi<PageApi<EntrepotRef>>("/api/distributions/referentiels?type=entrepots&limite=100&decalage=0"),
           requeteApi<PageApi<ArticleRef>>("/api/distributions/referentiels?type=articles&limite=100&decalage=0"),
           requeteApi<PageApi<PartenaireRef>>("/api/distributions/referentiels?type=partenaires&limite=100&decalage=0"),
           requeteApi<PageApi<LocaliteRef>>("/api/distributions/referentiels?type=localites&limite=100&decalage=0"),
           requeteApi<PageApi<SiteRef>>("/api/distributions/referentiels?type=sites&limite=100&decalage=0"),
           requeteApi<PageApi<ListeRef>>("/api/distributions/referentiels?type=listes&limite=100&decalage=0"),
+          requeteApi<PageApi<DossierRef>>("/api/provincial/operations-centrales?limite=100&decalage=0").catch(() => ({ elements: [], total: 0, limite: 100, decalage: 0 })),
         ]);
         if (!actif) return;
         definirReferentiels({ entrepots: entrepots.elements, articles: articles.elements,
           partenaires: partenaires.elements, localites: localites.elements,
           sites: sites.elements, listes: listes.elements });
+        definirDossiersProvinciaux(dossiers.elements || []);
       } catch (cause) {
         if (actif) definirErreur(messageErreur(cause, "Les référentiels de distribution n’ont pas pu être chargés."));
       }
@@ -409,6 +403,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
 
   function remettreFormulaire(): void {
     definirDistributionIdEdition(null);
+    definirDossierExecutionId("");
     definirIntitule("");
     definirObjectif("");
     definirDatePrevue(new Date().toISOString().slice(0, 10));
@@ -472,6 +467,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
       definirExecutionId(detail.partenaire_execution_id ?? "");
       definirListeId(detail.liste_beneficiaires_id ?? "");
       definirObservations(detail.observations ?? "");
+      definirDossierExecutionId(detail.dossier_execution_id ?? "");
       definirDistributionIdEdition(detail.id);
       definirEcran("formulaire");
       definirErreur(null);
@@ -555,12 +551,15 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
     definirSoumission(true);
     definirErreur(null);
     try {
+      const dossierChoisi = dossiersProvinciaux.find((dossier) => dossier.id === dossierExecutionId);
       const corps = {
         intitule_distribution: intitule,
         departement_id: departementCible,
         nature_aide: natureAide,
         bailleur_fonds_id: bailleurId || null,
         partenaire_execution_id: executionId || null,
+        operation_centrale_id: dossierChoisi ? dossierChoisi.operation_centrale_id : null,
+        dossier_execution_id: dossierChoisi ? dossierChoisi.id : null,
         objectif,
         date_prevue: datePrevue,
         entrepot_id: entrepotId,
@@ -711,9 +710,24 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
         </div>
         {erreur && <p className="message-erreur" role="alert">{erreur}</p>}
         {message && <p className="message-succes" role="status">{message}</p>}
-        <form className="carte-section formulaire-distribution" onSubmit={(event) => void envoyerPlan(event)}>
+        <SIGADFormGrid className="carte-section formulaire-distribution" onSubmit={(event) => void envoyerPlan(event)}>
           <div className="titre-section"><div><h2>Identification et organisation</h2><p>La province est déterminée par votre session sécurisée.</p></div></div>
           <div className="grille-territoriale">
+            <div className="champ-territorial">
+              <label htmlFor="distribution-operation-centrale">Rattachement à une opération centrale</label>
+              <select
+                id="distribution-operation-centrale"
+                onChange={(event) => definirDossierExecutionId(event.target.value)}
+                value={dossierExecutionId}
+              >
+                <option value="">Aucun — Distribution autonome</option>
+                {dossiersProvinciaux.map((dossier) => (
+                  <option key={dossier.id} value={dossier.id}>
+                    {dossier.code_operation} — {dossier.intitule_operation}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="champ-territorial"><label htmlFor="distribution-intitule">Intitulé de la distribution</label><input id="distribution-intitule" maxLength={180} onChange={(event) => definirIntitule(event.target.value)} required value={intitule} /></div>
             <div className="champ-territorial"><label htmlFor="distribution-date">Date prévue</label><input id="distribution-date" onChange={(event) => definirDatePrevue(event.target.value)} required type="date" value={datePrevue} /></div>
             <div className="champ-territorial"><label htmlFor="distribution-nature">Nature de l’aide</label><select id="distribution-nature" onChange={(event) => definirNatureAide(event.target.value)} value={natureAide}><option value="ALIMENTAIRE">Aide alimentaire</option><option value="NFI">Articles non alimentaires</option><option value="MIXTE">Aide mixte</option></select></div>
@@ -758,14 +772,14 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
 
           <div className="separateur-stock" />
           <div className="titre-section"><div><h2>Ménages bénéficiaires</h2><p>Le ciblage est limité aux ménages actifs de votre province et du département sélectionné.</p></div><strong className="compteur">{menagesSelectionnes.size} sélectionnés</strong></div>
-          <div className="barre-filtres-stock"><div className="champ-territorial"><label htmlFor="recherche-menage-distribution">Recherche</label><input id="recherche-menage-distribution" onChange={(event) => { definirRechercheMenages(event.target.value); definirDecalageMenagesDisponibles(0); }} placeholder="Code ou nom du chef de ménage" value={rechercheMenages} /></div></div>
+          <SIGADFilterBar ariaLabel="Filtres des ménages bénéficiaires" fieldsClassName="barre-filtres-stock"><div className="champ-territorial"><label htmlFor="recherche-menage-distribution">Recherche</label><input id="recherche-menage-distribution" onChange={(event) => { definirRechercheMenages(event.target.value); definirDecalageMenagesDisponibles(0); }} placeholder="Code ou nom du chef de ménage" value={rechercheMenages} /></div></SIGADFilterBar>
           <div className="tableau-defilement"><table><thead><tr><th>Sélection</th><th>Code</th><th>Chef de ménage</th><th>Personnes</th><th>Localisation</th></tr></thead><tbody>
             {pageMenagesDisponibles.elements.map((menage) => <tr key={menage.id}><td><input aria-label={`Sélectionner ${menage.code_menage}`} checked={menagesSelectionnes.has(menage.id)} onChange={(event) => choisirMenage(menage, event.target.checked)} type="checkbox" /></td><td className="code-reference">{menage.code_menage}</td><td>{menage.nom_chef_menage}</td><td>{menage.nombre_personnes}</td><td>{menage.site_humanitaire_nom ? `Site · ${menage.site_humanitaire_nom}` : menage.localite_nom ?? "Localisation non renseignée"}</td></tr>)}
             {pageMenagesDisponibles.elements.length === 0 && <tr><td className="cellule-vide" colSpan={5}>Aucun ménage actif dans ce département.</td></tr>}
           </tbody></table></div>
-          <Pagination total={pageMenagesDisponibles.total} decalage={decalageMenagesDisponibles} limite={TAILLE_PAGE_MENAGES} chargement={chargement} changer={definirDecalageMenagesDisponibles} />
+          <SIGADPagination total={pageMenagesDisponibles.total} decalage={decalageMenagesDisponibles} taillePage={TAILLE_PAGE_MENAGES} chargement={chargement} onPageChange={definirDecalageMenagesDisponibles} />
           <div className="pied-formulaire-distribution"><span>Les quantités totales seront déterminées automatiquement à partir des rations et des ménages sélectionnés.</span><button className="bouton bouton-principal" disabled={soumission || zones.length === 0 || menagesSelectionnes.size === 0 || articlesPlan.length === 0} type="submit">{soumission ? "Enregistrement…" : distributionIdEdition ? "Enregistrer les modifications" : "Enregistrer le brouillon"}</button></div>
-        </form>
+        </SIGADFormGrid>
       </section>
     );
   }
@@ -778,7 +792,12 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
     return (
       <section className="contenu-tableau module-distributions">
         <div className="entete-section">
-          <div><p className="surtitre">{detail.province_nom} · {detail.reference_distribution}</p><h1>{detail.intitule_distribution}</h1><p className="texte-secondaire">{detail.objectif}</p></div>
+          <div>
+            <p className="surtitre">{detail.province_nom} · {detail.reference_distribution}</p>
+            <h1>{detail.intitule_distribution}</h1>
+            {detail.operation_centrale_id && <p className="reference-operation-centrale"><strong>Opération centrale associée :</strong> ID {detail.operation_centrale_id}</p>}
+            <p className="texte-secondaire">{detail.objectif}</p>
+          </div>
           <button className="bouton bouton-discret" onClick={() => { definirEcran("liste"); definirDetail(null); definirMenageRemise(null); }} type="button">Retour à la liste</button>
         </div>
         {erreur && <p className="message-erreur" role="alert">{erreur}</p>}
@@ -822,8 +841,8 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
             {menagesDistribution.elements.map((menage) => <tr key={menage.id}><td className="code-reference">{menage.code_menage}</td><td>{menage.nom_chef_menage}</td><td>{menage.nombre_personnes}</td><td><span className={`pastille-statut ${classStatut(menage.statut_service)}`}>{LIBELLES_STATUT[menage.statut_service]}</span></td><td>{menage.date_service ?? "—"}</td><td>{["EN_ATTENTE", "PARTIELLEMENT_SERVI"].includes(menage.statut_service) && <button className="bouton bouton-discret" onClick={() => basculerMenageRemise(menage)} type="button">Saisir une remise</button>}</td></tr>)}
             {menagesDistribution.elements.length === 0 && <tr><td className="cellule-vide" colSpan={6}>Aucun ménage enregistré.</td></tr>}
           </tbody></table></div>
-          <Pagination total={menagesDistribution.total} decalage={decalageMenages} limite={TAILLE_PAGE_MENAGES} chargement={chargement} changer={definirDecalageMenages} />
-          {menageRemise && <form className="formulaire-remise-distribution" onSubmit={(event) => void enregistrerRemise(event)}>
+          <SIGADPagination total={menagesDistribution.total} decalage={decalageMenages} taillePage={TAILLE_PAGE_MENAGES} chargement={chargement} onPageChange={definirDecalageMenages} />
+          {menageRemise && <SIGADFormGrid className="formulaire-remise-distribution" onSubmit={(event) => void enregistrerRemise(event)}>
             <div className="titre-section"><div><h3>Remise pour {menageRemise.code_menage}</h3><p>Le statut « servi » exige l’exécution complète des allocations restantes.</p></div><button className="bouton-texte-danger" onClick={() => definirMenageRemise(null)} type="button">Fermer</button></div>
             <div className="grille-territoriale">
               <div className="champ-territorial"><label htmlFor="remise-statut">Statut</label><select id="remise-statut" onChange={(event) => {
@@ -837,7 +856,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
             </div>
             {!(["ABSENT", "NON_SERVI"].includes(statutRemise)) && <div className="tableau-defilement"><table><thead><tr><th>Article</th><th>Prévu</th><th>Déjà servi</th><th>Quantité remise</th></tr></thead><tbody>{allocations.map((allocation) => <tr key={allocation.id}><td>{allocation.designation}</td><td>{allocation.quantite_prevue} {allocation.unite}</td><td>{allocation.quantite_servie} {allocation.unite}</td><td><input aria-label={`Quantité remise pour ${allocation.designation}`} max={allocation.quantite_restante} min="0" onChange={(event) => definirQuantitesRemise((actuelles) => new Map(actuelles).set(allocation.id, Number(event.target.value)))} step="0.001" type="number" value={quantitesRemise.get(allocation.id) ?? 0} /></td></tr>)}</tbody></table></div>}
             <button className="bouton bouton-principal" disabled={soumission} type="submit">Enregistrer la remise</button>
-          </form>}
+          </SIGADFormGrid>}
           {toutesRemisesTerminees && <div className="panneau-document-distribution">
             <form className="formulaire-import" onSubmit={(event) => void televerserProcesVerbal(event)}><label htmlFor="pv-distribution">Procès-verbal de distribution en PDF</label><input accept="application/pdf,.pdf" id="pv-distribution" onChange={(event) => definirFichierPv(event.target.files?.[0] ?? null)} type="file" /><button className="bouton bouton-discret" disabled={soumission || !fichierPv} type="submit">Archiver le procès-verbal</button></form>
             <button className="bouton bouton-principal" disabled={soumission} onClick={() => void action("declaration-fin", { observations: observationsFinales || null })} type="button">Déclarer la distribution terminée</button>
@@ -848,7 +867,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
         {estDelegue && correctionOuverte && <section className="carte-section">
           <div className="titre-section"><div><h2>Répondre à la demande de correction</h2><p>{correctionOuverte.motif_retour}</p></div></div>
           <div className="liste-zones-distribution">{lireChampsCorrection(correctionOuverte.elements_a_corriger).map((champ) => <span className="puce-zone" key={champ}>{champ}</span>)}</div>
-          <form className="formulaire-correction-distribution" onSubmit={(event) => {
+          <SIGADFormGrid className="formulaire-correction-distribution" onSubmit={(event) => {
             event.preventDefault();
             void effectuerAction(`/api/distributions/${detail.id}/corrections`, { reponse_delegue: reponseCorrection, corrections });
           }}>
@@ -856,13 +875,13 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
               <div className="champ-territorial"><label htmlFor="reponse-correction">Réponse du délégué</label><textarea id="reponse-correction" onChange={(event) => definirReponseCorrection(event.target.value)} required rows={3} value={reponseCorrection} /></div>
             </div>
             <button className="bouton bouton-principal" disabled={soumission} type="submit">Soumettre la correction au contrôle central</button>
-          </form>
+          </SIGADFormGrid>
         </section>}
 
         {estCentral && detail.statut === "TERMINEE_PROVINCE" && <section className="carte-section">
           <div className="titre-section"><div><h2>Contrôle central</h2><p>Le plan validé et les remises restent figés dans leur historique.</p></div></div>
           {correctionSoumise && <div className="actions-ligne"><button className="bouton bouton-principal" disabled={soumission} onClick={() => void validerCorrectionCentrale(correctionSoumise.id)} type="button">Valider la correction soumise</button></div>}
-          <form className="formulaire-correction-distribution" onSubmit={(event) => {
+          <SIGADFormGrid className="formulaire-correction-distribution" onSubmit={(event) => {
             event.preventDefault();
             void requeteApi(`/api/central/distributions/${detail.id}/retour-correction`, {
               methode: "POST", jetonCsrf, cleIdempotence: cleIdempotence("retour-correction"),
@@ -873,7 +892,7 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
             <div className="champ-territorial"><label htmlFor="motif-retour">Motif du retour</label><textarea id="motif-retour" onChange={(event) => definirMotifRetour(event.target.value)} required rows={3} value={motifRetour} /></div>
             <fieldset className="choix-roles"><legend>Champs modifiables par le délégué</legend>{([["intitule_distribution", "Intitulé"], ["objectif", "Objectif"], ["date_prevue", "Date prévue"], ["observations", "Observations"]] as const).map(([champ, libelle]) => <label key={champ}><input checked={champsRetour.includes(champ)} onChange={(event) => definirChampsRetour((actuels) => event.target.checked ? [...actuels, champ] : actuels.filter((item) => item !== champ))} type="checkbox" />{libelle}</label>)}</fieldset>
             <button className="bouton bouton-discret" disabled={soumission || champsRetour.length === 0} type="submit">Retourner pour correction</button>
-          </form>
+          </SIGADFormGrid>
           <div className="formulaire-cloture formulaire-approvisionnement"><label className="champ-territorial" htmlFor="observations-cloture">Observations finales<textarea id="observations-cloture" onChange={(event) => definirObservationsFinales(event.target.value)} value={observationsFinales} /></label><button className="bouton bouton-principal" disabled={soumission || Boolean(correctionSoumise)} onClick={() => void requeteApi(`/api/central/distributions/${detail.id}/cloture`, { methode: "POST", jetonCsrf, cleIdempotence: cleIdempotence("cloture-distribution"), corps: { observations_finales: observationsFinales || null } }).then(async () => { definirMessage("La distribution a été clôturée et les reliquats ont été libérés."); await chargerDetail(detail.id, decalageMenages); }).catch((cause: unknown) => definirErreur(messageErreur(cause, "La clôture centrale a échoué.")))} type="button">Clôturer et libérer les reliquats</button></div>
         </section>}
 
@@ -884,23 +903,22 @@ export function TableauDistributions({ utilisateur, jetonCsrf }: Props): JSX.Ele
   }
 
   return (
-    <section className="contenu-tableau module-distributions">
-      <div className="entete-section">
-        <div><p className="surtitre">SIGAD · suivi des aides</p><h1>Distributions provinciales</h1><p className="texte-secondaire">Plans autonomes, réservations, remises aux ménages et contrôle central.</p></div>
+    <section aria-label="Distributions provinciales" className="contenu-tableau module-distributions">
+      {estDelegue && <div className="sigad-compact-toolbar">
         {estDelegue && <button className="bouton bouton-principal" onClick={remettreFormulaire} type="button">Nouvelle distribution</button>}
-      </div>
+      </div>}
       {erreur && <p className="message-erreur" role="alert">{erreur}</p>}
       {message && <p className="message-succes" role="status">{message}</p>}
       <section className="carte-section">
-        <div className="barre-filtres-stock">
+        <SIGADFilterBar ariaLabel="Filtres des distributions" fieldsClassName="barre-filtres-stock">
           <div className="champ-territorial"><label htmlFor="recherche-distributions">Recherche</label><input id="recherche-distributions" onChange={(event) => { definirRecherche(event.target.value); definirDecalage(0); }} placeholder="Référence ou intitulé" value={recherche} /></div>
           <div className="champ-territorial"><label htmlFor="statut-distribution">Statut</label><select id="statut-distribution" onChange={(event) => { definirStatutFiltre(event.target.value); definirDecalage(0); }} value={statutFiltre}><option value="">Tous les statuts</option>{Object.entries(LIBELLES_STATUT).filter(([code]) => !["EN_ATTENTE", "SERVI", "PARTIELLEMENT_SERVI", "ABSENT", "NON_SERVI"].includes(code)).map(([code, libelle]) => <option key={code} value={code}>{libelle}</option>)}</select></div>
-        </div>
+        </SIGADFilterBar>
         <div className="tableau-defilement"><table><thead><tr><th>Référence</th>{(estCentral || utilisateur.role === "PROPRIETAIRE") && <th>Province</th>}<th>Distribution</th><th>Date prévue</th><th>Ménages</th><th>Statut</th><th>Action</th></tr></thead><tbody>
           {distributions.elements.map((distribution) => <tr key={distribution.id}><td className="code-reference">{distribution.reference_distribution}</td>{(estCentral || utilisateur.role === "PROPRIETAIRE") && <td>{distribution.province_nom}</td>}<td>{distribution.intitule_distribution}</td><td>{distribution.date_prevue}</td><td>{distribution.nombre_menages_cibles}</td><td><span className={`pastille-statut ${classStatut(distribution.statut)}`}>{LIBELLES_STATUT[distribution.statut]}</span></td><td><button className="bouton bouton-discret" onClick={() => void ouvrirDetail(distribution)} type="button">Ouvrir</button></td></tr>)}
           {distributions.elements.length === 0 && <tr><td className="cellule-vide" colSpan={estCentral || utilisateur.role === "PROPRIETAIRE" ? 7 : 6}>{chargement ? "Chargement des distributions…" : "Aucune distribution ne correspond aux filtres."}</td></tr>}
         </tbody></table></div>
-        <Pagination total={distributions.total} decalage={decalage} limite={TAILLE_PAGE} chargement={chargement} changer={definirDecalage} />
+        <SIGADPagination total={distributions.total} decalage={decalage} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={definirDecalage} />
       </section>
       {menageRemise && <div className="alerte-distribution" role="status">Une remise est en cours de saisie.</div>}
       {soumission && <div className="indicateur-operation" role="status">Enregistrement sécurisé en cours…</div>}

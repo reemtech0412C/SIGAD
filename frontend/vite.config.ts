@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       manifest: {
         name: "SIGAD - Gestion des Aides et des Distributions",
         short_name: "SIGAD Tchad",
@@ -26,7 +26,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
-        globPatterns: ["**/*.{js,css,html,svg,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,webmanifest,geojson}"],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [],
       },
     }),

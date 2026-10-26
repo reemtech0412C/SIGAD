@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UtilisateurAuthentifie } from "../../../../shared/types/authentification";
+import { SIGADFilterBar } from "../administration/SIGADFilterBar";
+import { SIGADFormGrid } from "../administration/SIGADFormGrid";
 import { requeteApi } from "../../services/api";
+import { SIGADAlert, SIGADBadge, SIGADButton, SIGADPagination } from "../ui";
 
 interface Props {
   utilisateur: UtilisateurAuthentifie;
@@ -111,17 +114,6 @@ function filtresDansQuery(valeurs: Record<string, string>, inclurePage = false, 
   return resultat;
 }
 
-function telechargerBlob(blob: Blob, nom: string): void {
-  const url = URL.createObjectURL(blob);
-  const lien = document.createElement("a");
-  lien.href = url;
-  lien.download = nom;
-  document.body.appendChild(lien);
-  lien.click();
-  lien.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 const indicateursEtiquettes: Array<{ cle: keyof Indicateurs; libelle: string }> = [
   { cle: "approvisionnements", libelle: "Approvisionnements" },
   { cle: "distributions", libelle: "Distributions" },
@@ -223,95 +215,139 @@ export function TableauRapports({ utilisateur, jetonCsrf }: Props) {
     setDecalage(0);
   }
 
-  async function exporter(): Promise<void> {
+  async function actualiserArchives(): Promise<void> {
+    const pageArchives = await requeteApi<{ elements: Archive[] }>("/api/rapports/archives?limite=10&decalage=0");
+    setArchives(pageArchives.elements);
+  }
+
+  function exporter(): void {
     setExportEnCours(true);
     setErreur(null);
     setMessage(null);
     try {
-      const reponse = await fetch(`/api/rapports/${type}/export`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", Accept: "application/octet-stream", "X-CSRF-Token": jetonCsrf },
-        body: JSON.stringify({ format, filtres: filtresDansQuery(filtres), archiver }),
+      const nomIframe = `telechargement-rapport-${crypto.randomUUID()}`;
+      const iframe = document.createElement("iframe");
+      iframe.name = nomIframe;
+      iframe.title = "Téléchargement du rapport";
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.display = "none";
+      let reponseTraitee = false;
+      iframe.addEventListener("load", () => {
+        if (reponseTraitee) return;
+        const adresseReponse = iframe.contentWindow?.location.href;
+        if (!adresseReponse || adresseReponse === "about:blank") return;
+        reponseTraitee = true;
+        const contenu = iframe.contentDocument?.body?.textContent?.trim();
+        if (contenu?.startsWith("{")) {
+          try {
+            const resultat: unknown = JSON.parse(contenu);
+            if (typeof resultat === "object" && resultat !== null && "erreur" in resultat) {
+              const messageErreur = Reflect.get(resultat, "erreur");
+              if (typeof messageErreur === "string") {
+                setErreur(messageErreur);
+                setMessage(null);
+              }
+            }
+          } catch {
+            setErreur("Le serveur a renvoyé une réponse de téléchargement illisible.");
+            setMessage(null);
+          }
+        }
+        void actualiserArchives().catch(() => {
+          setErreur("Le rapport a été transmis, mais la liste des archives n’a pas pu être actualisée.");
+        });
+        setExportEnCours(false);
       });
-      if (!reponse.ok) {
-        const corps: unknown = await reponse.json().catch(() => null);
-        const messageErreur = typeof corps === "object" && corps !== null && "erreur" in corps
-          && typeof Reflect.get(corps, "erreur") === "string" ? Reflect.get(corps, "erreur") as string : "L’export du rapport a échoué.";
-        throw new Error(messageErreur);
+      document.body.appendChild(iframe);
+
+      const formulaire = document.createElement("form");
+      formulaire.method = "POST";
+      formulaire.action = `/api/rapports/${encodeURIComponent(type)}/export`;
+      formulaire.target = nomIframe;
+      formulaire.enctype = "application/x-www-form-urlencoded";
+      formulaire.acceptCharset = "UTF-8";
+      const champs: Array<[string, string]> = [
+        ["format", format],
+        ["filtres", JSON.stringify(filtresDansQuery(filtres))],
+        ["archiver", String(archiver)],
+        ["jeton_csrf", jetonCsrf],
+      ];
+      for (const [nom, valeur] of champs) {
+        const champ = document.createElement("input");
+        champ.type = "hidden";
+        champ.name = nom;
+        champ.value = valeur;
+        formulaire.appendChild(champ);
       }
-      const fichier = await reponse.blob();
-      const extension = format === "EXCEL" ? "xlsx" : format.toLowerCase();
-      const id = reponse.headers.get("X-Report-Id") ?? "rapport";
-      telechargerBlob(fichier, `sigad_${type.toLowerCase()}_${id}.${extension}`);
-      const nombreLignes = reponse.headers.get("X-Report-Rows") ?? "0";
-      setMessage(`${nombreFr.format(Number(nombreLignes))} ligne(s) exportée(s) en ${format}${archiver ? " et archivée(s)" : ""}.`);
-      const pageArchives = await requeteApi<{ elements: Archive[] }>("/api/rapports/archives?limite=10&decalage=0");
-      setArchives(pageArchives.elements);
+      document.body.appendChild(formulaire);
+      formulaire.submit();
+      formulaire.remove();
+      setMessage(`La demande d’export ${format} a été transmise au navigateur.`);
+      window.setTimeout(() => {
+        if (iframe.isConnected) {
+          void actualiserArchives().catch(() => undefined);
+          iframe.remove();
+        }
+        setExportEnCours(false);
+      }, 15_000);
+      window.setTimeout(() => iframe.remove(), 120_000);
     } catch (cause) {
       setErreur(cause instanceof Error ? cause.message : "Le fichier n’a pas pu être généré.");
-    } finally {
       setExportEnCours(false);
     }
   }
 
-  async function telechargerArchive(archive: Archive): Promise<void> {
-    setErreur(null);
-    try {
-      const reponse = await fetch(`/api/rapports/archives/${encodeURIComponent(archive.id)}`, { credentials: "same-origin" });
-      if (!reponse.ok) throw new Error("Le fichier archivé n’est pas accessible.");
-      const extension = archive.format_export === "EXCEL" ? "xlsx" : archive.format_export.toLowerCase();
-      telechargerBlob(await reponse.blob(), `sigad_archive_${archive.id}.${extension}`);
-    } catch (cause) {
-      setErreur(cause instanceof Error ? cause.message : "Le téléchargement de l’archive a échoué.");
-    }
-  }
-
   return (
-    <section className="contenu-tableau module-rapports" aria-labelledby="titre-rapports">
-      <div className="entete-module">
-        <div><p className="surtitre">Pilotage et redevabilité</p><h1 id="titre-rapports">Rapports et tableaux de bord</h1>
-          <p>Indicateurs issus des opérations, des bénéficiaires et des stocks enregistrés.</p></div>
-        <span className="badge-perimetre">{provincial ? "Tableau provincial" : "Tableau national"}</span>
-      </div>
+    <section className="contenu-tableau module-rapports" aria-label="Rapports et tableaux de bord">
+      <div className="sigad-compact-meta"><SIGADBadge variant="neutral">{provincial ? "Tableau provincial" : "Tableau national"}</SIGADBadge></div>
 
-      <section className="panneau-filtres" aria-label="Filtres des rapports">
-        {!provincial && <label>Province
-          <select aria-label="Province" value={provinceId} onChange={(event) => modifierFiltre(() => setProvinceId(event.target.value))}>
-            <option value="">Toutes les provinces</option>
-            {(options?.provinces ?? []).map((province) => <option key={province.id} value={province.id}>{province.nom}</option>)}
-          </select>
-        </label>}
-        <label>Début de période<input aria-label="Début de période" type="date" value={dateDebut} onChange={(event) => modifierFiltre(() => setDateDebut(event.target.value))} /></label>
-        <label>Fin de période<input aria-label="Fin de période" type="date" value={dateFin} onChange={(event) => modifierFiltre(() => setDateFin(event.target.value))} /></label>
-        <label>Partenaire
-          <select aria-label="Partenaire" value={partenaireId} onChange={(event) => modifierFiltre(() => setPartenaireId(event.target.value))}>
-            <option value="">Tous les partenaires</option>
-            {(options?.partenaires ?? []).map((partenaire) => <option key={partenaire.id} value={partenaire.id}>{partenaire.nom}</option>)}
-          </select>
-        </label>
-        <label>Nature d’aide
-          <select aria-label="Nature d’aide" value={natureAide} onChange={(event) => modifierFiltre(() => setNatureAide(event.target.value))}>
-            <option value="">Toutes les natures</option>
-            {(options?.natures_aide ?? []).map((nature) => <option key={nature} value={nature}>{nature}</option>)}
-          </select>
-        </label>
-        <label>État / statut
-          <select aria-label="État / statut" value={statut} onChange={(event) => modifierFiltre(() => setStatut(event.target.value))}>
-            <option value="">Tous les statuts</option>
-            {(options?.statuts ?? []).map((valeur) => <option key={valeur} value={valeur}>{valeur.replaceAll("_", " ")}</option>)}
-          </select>
-        </label>
-        <label>Localité validée
-          <select aria-label="Localité validée" value={localiteId} onChange={(event) => modifierFiltre(() => setLocaliteId(event.target.value))}>
-            <option value="">Toutes les localités</option>
-            {(options?.localites ?? []).map((localite) => <option key={localite.id} value={localite.id}>{localite.nom}</option>)}
-          </select>
-        </label>
-      </section>
+      <SIGADFilterBar
+        ariaLabel="Filtres des rapports"
+        fieldsClassName="panneau-filtres"
+        primary={(
+          <div className="sigad-filter-bar__primary-grid">
+            {!provincial && <label>Province
+              <select aria-label="Province" value={provinceId} onChange={(event) => modifierFiltre(() => setProvinceId(event.target.value))}>
+                <option value="">Toutes les provinces</option>
+                {(options?.provinces ?? []).map((province) => <option key={province.id} value={province.id}>{province.nom}</option>)}
+              </select>
+            </label>}
+            <label>Début de période<input aria-label="Début de période" type="date" value={dateDebut} onChange={(event) => modifierFiltre(() => setDateDebut(event.target.value))} /></label>
+            <label>Fin de période<input aria-label="Fin de période" type="date" value={dateFin} onChange={(event) => modifierFiltre(() => setDateFin(event.target.value))} /></label>
+            <label>Partenaire
+              <select aria-label="Partenaire" value={partenaireId} onChange={(event) => modifierFiltre(() => setPartenaireId(event.target.value))}>
+                <option value="">Tous les partenaires</option>
+                {(options?.partenaires ?? []).map((partenaire) => <option key={partenaire.id} value={partenaire.id}>{partenaire.nom}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+        advanced={(
+          <div className="sigad-filter-bar__advanced-grid">
+            <label>Nature d’aide
+              <select aria-label="Nature d’aide" value={natureAide} onChange={(event) => modifierFiltre(() => setNatureAide(event.target.value))}>
+                <option value="">Toutes les natures</option>
+                {(options?.natures_aide ?? []).map((nature) => <option key={nature} value={nature}>{nature}</option>)}
+              </select>
+            </label>
+            <label>État / statut
+              <select aria-label="État / statut" value={statut} onChange={(event) => modifierFiltre(() => setStatut(event.target.value))}>
+                <option value="">Tous les statuts</option>
+                {(options?.statuts ?? []).map((valeur) => <option key={valeur} value={valeur}>{valeur.replaceAll("_", " ")}</option>)}
+              </select>
+            </label>
+            <label>Localité validée
+              <select aria-label="Localité validée" value={localiteId} onChange={(event) => modifierFiltre(() => setLocaliteId(event.target.value))}>
+                <option value="">Toutes les localités</option>
+                {(options?.localites ?? []).map((localite) => <option key={localite.id} value={localite.id}>{localite.nom}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+      />
 
-      {erreur && <p className="message-erreur bandeau-erreur" role="alert">{erreur}</p>}
-      {message && <p className="message-succes" role="status">{message}</p>}
+      {erreur && <SIGADAlert type="danger" message={erreur} style={{ marginBottom: "1rem" }} />}
+      {message && <SIGADAlert type="success" message={message} style={{ marginBottom: "1rem" }} />}
 
       {tableau && <>
         <div className="grille-indicateurs-rapports" aria-label="Indicateurs du tableau de bord">
@@ -337,7 +373,7 @@ export function TableauRapports({ utilisateur, jetonCsrf }: Props) {
 
       <section className="panneau-tableau-rapport panneau-liste-rapports">
         <div className="entete-section-rapport"><div><h2>Générer un rapport</h2><p>{definition?.description ?? "Sélectionnez le rapport à consulter."}</p></div></div>
-        <div className="formulaire-filtres-rapport">
+        <SIGADFormGrid as="div" className="formulaire-filtres-rapport">
           <label>Type de rapport<select aria-label="Type de rapport" value={type} onChange={(event) => { setType(event.target.value as TypeRapport); setDecalage(0); }}>
             {definitions.map((element) => <option key={element.type} value={element.type}>{element.intitule}</option>)}
           </select></label>
@@ -349,10 +385,10 @@ export function TableauRapports({ utilisateur, jetonCsrf }: Props) {
             <option value="PDF">PDF</option><option value="EXCEL">Excel (XLSX)</option><option value="CSV">CSV</option>
           </select></label>
           <label className="case-archive"><input type="checkbox" checked={archiver} onChange={(event) => setArchiver(event.target.checked)} /> Archiver une copie dans SIGAD</label>
-          <button className="bouton bouton-principal" type="button" onClick={() => void exporter()} disabled={exportEnCours || chargement}>
+          <SIGADButton variant="primary" onClick={() => void exporter()} loading={exportEnCours} disabled={chargement}>
             {exportEnCours ? "Génération en cours…" : "Exporter le rapport"}
-          </button>
-        </div>
+          </SIGADButton>
+        </SIGADFormGrid>
         <div className="entete-section-rapport entete-apercu"><div><h2>Aperçu des résultats</h2><p>{definition?.intitule}</p></div>
           {apercu && <span>Lecture D1 : {nombreFr.format(apercu.lignes_lues)} lignes, {nombreFr.format(apercu.duree_requetes_ms)} ms</span>}</div>
         {chargement ? <p className="etat-rapport">Chargement des indicateurs et des résultats…</p> : apercu ? <>
@@ -360,9 +396,13 @@ export function TableauRapports({ utilisateur, jetonCsrf }: Props) {
             <tbody>{apercu.elements.map((ligne, index) => <tr key={`${index}-${String(ligne.reference ?? ligne.code_menage ?? ligne.province ?? "ligne")}`}>
               {apercu.definition.colonnes.map((colonne) => <td key={colonne.cle}>{afficherValeur(ligne[colonne.cle] ?? null)}</td>)}
             </tr>)}{!apercu.elements.length && <tr><td colSpan={apercu.definition.colonnes.length}>Aucun résultat pour les filtres sélectionnés.</td></tr>}</tbody></table></div>
-          <div className="pagination pagination-rapports"><span>Résultats {apercu.decalage + (apercu.elements.length ? 1 : 0)} à {apercu.decalage + apercu.elements.length}</span>
-            <button className="bouton bouton-discret" type="button" disabled={!apercu.decalage || chargement} onClick={() => setDecalage(Math.max(0, decalage - pageSize))}>Précédent</button>
-            <button className="bouton bouton-discret" type="button" disabled={!apercu.suite_disponible || chargement} onClick={() => setDecalage(decalage + pageSize)}>Suivant</button></div>
+          <SIGADPagination
+            total={apercu.suite_disponible ? apercu.decalage + pageSize + 1 : apercu.decalage + apercu.elements.length}
+            decalage={apercu.decalage}
+            taillePage={pageSize}
+            chargement={chargement}
+            onPageChange={setDecalage}
+          />
         </> : <p className="etat-rapport">Aucun résultat à afficher.</p>}
       </section>
 
@@ -370,7 +410,7 @@ export function TableauRapports({ utilisateur, jetonCsrf }: Props) {
         <div className="tableau-defilement"><table><thead><tr><th>Rapport</th><th>Périmètre</th><th>Format</th><th>Émis le</th><th>Fichier</th></tr></thead>
           <tbody>{archives.map((archive) => <tr key={archive.id}><td>{archive.intitule}</td><td>{archive.perimetre === "NATIONAL" ? "National" : archive.province_id}</td>
             <td>{archive.format_export}</td><td>{dateAffichee(archive.cree_le)}</td><td>{archive.archive_disponible
-              ? <button className="bouton bouton-discret" type="button" onClick={() => void telechargerArchive(archive)}>Télécharger</button> : "Aucun fichier archivé"}</td></tr>)}
+              ? <a className="bouton bouton-discret" href={`/api/rapports/archives/${encodeURIComponent(archive.id)}`}>Télécharger</a> : "Aucun fichier archivé"}</td></tr>)}
             {!archives.length && <tr><td colSpan={5}>Aucune archive disponible.</td></tr>}</tbody></table></div>
       </section>
     </section>

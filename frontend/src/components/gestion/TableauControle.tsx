@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { UtilisateurAuthentifie } from "../../../../shared/types/authentification";
+import { SIGADFilterBar } from "../administration/SIGADFilterBar";
+import { SIGADFormGrid } from "../administration/SIGADFormGrid";
 import { requeteApi } from "../../services/api";
+import { SIGADPagination } from "../ui";
 
 interface Props {
   utilisateur: UtilisateurAuthentifie;
   jetonCsrf: string;
+  vueInitiale?: VueControle | undefined;
 }
 
 interface Page<T> { elements: T[]; total: number; limite: number; decalage: number; }
@@ -53,13 +57,11 @@ function construireQuery(valeurs: Record<string, string | number | undefined>): 
   return params.toString();
 }
 
-function pagePrecedente(decalage: number): number { return Math.max(0, decalage - 25); }
-
-export function TableauControle({ utilisateur, jetonCsrf }: Props) {
+export function TableauControle({ utilisateur, jetonCsrf, vueInitiale }: Props) {
   const estCentral = utilisateur.role === "ADMIN_CENTRAL";
   const estDelegue = utilisateur.role === "DELEGUE_PROVINCIAL";
   const estProprietaire = utilisateur.role === "PROPRIETAIRE";
-  const [vue, setVue] = useState<VueControle>(estCentral ? "tableau" : estDelegue ? "observations" : "audit");
+  const [vue, setVue] = useState<VueControle>(vueInitiale ?? (estCentral ? "tableau" : estDelegue ? "observations" : "audit"));
   const [decalage, setDecalage] = useState(0);
   const [provinceId, setProvinceId] = useState(estDelegue ? (utilisateur.province_id ?? "") : "");
   const [statut, setStatut] = useState("");
@@ -255,10 +257,6 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
 
   return (
     <section className="contenu-tableau module-controle">
-      <div className="entete-section">
-        <div><p className="surtitre">Suivi et traçabilité</p><h1>{estCentral ? "Contrôle central" : estDelegue ? "Contrôle provincial" : "Consultation d’audit"}</h1>
-          <p>Consultez les opérations, traitez les observations et suivez les notifications de votre périmètre.</p></div>
-      </div>
       <div className="onglets-controle" role="tablist" aria-label="Modules de contrôle">
         {vues.map((item) => <button key={item.id} type="button" role="tab" aria-selected={vue === item.id}
           className={vue === item.id ? "onglet-controle actif" : "onglet-controle"}
@@ -269,38 +267,35 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
 
       {(vue === "tableau" || vue === "fermetures" || vue === "observations" || vue === "corrections") && (
         <div className="carte-section">
-          <div className="filtres-controle">
-            <label>Province
-              <select value={provinceId} onChange={(event) => { setProvinceId(event.target.value); setDecalage(0); }} disabled={estDelegue}>
-                <option value="">Toutes les provinces</option>
-                {provinces.map((province) => <option key={province.id} value={province.id}>{province.nom}</option>)}
-              </select>
-            </label>
-            {(vue === "tableau" || vue === "observations" || vue === "corrections") && <>
-              <label>Statut<select value={statut} onChange={(event) => setStatut(event.target.value)}>
-                <option value="">Tous les statuts</option>
-                {vue === "tableau" && ["BROUILLON", "VALIDEE", "EN_EXPEDITION", "PARTIELLEMENT_RECEPTIONNEE", "RECEPTIONNEE", "EN_RAPPROCHEMENT", "CLOTUREE", "PLANIFIEE", "RECEPTIONNEE_AVEC_ECART", "EN_ECART", "EN_PREPARATION", "VALIDEE_PROVINCE", "EN_EXECUTION", "TERMINEE_PROVINCE", "RETOURNEE_POUR_CORRECTION", "CLOTUREE_CENTRAL", "RESERVATION", "RECEPTION", "ENTREE", "SORTIE_DISTRIBUTION", "AJUSTEMENT_POSITIF", "AJUSTEMENT_NEGATIF", "TRANSFERT_ENTRANT", "TRANSFERT_SORTANT", "PERTE"].map((valeur) => <option key={valeur} value={valeur}>{valeur}</option>)}
-                {vue === "observations" && ["OUVERTE", "TRAITEE", "CLASSEE"].map((valeur) => <option key={valeur} value={valeur}>{valeur}</option>)}
-                {vue === "corrections" && ["EN_ATTENTE_DELEGUE", "CORRECTION_SOUMISE", "VALIDEE_CENTRAL"].map((valeur) => <option key={valeur} value={valeur}>{valeur}</option>)}
-              </select></label>
-            </>}
-            {vue === "tableau" && <>
-              <label>Type d’opération<select value={typeOperation} onChange={(event) => setTypeOperation(event.target.value)}>
-                <option value="">Tous les types</option><option value="APPROVISIONNEMENT_CENTRAL">Approvisionnement central</option>
-                <option value="DISTRIBUTION_PROVINCIALE">Distribution provinciale</option><option value="STOCK_PROVINCIAL">Mouvement de stock</option>
-              </select></label>
-              <label>Partenaire (identifiant)<input value={partenaireId} onChange={(event) => setPartenaireId(event.target.value)} placeholder="Identifiant du partenaire" /></label>
-              <label>Recherche<input value={recherche} onChange={(event) => setRecherche(event.target.value)} placeholder="Référence, intitulé, province" /></label>
-            </>}
-            {vue === "corrections" && <label>Recherche<input value={recherche} onChange={(event) => setRecherche(event.target.value)} placeholder="Référence, distribution, motif" /></label>}
-            {vue === "observations" && <label>Type d’opération<select value={typeOperation} onChange={(event) => setTypeOperation(event.target.value)}>
-              <option value="">Tous les types</option><option value="APPROVISIONNEMENT_CENTRAL">Approvisionnement central</option>
-              <option value="DISTRIBUTION_PROVINCIALE">Distribution provinciale</option><option value="STOCK_PROVINCIAL">Mouvement de stock</option>
-            </select></label>}
-            <label>Du<input type="date" value={dateDebut} onChange={(event) => setDateDebut(event.target.value)} /></label>
-            <label>Au<input type="date" value={dateFin} onChange={(event) => setDateFin(event.target.value)} /></label>
-            <button className="bouton bouton-secondaire" type="button" onClick={() => { setDecalage(0); setActualisation((valeur) => valeur + 1); }}>Appliquer</button>
-          </div>
+          <SIGADFilterBar
+            ariaLabel="Filtres du contrôle"
+            primary={(
+              <>
+                <label>Province<select value={provinceId} onChange={(event) => { setProvinceId(event.target.value); setDecalage(0); }} disabled={estDelegue}>
+                  <option value="">Toutes les provinces</option>{provinces.map((province) => <option key={province.id} value={province.id}>{province.nom}</option>)}
+                </select></label>
+                {(vue === "tableau" || vue === "observations" || vue === "corrections") && <label>Statut<select value={statut} onChange={(event) => setStatut(event.target.value)}>
+                  <option value="">Tous les statuts</option>
+                  {vue === "tableau" && ["BROUILLON", "VALIDEE", "EN_EXPEDITION", "PARTIELLEMENT_RECEPTIONNEE", "RECEPTIONNEE", "EN_RAPPROCHEMENT", "CLOTUREE", "PLANIFIEE", "RECEPTIONNEE_AVEC_ECART", "EN_ECART", "EN_PREPARATION", "VALIDEE_PROVINCE", "EN_EXECUTION", "TERMINEE_PROVINCE", "RETOURNEE_POUR_CORRECTION", "CLOTUREE_CENTRAL", "RESERVATION", "RECEPTION", "ENTREE", "SORTIE_DISTRIBUTION", "AJUSTEMENT_POSITIF", "AJUSTEMENT_NEGATIF", "TRANSFERT_ENTRANT", "TRANSFERT_SORTANT", "PERTE"].map((valeur) => <option key={valeur} value={valeur}>{valeur}</option>)}
+                  {vue === "observations" && ["OUVERTE", "TRAITEE", "CLASSEE"].map((valeur) => <option key={valeur} value={valeur}>{valeur}</option>)}
+                  {vue === "corrections" && ["EN_ATTENTE_DELEGUE", "CORRECTION_SOUMISE", "VALIDEE_CENTRAL"].map((valeur) => <option key={valeur} value={valeur}>{valeur}</option>)}
+                </select></label>}
+                {(vue === "tableau" || vue === "corrections") && <label>Recherche<input value={recherche} onChange={(event) => setRecherche(event.target.value)} placeholder={vue === "tableau" ? "Référence, intitulé, province" : "Référence, distribution, motif"} /></label>}
+              </>
+            )}
+            advanced={(
+              <div className="sigad-filter-bar__advanced-grid">
+                {(vue === "tableau" || vue === "observations") && <label>Type d’opération<select value={typeOperation} onChange={(event) => setTypeOperation(event.target.value)}>
+                  <option value="">Tous les types</option><option value="APPROVISIONNEMENT_CENTRAL">Approvisionnement central</option>
+                  <option value="DISTRIBUTION_PROVINCIALE">Distribution provinciale</option><option value="STOCK_PROVINCIAL">Mouvement de stock</option>
+                </select></label>}
+                {vue === "tableau" && <label>Partenaire (identifiant)<input value={partenaireId} onChange={(event) => setPartenaireId(event.target.value)} placeholder="Identifiant du partenaire" /></label>}
+                <label>Du<input type="date" value={dateDebut} onChange={(event) => setDateDebut(event.target.value)} /></label>
+                <label>Au<input type="date" value={dateFin} onChange={(event) => setDateFin(event.target.value)} /></label>
+              </div>
+            )}
+            actions={<button className="bouton bouton-secondaire" type="button" onClick={() => { setDecalage(0); setActualisation((valeur) => valeur + 1); }}>Appliquer</button>}
+          />
         </div>
       )}
 
@@ -324,13 +319,13 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
                 <td>{item.partenaire_execution_nom ?? item.partenaire_nom ?? "—"}</td><td><span className="badge-statut">{item.statut}</span></td><td>{item.date_operation}</td>
               </tr>)}</tbody></table></div> : <p className="etat-vide">Aucune opération ne correspond aux filtres.</p>}
           </div>
-          {operations && <Pagination total={operations.total} decalage={decalage} onChange={setDecalage} />}
+          {operations && <SIGADPagination total={operations.total} decalage={decalage} taillePage={25} chargement={chargement} onPageChange={setDecalage} />}
         </>
       )}
 
       {vue === "observations" && (
         <>
-          {estCentral && <form className="formulaire-controle" onSubmit={(event) => void soumettreObservation(event)}>
+          {estCentral && <SIGADFormGrid className="formulaire-controle" onSubmit={(event) => void soumettreObservation(event)}>
             <h2>Nouvelle observation de contrôle</h2>
             <label>Type d’opération<select value={typeObservation} onChange={(event) => setTypeObservation(event.target.value)}>
               <option value="DISTRIBUTION_PROVINCIALE">Distribution provinciale</option><option value="APPROVISIONNEMENT_CENTRAL">Approvisionnement central</option><option value="STOCK_PROVINCIAL">Mouvement de stock provincial</option>
@@ -342,7 +337,7 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
             <label>Gravité<select value={gravite} onChange={(event) => setGravite(event.target.value)}><option value="INFO">Information</option><option value="AVERTISSEMENT">Avertissement</option><option value="CRITIQUE">Critique</option></select></label>
             <label className="largeur-complete">Observation<textarea required minLength={5} maxLength={4000} value={texteObservation} onChange={(event) => setTexteObservation(event.target.value)} /></label>
             <button className="bouton bouton-principal" type="submit">Enregistrer et notifier</button>
-          </form>}
+          </SIGADFormGrid>}
           <div className="liste-controle">{observations?.elements.map((item) => <article className="carte-controle" key={item.id}>
             <div className="ligne-controle"><strong>{item.province_nom}</strong><span className={`badge-gravite gravite-${item.niveau_gravite.toLowerCase()}`}>{item.niveau_gravite}</span><span className="badge-statut">{item.statut}</span><time>{item.cree_le}</time></div>
             <p>{item.observation}</p><small>{item.operation_type} · {item.operation_id}</small>
@@ -353,7 +348,7 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
             </div>}
             {estCentral && item.statut === "OUVERTE" && item.reponse_delegue && <button className="bouton bouton-secondaire" type="button" onClick={() => void cloturerObservation(item)}>Clôturer après examen</button>}
           </article>)}</div>
-          {observations && <Pagination total={observations.total} decalage={decalage} onChange={setDecalage} />}
+          {observations && <SIGADPagination total={observations.total} decalage={decalage} taillePage={25} chargement={chargement} onPageChange={setDecalage} />}
         </>
       )}
 
@@ -375,7 +370,7 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
             {estCentral && item.statut === "CORRECTION_SOUMISE" && <button className="bouton bouton-principal" type="button" onClick={() => void validerCorrection(item)}>Valider la correction</button>}
           </article>;
         })}</div>
-        {corrections && <Pagination total={corrections.total} decalage={decalage} onChange={setDecalage} />}
+        {corrections && <SIGADPagination total={corrections.total} decalage={decalage} taillePage={25} chargement={chargement} onPageChange={setDecalage} />}
       </>}
 
       {vue === "fermetures" && estCentral && <>
@@ -385,7 +380,7 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
           {item.bloqueurs.length > 0 && <ul>{item.bloqueurs.map((bloqueur) => <li key={bloqueur}>{bloqueur}</li>)}</ul>}
           <button className="bouton bouton-principal" type="button" disabled={!item.pret} onClick={() => void cloturerDistribution(item)}>Clôturer centralement</button>
         </article>)}</div>
-        {fermetures && <Pagination total={fermetures.total} decalage={decalage} onChange={setDecalage} />}
+        {fermetures && <SIGADPagination total={fermetures.total} decalage={decalage} taillePage={25} chargement={chargement} onPageChange={setDecalage} />}
       </>}
 
       {vue === "audit" && <>
@@ -402,7 +397,7 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
         <div className="carte-section"><div className="tableau-defilement"><table><thead><tr><th>Date</th><th>Utilisateur</th><th>Province</th><th>Action</th><th>Type d’entité</th><th>Référence</th></tr></thead>
           <tbody>{audit?.elements.map((item) => <tr key={item.id}><td>{item.cree_le}</td><td>{item.utilisateur_nom ?? item.utilisateur_id}</td><td>{item.province_nom ?? item.province_id ?? "National"}</td><td>{item.action}</td><td>{item.entite_type}</td><td>{item.reference}</td></tr>)}</tbody></table></div>
           {!audit?.elements.length && <p className="etat-vide">Aucune entrée d’audit ne correspond aux filtres.</p>}</div>
-        {audit && <Pagination total={audit.total} decalage={decalage} onChange={setDecalage} />}
+        {audit && <SIGADPagination total={audit.total} decalage={decalage} taillePage={25} chargement={chargement} onPageChange={setDecalage} />}
       </>}
 
       {vue === "notifications" && <>
@@ -412,18 +407,8 @@ export function TableauControle({ utilisateur, jetonCsrf }: Props) {
           <p>{item.message}</p>
           {!item.lue && <button className="bouton bouton-secondaire" type="button" onClick={() => void marquerNotification(item)}>Marquer comme lue</button>}
         </article>)}</div>
-        {notifications && <Pagination total={notifications.total} decalage={decalage} onChange={setDecalage} />}
+        {notifications && <SIGADPagination total={notifications.total} decalage={decalage} taillePage={25} chargement={chargement} onPageChange={setDecalage} />}
       </>}
     </section>
   );
-}
-
-function Pagination({ total, decalage, onChange }: { total: number; decalage: number; onChange: (valeur: number) => void }) {
-  const limite = 25;
-  const premiere = total === 0 ? 0 : decalage + 1;
-  const derniere = Math.min(total, decalage + limite);
-  return <div className="pagination"><span>{premiere}–{derniere} sur {total}</span><div>
-    <button className="bouton bouton-secondaire" type="button" disabled={decalage === 0} onClick={() => onChange(pagePrecedente(decalage))}>Précédent</button>
-    <button className="bouton bouton-secondaire" type="button" disabled={derniere >= total} onClick={() => onChange(decalage + limite)}>Suivant</button>
-  </div></div>;
 }

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { UtilisateurAuthentifie } from "../../../../shared/types/authentification";
+import { SIGADFilterBar } from "../administration/SIGADFilterBar";
+import { SIGADFormGrid } from "../administration/SIGADFormGrid";
 import { ErreurApi, requeteApi } from "../../services/api";
+import {
+  SIGADAlert,
+  SIGADBadge,
+  SIGADButton,
+  SIGADPagination,
+  SIGADTab,
+  SIGADTabsList,
+} from "../ui";
 
 interface Props {
   utilisateur: UtilisateurAuthentifie;
@@ -131,6 +141,7 @@ export function TableauApprovisionnements({ utilisateur, jetonCsrf }: Props) {
   const [total, definirTotal] = useState(0);
   const [decalage, definirDecalage] = useState(0);
   const [recherche, definirRecherche] = useState("");
+  const [statutExpedition, definirStatutExpedition] = useState("");
   const [selection, definirSelection] = useState<ApprovisionnementApi | null>(null);
   const [allocations, definirAllocations] = useState<AllocationApi[]>([]);
   const [totalAllocations, definirTotalAllocations] = useState(0);
@@ -204,6 +215,7 @@ export function TableauApprovisionnements({ utilisateur, jetonCsrf }: Props) {
       const parametres = new URLSearchParams({ limite: String(TAILLE_PAGE), decalage: String(decalage) });
       if (recherche.trim()) parametres.set("recherche", recherche.trim());
       if (estDelegue) {
+        if (statutExpedition) parametres.set("statut", statutExpedition);
         const page = await requeteApi<PageApi<ExpeditionApi>>(`/api/provincial/expeditions?${parametres.toString()}`);
         definirExpeditions(page.elements);
         definirTotal(page.total);
@@ -214,7 +226,7 @@ export function TableauApprovisionnements({ utilisateur, jetonCsrf }: Props) {
       }
     } catch (cause) { definirErreur(erreurLisible(cause)); }
     finally { definirChargement(false); }
-  }, [decalage, estDelegue, recherche]);
+  }, [decalage, estDelegue, recherche, statutExpedition]);
 
   useEffect(() => { void chargerReferences().catch((cause: unknown) => definirErreur(erreurLisible(cause))); }, [chargerReferences]);
   useEffect(() => { void chargerListe(); }, [chargerListe]);
@@ -438,68 +450,79 @@ export function TableauApprovisionnements({ utilisateur, jetonCsrf }: Props) {
 
   const peutPrecedent = decalage > 0;
   const peutSuivant = decalage + TAILLE_PAGE < total;
-  const controlesApprovisionnements = <div className="pagination">
-    <span>Opérations {total === 0 ? 0 : decalage + 1} à {Math.min(decalage + TAILLE_PAGE, total)} sur {total}</span>
-    <div className="actions-ligne">
-      <button type="button" className="bouton bouton-secondaire" disabled={!peutPrecedent || chargement} onClick={() => definirDecalage((valeur) => Math.max(0, valeur - TAILLE_PAGE))}>Précédent</button>
-      <button type="button" className="bouton bouton-secondaire" disabled={!peutSuivant || chargement} onClick={() => definirDecalage((valeur) => valeur + TAILLE_PAGE)}>Suivant</button>
-    </div>
-  </div>;
-  const peutPageAllocationPrecedente = decalageAllocations > 0;
-  const peutPageAllocationSuivante = decalageAllocations + TAILLE_PAGE < totalAllocations;
-  const peutPageReceptionPrecedente = decalageReceptions > 0;
-  const peutPageReceptionSuivante = decalageReceptions + TAILLE_PAGE < totalReceptions;
+  const controlesApprovisionnements = (
+    <SIGADPagination total={total} decalage={decalage} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={definirDecalage} />
+  );
 
   return (
-    <section className="contenu-tableau module-approvisionnements" aria-labelledby="titre-approvisionnements">
-      <header className="entete-section">
-        <div><h1 id="titre-approvisionnements">Approvisionnements centraux</h1><p className="texte-secondaire">Répartition, expédition, réception provinciale et rapprochement des écarts.</p></div>
-        <span className="badge-role">{estAdmin ? "Administration centrale" : estDelegue ? "Délégation provinciale" : "Consultation et audit"}</span>
-      </header>
-      {erreur && <p className="message-erreur bandeau-erreur" role="alert">{erreur}</p>}
-      {succes && <p className="message-succes" role="status">{succes}</p>}
+    <section className="contenu-tableau module-approvisionnements" aria-label="Approvisionnements centraux">
+      <div className="sigad-compact-meta"><SIGADBadge variant="neutral">{estAdmin ? "Administration centrale" : estDelegue ? "Délégation provinciale" : "Consultation et audit"}</SIGADBadge></div>
+      {erreur && <SIGADAlert type="danger" message={erreur} style={{ marginBottom: "1rem" }} />}
+      {succes && <SIGADAlert type="success" message={succes} style={{ marginBottom: "1rem" }} />}
 
-      <nav className="navigation-gestion" aria-label="Fonctions des approvisionnements">
-        {!estDelegue && <button type="button" className={vue === "liste" ? "lien-gestion actif" : "lien-gestion"} onClick={() => definirVue("liste")}>Liste des approvisionnements</button>}
-        {estAdmin && <button type="button" className={vue === "nouveau" ? "lien-gestion actif" : "lien-gestion"} onClick={() => definirVue("nouveau")}>Nouvel approvisionnement</button>}
-        {estAdmin && <button type="button" className={vue === "expeditions" ? "lien-gestion actif" : "lien-gestion"} onClick={() => definirVue("expeditions")}>Gestion des expéditions</button>}
-        {estDelegue && <button type="button" className={vue === "reception" ? "lien-gestion actif" : "lien-gestion"} onClick={() => definirVue("reception")}>Réception provinciale</button>}
-        {estAdmin && <button type="button" className={vue === "cloture" ? "lien-gestion actif" : "lien-gestion"} onClick={() => definirVue("cloture")}>Suivi des écarts et clôture</button>}
-      </nav>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <SIGADTabsList ariaLabel="Fonctions des approvisionnements">
+          {!estDelegue && (
+            <SIGADTab active={vue === "liste"} onClick={() => definirVue("liste")}>
+              Liste des approvisionnements
+            </SIGADTab>
+          )}
+          {estAdmin && (
+            <SIGADTab active={vue === "nouveau"} onClick={() => definirVue("nouveau")}>
+              Nouvel approvisionnement
+            </SIGADTab>
+          )}
+          {estAdmin && (
+            <SIGADTab active={vue === "expeditions"} onClick={() => definirVue("expeditions")}>
+              Gestion des expéditions
+            </SIGADTab>
+          )}
+          {estDelegue && (
+            <SIGADTab active={vue === "reception"} onClick={() => definirVue("reception")}>
+              Réception provinciale
+            </SIGADTab>
+          )}
+          {estAdmin && (
+            <SIGADTab active={vue === "cloture"} onClick={() => definirVue("cloture")}>
+              Suivi des écarts et clôture
+            </SIGADTab>
+          )}
+        </SIGADTabsList>
+      </div>
 
       {vue === "liste" && !estDelegue && <>
         <section className="carte-section">
           <div className="titre-section"><div><h2>Liste des approvisionnements</h2><p>Les résultats sont paginés côté serveur.</p></div><span className="compteur">{total} opération(s)</span></div>
-          <div className="barre-filtres-stock"><label className="champ-territorial">Recherche<input value={recherche} onChange={(e) => { definirRecherche(e.currentTarget.value); definirDecalage(0); }} placeholder="Référence ou intitulé" /></label></div>
+          <SIGADFilterBar ariaLabel="Filtres des approvisionnements" fieldsClassName="barre-filtres-stock"><label className="champ-territorial">Recherche<input aria-label="Recherche des approvisionnements" maxLength={120} value={recherche} onChange={(e) => { definirRecherche(e.currentTarget.value); definirDecalage(0); }} placeholder="Référence ou intitulé" /></label></SIGADFilterBar>
           <div className="tableau-defilement"><table><thead><tr><th>Référence</th><th>Opération</th><th>Source</th><th>Nature</th><th>Destinations</th><th>Expéditions</th><th>Statut</th><th>Action</th></tr></thead><tbody>
-            {approvisionnements.map((operation) => <tr key={operation.id}><td className="code-reference">{operation.reference}</td><td className="texte-gras">{operation.intitule_operation}</td><td>{operation.source_articles.replaceAll("_", " ")}</td><td>{operation.nature_aide}</td><td>{operation.nombre_destinations}</td><td>{operation.nombre_expeditions}</td><td><span className="pastille-statut statut-information">{operation.statut}</span></td><td><button type="button" className="bouton bouton-secondaire" onClick={() => void choisirApprovisionnement(operation)}>Ouvrir</button></td></tr>)}
+            {approvisionnements.map((operation) => <tr key={operation.id}><td className="code-reference">{operation.reference}</td><td className="texte-gras">{operation.intitule_operation}</td><td>{operation.source_articles.replaceAll("_", " ")}</td><td>{operation.nature_aide}</td><td>{operation.nombre_destinations}</td><td>{operation.nombre_expeditions}</td><td><SIGADBadge variant="info">{operation.statut}</SIGADBadge></td><td><SIGADButton variant="outline" size="sm" onClick={() => void choisirApprovisionnement(operation)}>Ouvrir</SIGADButton></td></tr>)}
             {!chargement && approvisionnements.length === 0 && <tr><td className="cellule-vide" colSpan={8}>Aucun approvisionnement dans cette page.</td></tr>}
           </tbody></table></div>
-          {controlesApprovisionnements}
+          <SIGADPagination total={total} decalage={decalage} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={definirDecalage} />
         </section>
         {selection && <section className="carte-section">
-          <div className="titre-section"><div><h2>{selection.reference} — {selection.intitule_operation}</h2><p>État de l’opération : {selection.statut}</p></div>{estAdmin && selection.statut === "BROUILLON" && <button type="button" className="bouton bouton-primaire" disabled={chargement} onClick={() => void validerApprovisionnement()}>Valider l’approvisionnement</button>}</div>
+          <div className="titre-section"><div><h2>{selection.reference} — {selection.intitule_operation}</h2><p>État de l’opération : {selection.statut}</p></div>{estAdmin && selection.statut === "BROUILLON" && <SIGADButton variant="primary" disabled={chargement} onClick={() => void validerApprovisionnement()}>Valider l’approvisionnement</SIGADButton>}</div>
           <h3>Répartition par province et article</h3>
           <div className="tableau-defilement"><table><thead><tr><th>Province</th><th>Article</th><th>Alloué</th><th>Expédié</th><th>Accepté</th><th>Reste à expédier</th></tr></thead><tbody>
             {allocations.map((allocation) => <tr key={allocation.id}><td>{allocation.province}</td><td>{allocation.code_article} · {allocation.article}</td><td>{allocation.quantite_allouee}</td><td>{allocation.quantite_expediee}</td><td>{allocation.quantite_receptionnee_acceptee}</td><td>{allocation.quantite_restante}</td></tr>)}
             {allocations.length === 0 && <tr><td className="cellule-vide" colSpan={6}>Aucune répartition disponible.</td></tr>}
           </tbody></table></div>
-          <div className="pagination"><span>Répartitions {totalAllocations === 0 ? 0 : decalageAllocations + 1} à {Math.min(decalageAllocations + TAILLE_PAGE, totalAllocations)} sur {totalAllocations}</span><div className="actions-ligne"><button type="button" className="bouton bouton-secondaire" disabled={!peutPageAllocationPrecedente || chargement} onClick={() => void chargerPageAllocations(selection.id, decalageAllocations - TAILLE_PAGE)}>Précédent</button><button type="button" className="bouton bouton-secondaire" disabled={!peutPageAllocationSuivante || chargement} onClick={() => void chargerPageAllocations(selection.id, decalageAllocations + TAILLE_PAGE)}>Suivant</button></div></div>
+          <SIGADPagination total={totalAllocations} decalage={decalageAllocations} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={(valeur) => void chargerPageAllocations(selection.id, valeur)} />
           <h3>Expéditions et réceptions liées</h3>
           <div className="tableau-defilement"><table><thead><tr><th>Réception</th><th>Province</th><th>Expédition</th><th>Date</th><th>Procès-verbal</th><th>Rapprochement</th><th>Action</th></tr></thead><tbody>
-            {receptions.map((reception) => <tr key={reception.id}><td>{reception.reference_reception_prov}</td><td>{reception.province}</td><td>{reception.reference_expedition}</td><td>{reception.date_reception}</td><td>{reception.numero_pv_reception}</td><td>{reception.statut_rapprochement}</td><td><button type="button" className="bouton bouton-secondaire" onClick={() => void chargerReception(reception)}>Examiner les écarts</button></td></tr>)}
+            {receptions.map((reception) => <tr key={reception.id}><td>{reception.reference_reception_prov}</td><td>{reception.province}</td><td>{reception.reference_expedition}</td><td>{reception.date_reception}</td><td>{reception.numero_pv_reception}</td><td>{reception.statut_rapprochement}</td><td><SIGADButton variant="outline" size="sm" onClick={() => void chargerReception(reception)}>Examiner les écarts</SIGADButton></td></tr>)}
             {receptions.length === 0 && <tr><td className="cellule-vide" colSpan={7}>Aucune réception enregistrée.</td></tr>}
           </tbody></table></div>
-          <div className="pagination"><span>Réceptions {totalReceptions === 0 ? 0 : decalageReceptions + 1} à {Math.min(decalageReceptions + TAILLE_PAGE, totalReceptions)} sur {totalReceptions}</span><div className="actions-ligne"><button type="button" className="bouton bouton-secondaire" disabled={!peutPageReceptionPrecedente || chargement} onClick={() => void chargerPageReceptions(selection.id, decalageReceptions - TAILLE_PAGE)}>Précédent</button><button type="button" className="bouton bouton-secondaire" disabled={!peutPageReceptionSuivante || chargement} onClick={() => void chargerPageReceptions(selection.id, decalageReceptions + TAILLE_PAGE)}>Suivant</button></div></div>
+          <SIGADPagination total={totalReceptions} decalage={decalageReceptions} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={(valeur) => void chargerPageReceptions(selection.id, valeur)} />
           {receptionChoisie && <div className="carte-ecarts"><h3>Rapprochement — {receptionChoisie.reference_reception_prov}</h3>{receptionChoisie.lignes.map((ligne) => <div className="ligne-ecart" key={ligne.id}><span>{ligne.article} · expédié {ligne.quantite_expediee}, accepté {ligne.quantite_acceptee}, endommagé {ligne.quantite_endommagee}, manquant {ligne.quantite_manquante}</span>{(ligne.quantite_endommagee > 0 || ligne.quantite_manquante > 0) && <label className="champ-territorial">Justification<textarea required minLength={5} value={justifications[ligne.id] ?? ""} onChange={(e) => definirJustifications((courant) => ({ ...courant, [ligne.id]: e.currentTarget.value }))} /></label>}</div>)}
-            {estAdmin && receptionChoisie.statut_rapprochement !== "RAPPROCHE_JUSTIFIE" && <button type="button" className="bouton bouton-primaire" disabled={chargement || !receptionChoisie.lignes.some((ligne) => ligne.quantite_endommagee > 0 || ligne.quantite_manquante > 0)} onClick={() => void rapprocherEcarts()}>Valider le rapprochement</button>}
+            {estAdmin && receptionChoisie.statut_rapprochement !== "RAPPROCHE_JUSTIFIE" && <SIGADButton variant="primary" disabled={chargement || !receptionChoisie.lignes.some((ligne) => ligne.quantite_endommagee > 0 || ligne.quantite_manquante > 0)} onClick={() => void rapprocherEcarts()}>Valider le rapprochement</SIGADButton>}
           </div>}
         </section>}
       </>}
 
       {vue === "nouveau" && estAdmin && <section className="carte-section">
         <div className="titre-section"><div><h2>Nouvel approvisionnement</h2><p>Définissez l’origine puis les allocations indépendantes de chaque province.</p></div></div>
-        <form className="formulaire-gestion formulaire-approvisionnement" onSubmit={(e) => void soumettreApprovisionnement(e)}>
+        <SIGADFormGrid className="formulaire-gestion formulaire-approvisionnement" onSubmit={(e) => void soumettreApprovisionnement(e)}>
           <label className="champ-territorial">Référence<input required minLength={6} maxLength={80} pattern="APP-[A-Z0-9-]+" value={reference} onChange={(e) => definirReference(e.currentTarget.value)} /></label>
           <label className="champ-territorial">Intitulé de l’opération<input required minLength={2} maxLength={160} value={intitule} onChange={(e) => definirIntitule(e.currentTarget.value)} /></label>
           <label className="champ-territorial">Origine des articles<select value={source} onChange={(e) => { definirSource(e.currentTarget.value); definirPartenaireId(""); }}><option value="ENTREPOT_CENTRAL">Entrepôt central</option><option value="FOURNISSEUR_EXTERNE">Fournisseur externe</option><option value="DON_PARTENAIRE">Don d’un partenaire</option></select></label>
@@ -514,14 +537,14 @@ export function TableauApprovisionnements({ utilisateur, jetonCsrf }: Props) {
             </fieldset>)}
           </div>
           <button type="submit" className="bouton bouton-primaire" disabled={chargement}>Enregistrer le brouillon</button>
-        </form>
+        </SIGADFormGrid>
       </section>}
 
       {vue === "expeditions" && estAdmin && <>
         <section className="carte-section"><div className="titre-section"><div><h2>Créer une expédition</h2><p>Les quantités restent limitées par le solde des allocations et, pour l’origine centrale, par le stock FEFO disponible.</p></div></div>
           <label className="champ-territorial champ-appro-large">Approvisionnement<select value={selection?.id ?? ""} onChange={(e) => { const operation = approvisionnements.find((item) => item.id === e.currentTarget.value); if (operation) void choisirApprovisionnement(operation); }}><option value="">Sélectionner un approvisionnement</option>{approvisionnements.map((operation) => <option key={operation.id} value={operation.id}>{operation.reference} · {operation.intitule_operation}</option>)}</select></label>
           {controlesApprovisionnements}
-          {selection && <form className="formulaire-gestion formulaire-approvisionnement" onSubmit={(e) => void soumettreExpedition(e)}>
+          {selection && <SIGADFormGrid className="formulaire-gestion formulaire-approvisionnement" onSubmit={(e) => void soumettreExpedition(e)}>
             <label className="champ-territorial">Province destinataire<select required value={destinationExpedition} onChange={(e) => void choisirDestinationPourExpedition(e.currentTarget.value)}><option value="">Sélectionner une répartition</option>{destinationsApprovisionnement.map((destination) => <option key={destination.id} value={destination.id}>{destination.province} · {destination.statut_destination}</option>)}</select></label>
             <label className="champ-territorial">Origine réelle<select value={origineExpedition} onChange={(e) => definirOrigineExpedition(e.currentTarget.value)}><option value="ENTREPOT_CENTRAL">Entrepôt central</option><option value="LIVRAISON_DIRECTE_FOURNISSEUR">Livraison directe du fournisseur</option></select></label>
             {origineExpedition === "ENTREPOT_CENTRAL" && <label className="champ-territorial">Entrepôt central<select required value={entrepotOrigine} onChange={(e) => definirEntrepotOrigine(e.currentTarget.value)}><option value="">Sélectionner un entrepôt</option>{entrepots.map((entrepot) => <option key={entrepot.id} value={entrepot.id}>{entrepot.code_entrepot} · {entrepot.nom}</option>)}</select></label>}
@@ -529,20 +552,29 @@ export function TableauApprovisionnements({ utilisateur, jetonCsrf }: Props) {
             <label className="champ-territorial">Référence du bordereau<input required minLength={2} maxLength={120} value={referenceBordereau} onChange={(e) => definirReferenceBordereau(e.currentTarget.value)} /></label>
             <div className="destination-editoriale"><h3>Articles de l’expédition</h3>{lignesExpedition.map((ligne) => <div className="ligne-allocation" key={ligne.cleLocale}><label className="champ-territorial">Article alloué<select required value={ligne.article_approvisionnement_id} onChange={(e) => definirLignesExpedition((liste) => liste.map((item) => item.cleLocale === ligne.cleLocale ? { ...item, article_approvisionnement_id: e.currentTarget.value } : item))}><option value="">Sélectionner un article</option>{allocationsDestination.map((allocation) => <option key={allocation.id} value={allocation.id}>{allocation.code_article} · {allocation.article} — disponible à allouer {allocation.quantite_restante}</option>)}</select></label><label className="champ-territorial">Quantité expédiée<input type="number" required min="0.001" step="any" value={ligne.quantite_expediee} onChange={(e) => definirLignesExpedition((liste) => liste.map((item) => item.cleLocale === ligne.cleLocale ? { ...item, quantite_expediee: e.currentTarget.value } : item))} /></label>{origineExpedition === "LIVRAISON_DIRECTE_FOURNISSEUR" && <><label className="champ-territorial">Numéro de lot fournisseur<input required value={ligne.numero_lot_fournisseur} onChange={(e) => definirLignesExpedition((liste) => liste.map((item) => item.cleLocale === ligne.cleLocale ? { ...item, numero_lot_fournisseur: e.currentTarget.value } : item))} /></label><label className="champ-territorial">Date de péremption<input type="date" value={ligne.date_peremption} onChange={(e) => definirLignesExpedition((liste) => liste.map((item) => item.cleLocale === ligne.cleLocale ? { ...item, date_peremption: e.currentTarget.value } : item))} /></label></>}{lignesExpedition.length > 1 && <button type="button" className="bouton bouton-texte-danger" onClick={() => definirLignesExpedition((liste) => liste.filter((item) => item.cleLocale !== ligne.cleLocale))}>Retirer</button>}</div>)}<button type="button" className="bouton bouton-secondaire" onClick={() => definirLignesExpedition((liste) => [...liste, { cleLocale: cleLocale(), article_approvisionnement_id: "", quantite_expediee: "", numero_lot_fournisseur: "", date_peremption: "" }])}>Ajouter un article à l’expédition</button></div>
             <button type="submit" className="bouton bouton-primaire" disabled={chargement || allocationsDestination.length === 0}>Enregistrer l’expédition</button>
-          </form>}
+          </SIGADFormGrid>}
         </section>
       </>}
 
       {vue === "reception" && estDelegue && <section className="carte-section"><div className="titre-section"><div><h2>Réception provinciale</h2><p>Seules les expéditions destinées à votre province sont présentées.</p></div></div>
+        <SIGADFilterBar
+          ariaLabel="Filtres des expéditions à réceptionner"
+          fieldsClassName="barre-filtres-stock"
+          primary={<>
+            <label className="champ-territorial">Recherche<input aria-label="Recherche des expéditions" maxLength={40} value={recherche} onChange={(e) => { definirRecherche(e.currentTarget.value); definirDecalage(0); }} placeholder="Référence, bordereau ou approvisionnement" /></label>
+            <label className="champ-territorial">Statut<select aria-label="Statut des expéditions" value={statutExpedition} onChange={(e) => { definirStatutExpedition(e.currentTarget.value); definirDecalage(0); }}><option value="">Tous les statuts</option><option value="EN_ROUTE">En route</option><option value="RECEPTIONNEE">Réceptionnée</option><option value="RECEPTIONNEE_AVEC_ECART">Réceptionnée avec écart</option></select></label>
+          </>}
+          actions={<button type="button" className="bouton bouton-secondaire" disabled={chargement || (!recherche && !statutExpedition)} onClick={() => { definirRecherche(""); definirStatutExpedition(""); definirDecalage(0); }}>Réinitialiser</button>}
+        />
         <div className="tableau-defilement"><table><thead><tr><th>Expédition</th><th>Approvisionnement</th><th>Date</th><th>Origine</th><th>Bordereau</th><th>Statut</th><th>Action</th></tr></thead><tbody>{expeditions.map((expedition) => <tr key={expedition.id}><td>{expedition.reference_expedition}</td><td>{expedition.reference_approvisionnement} · {expedition.intitule_operation}</td><td>{expedition.date_expedition}</td><td>{expedition.origine_expedition.replaceAll("_", " ")}</td><td>{expedition.reference_bordereau}</td><td>{expedition.statut_expedition}</td><td><button type="button" className="bouton bouton-secondaire" onClick={() => void choisirExpedition(expedition)}>Ouvrir</button></td></tr>)}{expeditions.length === 0 && <tr><td className="cellule-vide" colSpan={7}>Aucune expédition ne correspond aux filtres.</td></tr>}</tbody></table></div>
-        {expeditionChoisie && <div className="detail-reception"><h3>{expeditionChoisie.reference_expedition} — {expeditionChoisie.intitule_operation}</h3><p>Bordereau {expeditionChoisie.reference_bordereau} · {expeditionChoisie.statut_expedition}</p>{expeditionChoisie.reception_id ? <p className="message-succes">Une réception est déjà enregistrée pour cette expédition.</p> : <form className="formulaire-gestion formulaire-approvisionnement" onSubmit={(e) => void soumettreReception(e)}>
+        {expeditionChoisie && <div className="detail-reception"><h3>{expeditionChoisie.reference_expedition} — {expeditionChoisie.intitule_operation}</h3><p>Bordereau {expeditionChoisie.reference_bordereau} · {expeditionChoisie.statut_expedition}</p>{expeditionChoisie.reception_id ? <p className="message-succes">Une réception est déjà enregistrée pour cette expédition.</p> : <SIGADFormGrid className="formulaire-gestion formulaire-approvisionnement" onSubmit={(e) => void soumettreReception(e)}>
           <label className="champ-territorial">Entrepôt récepteur<select required value={entrepotReception} onChange={(e) => definirEntrepotReception(e.currentTarget.value)}><option value="">Sélectionner l’entrepôt de votre province</option>{entrepots.map((entrepot) => <option key={entrepot.id} value={entrepot.id}>{entrepot.code_entrepot} · {entrepot.nom}</option>)}</select></label>
           <label className="champ-territorial">Date de réception<input type="date" required value={dateReception} onChange={(e) => definirDateReception(e.currentTarget.value)} /></label>
           <label className="champ-territorial">Numéro du procès-verbal<input required minLength={2} maxLength={120} value={numeroPv} onChange={(e) => definirNumeroPv(e.currentTarget.value)} /></label>
           <label className="champ-territorial">Procès-verbal signé<input type="file" required accept="application/pdf,image/jpeg,image/png" onChange={(e) => { definirFichierPv(e.currentTarget.files?.[0] ?? null); definirPvCharge(null); }} /></label>
           <div className="tableau-defilement tableau-reception"><table><thead><tr><th>Article</th><th>Expédié</th><th>Reçu physiquement</th><th>Accepté</th><th>Endommagé</th></tr></thead><tbody>{expeditionChoisie.lignes.map((ligne) => { const saisie = lignesReception.find((item) => item.ligne_expedition_id === ligne.id); return <tr key={ligne.id}><td>{ligne.code_article} · {ligne.article}</td><td>{ligne.quantite_expediee}</td><td><input type="number" min="0" step="any" required value={saisie?.quantite_recue_physique ?? "0"} onChange={(e) => { const valeur = e.currentTarget.value; definirLignesReception((liste) => liste.map((item) => item.ligne_expedition_id === ligne.id ? { ...item, quantite_recue_physique: valeur } : item)); }} /></td><td><input type="number" min="0" step="any" required value={saisie?.quantite_acceptee ?? "0"} onChange={(e) => { const valeur = e.currentTarget.value; definirLignesReception((liste) => liste.map((item) => item.ligne_expedition_id === ligne.id ? { ...item, quantite_acceptee: valeur } : item)); }} /></td><td><input type="number" min="0" step="any" required value={saisie?.quantite_endommagee ?? "0"} onChange={(e) => { const valeur = e.currentTarget.value; definirLignesReception((liste) => liste.map((item) => item.ligne_expedition_id === ligne.id ? { ...item, quantite_endommagee: valeur } : item)); }} /></td></tr>; })}</tbody></table></div>
           <button type="submit" className="bouton bouton-primaire" disabled={chargement || expeditionChoisie.lignes.length === 0}>Confirmer la réception</button>
-        </form>}</div>}
+        </SIGADFormGrid>}</div>}
         <div className="pagination"><span>{total} expédition(s) dans votre périmètre</span><div className="actions-ligne"><button type="button" className="bouton bouton-secondaire" disabled={!peutPrecedent || chargement} onClick={() => definirDecalage((valeur) => Math.max(0, valeur - TAILLE_PAGE))}>Précédent</button><button type="button" className="bouton bouton-secondaire" disabled={!peutSuivant || chargement} onClick={() => definirDecalage((valeur) => valeur + TAILLE_PAGE)}>Suivant</button></div></div>
       </section>}
 

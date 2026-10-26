@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { UtilisateurAuthentifie } from "../../../../shared/types/authentification";
 import type { ElementSelectionLocalisation, ProvinceTerritoriale } from "../../../../shared/types/territoire";
 import { SelecteurLocalisationDynamique } from "../territoire/SelecteurLocalisationDynamique";
+import { SIGADFilterBar } from "../administration/SIGADFilterBar";
+import { SIGADFormGrid } from "../administration/SIGADFormGrid";
 import { ErreurApi, requeteApi } from "../../services/api";
+import { SIGADAlert, SIGADBadge, SIGADPagination, SIGADSidePanel, SIGADTab, SIGADTabsList } from "../ui";
 
 interface TableauGestionBeneficiairesProps {
   utilisateur: UtilisateurAuthentifie;
@@ -28,6 +31,7 @@ interface MenageApi {
   telephone: string | null;
   categorie_population: string;
   statut: "ACTIF" | "INACTIF" | "DOUBLON_SUSPECTE" | "ARCHIVE";
+  statut_validation: "A_VERIFIER" | "VALIDE" | "REFUSE";
   date_enregistrement: string;
 }
 
@@ -89,29 +93,31 @@ function nomProvince(provinceId: string, provinces: readonly ProvinceTerritorial
   return provinces.find((province) => province.id === provinceId)?.nom ?? provinceId;
 }
 
-function Pagination(props: {
-  total: number;
-  decalage: number;
-  chargement: boolean;
-  modifier: (decalage: number) => void;
-}): JSX.Element {
-  const nombrePages = Math.max(1, Math.ceil(props.total / TAILLE_PAGE));
-  const pageCourante = Math.floor(props.decalage / TAILLE_PAGE) + 1;
-  return (
-    <div className="pagination">
-      <span>Page {pageCourante} sur {nombrePages} · {props.total} éléments</span>
-      <div className="actions-ligne">
-        <button className="bouton bouton-discret" disabled={props.decalage === 0 || props.chargement}
-          onClick={() => props.modifier(Math.max(0, props.decalage - TAILLE_PAGE))} type="button">Précédente</button>
-        <button className="bouton bouton-discret" disabled={props.decalage + TAILLE_PAGE >= props.total || props.chargement}
-          onClick={() => props.modifier(props.decalage + TAILLE_PAGE)} type="button">Suivante</button>
-      </div>
-    </div>
-  );
-}
-
 export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauGestionBeneficiairesProps) {
-  const [vue, definirVue] = useState<VueGestion>("menages");
+  const lireVueDepuisUrl = useCallback((): VueGestion => {
+    if (typeof window !== "undefined") {
+      const param = new URLSearchParams(window.location.search).get("vue");
+      if (param === "menages" || param === "partenaires" || param === "listes") {
+        return param;
+      }
+    }
+    return "menages";
+  }, []);
+
+  const [vue, definirVue] = useState<VueGestion>(lireVueDepuisUrl);
+
+  useEffect(() => {
+    const sync = () => {
+      const nouvelleVue = lireVueDepuisUrl();
+      definirVue((actuelle) => (actuelle !== nouvelleVue ? nouvelleVue : actuelle));
+    };
+    window.addEventListener("popstate", sync);
+    const interval = window.setInterval(sync, 250);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.clearInterval(interval);
+    };
+  }, [lireVueDepuisUrl]);
   const [decalage, definirDecalage] = useState(0);
   const [menages, definirMenages] = useState<MenageApi[]>([]);
   const [partenaires, definirPartenaires] = useState<PartenaireApi[]>([]);
@@ -125,6 +131,8 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
   const [provinces, definirProvinces] = useState<ProvinceTerritoriale[]>([]);
   const [selectionLocalisation, definirSelectionLocalisation] = useState<ElementSelectionLocalisation | null>(null);
   const [fichierImport, definirFichierImport] = useState<File | null>(null);
+  const cleImportFichier = useRef<{ signature: string; cle: string } | null>(null);
+  const cleCreationMenage = useRef<{ signature: string; cle: string } | null>(null);
   const [partenaireNom, definirPartenaireNom] = useState("");
   const [partenaireSigle, definirPartenaireSigle] = useState("");
   const [partenaireType, definirPartenaireType] = useState("ONG nationale");
@@ -141,6 +149,10 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
   const [provinceListe, definirProvinceListe] = useState(utilisateur.province_id ?? "");
   const [listeChoisie, definirListeChoisie] = useState("");
   const [menagesSelectionnes, definirMenagesSelectionnes] = useState<string[]>([]);
+  const [filtreValidation, definirFiltreValidation] = useState("");
+  const [rechercheFiltre, definirRechercheFiltre] = useState("");
+  const [menageDecisionId, definirMenageDecisionId] = useState<string | null>(null);
+  const [motifValidation, definirMotifValidation] = useState("");
 
   const chargerReferentiels = useCallback(async (): Promise<void> => {
     try {
@@ -164,12 +176,14 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
     definirErreur(null);
     try {
       const cheminPage = `limite=${TAILLE_PAGE}&decalage=${decalage}`;
+      const filtreRecherche = rechercheFiltre.trim() ? `&recherche=${encodeURIComponent(rechercheFiltre.trim())}` : "";
       if (vue === "menages") {
-        const page = await requeteApi<PageApi<MenageApi>>(`/api/gestion/menages?${cheminPage}`);
+        const filtre = filtreValidation ? `&statut_validation=${encodeURIComponent(filtreValidation)}` : "";
+        const page = await requeteApi<PageApi<MenageApi>>(`/api/gestion/menages?${cheminPage}${filtre}${filtreRecherche}`);
         definirMenages(page.elements);
         definirTotal(page.total);
       } else if (vue === "partenaires") {
-        const page = await requeteApi<PageApi<PartenaireApi>>(`/api/gestion/partenaires?${cheminPage}`);
+        const page = await requeteApi<PageApi<PartenaireApi>>(`/api/gestion/partenaires?${cheminPage}${filtreRecherche}`);
         definirPartenaires(page.elements);
         definirTotal(page.total);
       } else {
@@ -189,7 +203,7 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
     } finally {
       definirChargement(false);
     }
-  }, [decalage, listeChoisie, vue]);
+  }, [decalage, filtreValidation, listeChoisie, rechercheFiltre, vue]);
 
   useEffect(() => { void chargerReferentiels(); }, [chargerReferentiels]);
   useEffect(() => { void chargerVue(); }, [chargerVue, jetonCsrf]);
@@ -240,12 +254,17 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
     definirErreur(null); definirMessage(null); definirEnvoi(true);
     const formulaire = new FormData();
     formulaire.append("fichier", fichierImport);
+    const signature = `${fichierImport.name}\u0000${fichierImport.size}\u0000${fichierImport.lastModified}`;
+    if (cleImportFichier.current?.signature !== signature) {
+      cleImportFichier.current = { signature, cle: `sigad-${crypto.randomUUID()}` };
+    }
     try {
       const resultat = await requeteApi<{ nombre_menages: number; doublons_signales: number }>(
         "/api/gestion/menages/importations",
-        { methode: "POST", jetonCsrf, corps: formulaire },
+        { methode: "POST", jetonCsrf, cleIdempotence: cleImportFichier.current.cle, corps: formulaire },
       );
       definirMessage(`${resultat.nombre_menages} ménage(s) importé(s), ${resultat.doublons_signales} doublon(s) possible(s) soumis à vérification.`);
+      cleImportFichier.current = null;
       definirFichierImport(null);
       evenement.currentTarget.reset();
       await chargerVue();
@@ -284,15 +303,46 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
       membres: [],
     };
     if (utilisateur.role !== "DELEGUE_PROVINCIAL") corps.province_id = localisation.province_id;
+    const signature = JSON.stringify(corps);
+    if (cleCreationMenage.current?.signature !== signature) {
+      cleCreationMenage.current = { signature, cle: `sigad-${crypto.randomUUID()}` };
+    }
     try {
       await requeteApi<{ nombre_menages: number }>("/api/gestion/menages", {
-        methode: "POST", jetonCsrf, corps,
+        methode: "POST", jetonCsrf, cleIdempotence: cleCreationMenage.current.cle, corps,
       });
+      cleCreationMenage.current = null;
       definirMessage("Le ménage a été enregistré. Tout rapprochement potentiel reste soumis à une vérification humaine.");
       definirNomChef(""); definirTelephoneMenage(""); definirNombrePersonnes(1); definirSelectionLocalisation(null);
       await chargerVue();
     } catch (cause) {
       definirErreur(messageErreur(cause, "Le ménage n’a pas pu être enregistré."));
+    } finally {
+      definirEnvoi(false);
+    }
+  }
+
+  async function deciderValidationMenage(menageId: string, decision: "VALIDER" | "REFUSER"): Promise<void> {
+    if (utilisateur.role !== "ADMIN_CENTRAL") {
+      definirErreur("Cette décision est réservée à l’administration centrale.");
+      return;
+    }
+    if (motifValidation.trim().length < 8) {
+      definirErreur("Une justification d’au moins huit caractères est obligatoire.");
+      return;
+    }
+    definirEnvoi(true); definirErreur(null); definirMessage(null);
+    try {
+      const resultat = await requeteApi<{ statut_validation: string }>(`/api/gestion/menages/${encodeURIComponent(menageId)}/validation`, {
+        methode: "POST", jetonCsrf, corps: { decision, observations: motifValidation.trim() },
+      });
+      definirMessage(resultat.statut_validation === "VALIDE"
+        ? "Le ménage a été validé séparément et peut être pris en compte selon les règles d’éligibilité."
+        : "Le ménage a été refusé et reste inactif.");
+      definirMenageDecisionId(null); definirMotifValidation("");
+      await chargerVue();
+    } catch (cause) {
+      definirErreur(messageErreur(cause, "La décision de validation n’a pas pu être enregistrée."));
     } finally {
       definirEnvoi(false);
     }
@@ -384,35 +434,62 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
 
   return (
     <div className="contenu-tableau">
-      <header className="entete-section">
-        <div><p className="surtitre">Gestion opérationnelle des bénéficiaires</p><h1>Partenaires, ménages et listes</h1></div>
-        <span className="badge-role">{utilisateur.role === "DELEGUE_PROVINCIAL" ? "Délégation provinciale" : "Administration centrale"}</span>
-      </header>
-      <nav className="navigation-gestion" aria-label="Modules de gestion">
-        <button type="button" className={vue === "menages" ? "lien-gestion actif" : "lien-gestion"} onClick={() => changerVue("menages")}>Ménages</button>
-        <button type="button" className={vue === "partenaires" ? "lien-gestion actif" : "lien-gestion"} onClick={() => changerVue("partenaires")}>Partenaires</button>
-        <button type="button" className={vue === "listes" ? "lien-gestion actif" : "lien-gestion"} onClick={() => changerVue("listes")}>Listes bénéficiaires</button>
-      </nav>
-      {erreur && <p className="message-erreur bandeau-erreur" role="alert">{erreur}</p>}
-      {message && <p className="message-succes" role="status">{message}</p>}
+      <div className="sigad-compact-meta"><SIGADBadge variant="neutral">{utilisateur.role === "DELEGUE_PROVINCIAL" ? "Délégation provinciale" : "Administration centrale"}</SIGADBadge></div>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <SIGADTabsList ariaLabel="Modules de gestion des bénéficiaires">
+          <SIGADTab active={vue === "menages"} onClick={() => changerVue("menages")}>Ménages</SIGADTab>
+          <SIGADTab active={vue === "partenaires"} onClick={() => changerVue("partenaires")}>Partenaires</SIGADTab>
+          <SIGADTab active={vue === "listes"} onClick={() => changerVue("listes")}>Listes bénéficiaires</SIGADTab>
+        </SIGADTabsList>
+      </div>
+      {erreur && <SIGADAlert type="danger" message={erreur} style={{ marginBottom: "1rem" }} />}
+      {message && <SIGADAlert type="success" message={message} style={{ marginBottom: "1rem" }} />}
 
       {vue === "menages" && <>
         <section className="carte-section" aria-labelledby="titre-menages">
           <div className="titre-section"><div><h2 id="titre-menages">Registre des ménages</h2><p>Les résultats sont limités au périmètre autorisé par votre session.</p></div><span className="compteur">{total} ménages</span></div>
+          <SIGADFilterBar ariaLabel="Filtres des ménages" fieldsClassName="barre-filtres-stock">
+            <label className="champ-territorial">Recherche<input aria-label="Recherche des ménages" maxLength={120} value={rechercheFiltre} onChange={(e) => { definirDecalage(0); definirRechercheFiltre(e.currentTarget.value); }} placeholder="Code ou nom du chef de ménage" /></label>
+            <label className="champ-territorial filtre-validation-menages">État de validation<select id="filtre-validation-menages" value={filtreValidation} onChange={(e) => { definirDecalage(0); definirFiltreValidation(e.currentTarget.value); }}><option value="">Tous les états</option><option value="A_VERIFIER">À vérifier</option><option value="VALIDE">Validés</option><option value="REFUSE">Refusés</option></select></label>
+          </SIGADFilterBar>
           <div className="tableau-defilement"><table>
-            <thead><tr><th>Référence</th><th>Chef de ménage</th><th>Province</th><th>Personnes</th><th>Téléphone</th><th>Catégorie</th><th>Statut</th><th>Date d’enregistrement</th></tr></thead>
+            <thead><tr><th>Référence</th><th>Chef de ménage</th><th>Province</th><th>Personnes</th><th>Téléphone</th><th>Catégorie</th><th>Statut</th><th>Validation</th><th>Date d’enregistrement</th>{utilisateur.role === "ADMIN_CENTRAL" && <th>Décision centrale</th>}</tr></thead>
             <tbody>{menages.map((menage) => <tr key={menage.id}>
               <td className="texte-gras code-reference">{menage.code_menage}</td><td>{menage.nom_chef_menage}</td>
               <td>{nomProvince(menage.province_id, provinces)}</td><td>{menage.nombre_personnes}</td><td>{menage.telephone ?? "—"}</td>
-              <td>{menage.categorie_population}</td><td><span className="pastille-statut statut-information">{menage.statut.replaceAll("_", " ")}</span></td><td>{menage.date_enregistrement}</td>
-            </tr>)}{!chargement && menages.length === 0 && <tr><td className="cellule-vide" colSpan={8}>Aucun ménage à afficher pour ce périmètre.</td></tr>}</tbody>
+              <td>{menage.categorie_population}</td><td><span className="pastille-statut statut-information">{menage.statut.replaceAll("_", " ")}</span></td>
+              <td><span className="pastille-statut statut-information">{menage.statut_validation.replaceAll("_", " ")}</span></td><td>{menage.date_enregistrement}</td>
+              {utilisateur.role === "ADMIN_CENTRAL" && <td>{menage.statut === "INACTIF" && menage.statut_validation === "A_VERIFIER" ? (
+                <>
+                  <button className="bouton bouton-discret" onClick={() => definirMenageDecisionId(menage.id)} type="button">Examiner</button>
+                  <SIGADSidePanel
+                    open={menageDecisionId === menage.id}
+                    onClose={() => { definirMenageDecisionId(null); definirMotifValidation(""); }}
+                    title={`Examen du ménage ${menage.code_menage}`}
+                    subtitle={`Chef de ménage : ${menage.nom_chef_menage} · ${menage.nombre_personnes} personne(s)`}
+                    size="standard"
+                    isDirty={Boolean(motifValidation.trim())}
+                  >
+                    <form className="formulaire-decision-menage" onSubmit={(e) => { e.preventDefault(); void deciderValidationMenage(menage.id, "VALIDER"); }} style={{ display: "grid", gap: "1rem" }}>
+                      <label htmlFor={`motif-validation-${menage.id}`} style={{ fontWeight: 600, fontSize: "0.875rem" }}>Motif de décision pour {menage.code_menage}</label>
+                      <textarea id={`motif-validation-${menage.id}`} minLength={8} maxLength={1000} required value={motifValidation} onChange={(e) => definirMotifValidation(e.currentTarget.value)} placeholder="Justification de la décision (8 caractères minimum)" rows={4} style={{ width: "100%", padding: "0.65rem", borderRadius: "var(--sigad-radius-md)", border: "1px solid var(--sigad-border-strong)" }} />
+                      <div className="actions-ligne" style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                        <button className="bouton bouton-discret" disabled={envoi} onClick={() => { definirMenageDecisionId(null); definirMotifValidation(""); }} type="button">Annuler</button>
+                        <button className="bouton bouton-discret" disabled={envoi || motifValidation.trim().length < 8} onClick={() => { void deciderValidationMenage(menage.id, "REFUSER"); }} type="button">Refuser</button>
+                        <button className="bouton bouton-principal" disabled={envoi || motifValidation.trim().length < 8} type="submit">Valider</button>
+                      </div>
+                    </form>
+                  </SIGADSidePanel>
+                </>
+              ) : "—"}</td>}
+            </tr>)}{!chargement && menages.length === 0 && <tr><td className="cellule-vide" colSpan={utilisateur.role === "ADMIN_CENTRAL" ? 10 : 9}>Aucun ménage à afficher pour ce périmètre.</td></tr>}</tbody>
           </table></div>
-          <Pagination total={total} decalage={decalage} chargement={chargement} modifier={definirDecalage} />
+          <SIGADPagination total={total} decalage={decalage} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={definirDecalage} />
         </section>
         <section className="carte-section" aria-labelledby="titre-creation-menage">
           <div className="titre-section"><div><h2 id="titre-creation-menage">Enregistrer un ménage</h2><p>Les relations territoriales sont vérifiées côté serveur et par les contraintes D1.</p></div></div>
           <SelecteurLocalisationDynamique utilisateur={utilisateur} jetonCsrf={jetonCsrf} onChange={definirSelectionLocalisation} />
-          <form className="formulaire-gestion" onSubmit={(evenement) => { void creerMenage(evenement); }}>
+          <SIGADFormGrid className="formulaire-gestion" onSubmit={(evenement) => { void creerMenage(evenement); }}>
             <div className="champ-territorial"><label htmlFor="nom-chef-menage">Nom du chef de ménage *</label><input id="nom-chef-menage" minLength={2} maxLength={160} required value={nomChef} onChange={(e) => definirNomChef(e.currentTarget.value)} /></div>
             <div className="champ-territorial"><label htmlFor="sexe-chef-menage">Sexe du chef de ménage *</label><select id="sexe-chef-menage" value={sexeChef} onChange={(e) => definirSexeChef(e.currentTarget.value as "F" | "M")}><option value="F">Féminin</option><option value="M">Masculin</option></select></div>
             <div className="champ-territorial"><label htmlFor="nombre-personnes-menage">Nombre de personnes *</label><input id="nombre-personnes-menage" type="number" min={1} max={250} required value={nombrePersonnes} onChange={(e) => definirNombrePersonnes(Number(e.currentTarget.value))} /></div>
@@ -420,12 +497,12 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
             <div className="champ-territorial"><label htmlFor="categorie-population">Catégorie de population *</label><select id="categorie-population" required value={categoriePopulationId} onChange={(e) => definirCategoriePopulationId(e.currentTarget.value)}><option value="">Sélectionner une catégorie</option>{categories.map((categorie) => <option key={categorie.id} value={categorie.id}>{categorie.libelle}</option>)}</select></div>
             <div className="champ-territorial"><label htmlFor="date-enregistrement-menage">Date d’enregistrement *</label><input id="date-enregistrement-menage" type="date" required value={dateEnregistrement} onChange={(e) => definirDateEnregistrement(e.currentTarget.value)} /></div>
             <button className="bouton bouton-principal" disabled={envoi || !selectionLocalisation} type="submit">Enregistrer le ménage</button>
-          </form>
+          </SIGADFormGrid>
         </section>
         <section className="carte-section" aria-labelledby="titre-import-menages">
           <div className="titre-section"><div><h2 id="titre-import-menages">Importer des ménages</h2><p>Formats CSV UTF-8 ou Excel (.xlsx), 500 lignes au maximum et 1 Mo. Seul le premier onglet Excel est lu; les formules doivent être converties en valeurs. Les doublons restent soumis à vérification.</p></div></div>
           <form className="formulaire-import" onSubmit={(evenement) => { void importerFichierMenages(evenement); }}>
-            <label htmlFor="fichier-menages-import">Fichier CSV ou Excel</label><input id="fichier-menages-import" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required onChange={(e) => definirFichierImport(e.currentTarget.files?.[0] ?? null)} />
+            <label htmlFor="fichier-menages-import">Fichier CSV ou Excel</label><input id="fichier-menages-import" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required onChange={(e) => { cleImportFichier.current = null; definirFichierImport(e.currentTarget.files?.[0] ?? null); }} />
             <p className="aide-saisie">Colonnes obligatoires : departement_id, nom_chef_menage, sexe_chef, nombre_personnes, categorie_population_code, date_enregistrement. Les dates Excel numériques sont converties.</p>
             <button className="bouton bouton-principal" disabled={envoi || !fichierImport} type="submit">Importer le fichier</button>
           </form>
@@ -435,16 +512,19 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
       {vue === "partenaires" && <>
         <section className="carte-section" aria-labelledby="titre-partenaires">
           <div className="titre-section"><div><h2 id="titre-partenaires">Référentiel des partenaires</h2><p>Les propositions provinciales restent en attente de validation centrale.</p></div><span className="compteur">{total} partenaires visibles</span></div>
+          <SIGADFilterBar ariaLabel="Filtres des partenaires" fieldsClassName="barre-filtres-stock">
+            <label className="champ-territorial">Recherche<input aria-label="Recherche des partenaires" maxLength={120} value={rechercheFiltre} onChange={(e) => { definirDecalage(0); definirRechercheFiltre(e.currentTarget.value); }} placeholder="Nom, sigle ou contact" /></label>
+          </SIGADFilterBar>
           <div className="tableau-defilement"><table>
             <thead><tr><th>Partenaire</th><th>Sigle</th><th>Type d’organisation</th><th>Courriel</th><th>Téléphone</th><th>Validation</th></tr></thead>
             <tbody>{partenaires.map((partenaire) => <tr key={partenaire.id}><td className="texte-gras">{partenaire.nom}</td><td>{partenaire.sigle ?? "—"}</td><td>{partenaire.type_organisation}</td><td>{partenaire.contact_email ?? "—"}</td><td>{partenaire.contact_telephone ?? "—"}</td><td><span className="pastille-statut statut-information">{partenaire.statut_validation}</span></td></tr>)}
               {!chargement && partenaires.length === 0 && <tr><td className="cellule-vide" colSpan={6}>Aucun partenaire validé ou proposé pour ce compte.</td></tr>}</tbody>
           </table></div>
-          <Pagination total={total} decalage={decalage} chargement={chargement} modifier={definirDecalage} />
+          <SIGADPagination total={total} decalage={decalage} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={definirDecalage} />
         </section>
         <section className="carte-section" aria-labelledby="titre-creer-partenaire">
           <div className="titre-section"><div><h2 id="titre-creer-partenaire">Enregistrer ou proposer un partenaire</h2><p>Une délégation provinciale propose un partenaire; l’administration centrale statue.</p></div></div>
-          <form className="formulaire-gestion" onSubmit={(evenement) => { void creerPartenaire(evenement); }}>
+          <SIGADFormGrid className="formulaire-gestion" onSubmit={(evenement) => { void creerPartenaire(evenement); }}>
             <div className="champ-territorial"><label htmlFor="partenaire-nom">Nom *</label><input id="partenaire-nom" minLength={2} maxLength={160} required value={partenaireNom} onChange={(e) => definirPartenaireNom(e.currentTarget.value)} /></div>
             <div className="champ-territorial"><label htmlFor="partenaire-sigle">Sigle</label><input id="partenaire-sigle" maxLength={40} value={partenaireSigle} onChange={(e) => definirPartenaireSigle(e.currentTarget.value)} /></div>
             <div className="champ-territorial"><label htmlFor="partenaire-type">Type d’organisation *</label><input id="partenaire-type" minLength={2} maxLength={100} required value={partenaireType} onChange={(e) => definirPartenaireType(e.currentTarget.value)} /></div>
@@ -452,7 +532,7 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
             <div className="champ-territorial"><label htmlFor="partenaire-telephone">Téléphone</label><input id="partenaire-telephone" type="tel" maxLength={32} value={partenaireTelephone} onChange={(e) => definirPartenaireTelephone(e.currentTarget.value)} /></div>
             <fieldset className="choix-roles"><legend>Rôles du partenaire *</legend>{ROLES_PARTENAIRES.map(([code, libelle]) => <label key={code}><input type="checkbox" checked={rolesPartenaire.includes(code)} onChange={(e) => { const coche = e.currentTarget.checked; definirRolesPartenaire((roles) => coche ? [...new Set([...roles, code])] : roles.filter((role) => role !== code)); }} />{libelle}</label>)}</fieldset>
             <button className="bouton bouton-principal" disabled={envoi || rolesPartenaire.length === 0} type="submit">Enregistrer le partenaire</button>
-          </form>
+          </SIGADFormGrid>
         </section>
       </>}
 
@@ -464,15 +544,15 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
             <tbody>{listes.map((liste) => <tr key={liste.id}><td className="texte-gras code-reference">{liste.reference_liste}</td><td>{liste.intitule}</td><td>{nomProvince(liste.province_id, provinces)}</td><td>{liste.nombre_menages_cibles}</td><td>{liste.nombre_personnes_cibles}</td><td><span className="pastille-statut statut-information">{liste.statut}</span></td><td>{liste.cree_le}</td></tr>)}
               {!chargement && listes.length === 0 && <tr><td className="cellule-vide" colSpan={7}>Aucune liste bénéficiaire pour ce périmètre.</td></tr>}</tbody>
           </table></div>
-          <Pagination total={total} decalage={decalage} chargement={chargement} modifier={definirDecalage} />
+          <SIGADPagination total={total} decalage={decalage} taillePage={TAILLE_PAGE} chargement={chargement} onPageChange={definirDecalage} />
         </section>
         <section className="carte-section" aria-labelledby="titre-creer-liste">
           <div className="titre-section"><div><h2 id="titre-creer-liste">Créer une liste</h2><p>La liste est initialisée en brouillon et rattachée à une seule province.</p></div></div>
-          <form className="formulaire-gestion" onSubmit={(evenement) => { void creerListe(evenement); }}>
+          <SIGADFormGrid className="formulaire-gestion" onSubmit={(evenement) => { void creerListe(evenement); }}>
             {utilisateur.role !== "DELEGUE_PROVINCIAL" && <div className="champ-territorial"><label htmlFor="province-liste">Province *</label><select id="province-liste" required value={provinceListe} onChange={(e) => definirProvinceListe(e.currentTarget.value)}><option value="">Sélectionner une province</option>{provinces.map((province) => <option key={province.id} value={province.id}>{province.nom}</option>)}</select></div>}
             <div className="champ-territorial"><label htmlFor="intitule-liste">Intitulé *</label><input id="intitule-liste" minLength={3} maxLength={180} required value={intituleListe} onChange={(e) => definirIntituleListe(e.currentTarget.value)} /></div>
             <button className="bouton bouton-principal" disabled={envoi || (utilisateur.role !== "DELEGUE_PROVINCIAL" && !provinceListe)} type="submit">Créer la liste bénéficiaire</button>
-          </form>
+          </SIGADFormGrid>
         </section>
         <section className="carte-section" aria-labelledby="titre-inscrire-menages">
           <div className="titre-section"><div><h2 id="titre-inscrire-menages">Ajouter des ménages actifs</h2><p>Sélectionnez une liste, puis les ménages de la page courante de votre province.</p></div></div>
