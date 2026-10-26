@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import type { EnvironnementApplication, SessionActive, UtilisateurSession } from "../bindings";
+import { associerRequestIdAudit } from "../core/audit/contexte.ts";
 import { comparerRoleEtPorteeOmbre, type AffectationRoleOmbre } from "../core/authz/ombre";
 import { hacherJeton } from "../services/cryptographie.service";
 
@@ -111,6 +112,7 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
     ...(ligne.fonction !== null ? { fonction: ligne.fonction } : {}),
     ...(ligne.perimetre_consultation ? { perimetre_consultation: ligne.perimetre_consultation } : {}),
   };
+  associerRequestIdAudit(utilisateur, c.get("requestId"));
 
   const db = c.env.DB;
   const identiteHistorique = {

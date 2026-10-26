@@ -34,6 +34,13 @@ import { lireDefinitionRapport } from "./services/rapports.service";
 
 const app = new Hono<EnvironnementApplication>();
 
+app.use("*", async (c, suivant) => {
+  const requestId = crypto.randomUUID();
+  c.set("requestId", requestId);
+  await suivant();
+  c.header("X-Request-ID", requestId);
+});
+
 const refuserAccesOperationnelConsultation: MiddlewareHandler<EnvironnementApplication> = async (c, suivant) => {
   if (c.get("utilisateur").role === "CONSULTATION_INSTITUTIONNELLE") {
     return c.json({ erreur: "Votre compte est limité à la consultation des rapports autorisés et à la gestion de votre profil." }, 403);

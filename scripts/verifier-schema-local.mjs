@@ -11,8 +11,8 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 37 || !fichiers.at(-1)?.startsWith("0037_")) {
-  throw new Error(`Les trente-sept migrations versionnées, dont le socle géographique additif 0037, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 38 || !fichiers.at(-1)?.startsWith("0038_")) {
+  throw new Error(`Les trente-huit migrations versionnées, dont le journal d’audit unifié 0038, sont requises; ${fichiers.length} trouvées.`);
 }
 
 const tablesGeoB23 = [
@@ -166,11 +166,14 @@ async function verifierBaseD1Locale() {
     const nombreTables = baseD1.prepare(
       "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')",
     ).get().total;
-    if (nombreTables !== 100) {
+    if (nombreTables !== 101) {
       const nomsTables = baseD1.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA') ORDER BY name",
       ).all().map((ligne) => ligne.name);
-      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 100: ${nomsTables.join(", ")}.`);
+      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 101 après B2.4: ${nomsTables.join(", ")}.`);
+    }
+    if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'evenements_audit'").get()) {
+      throw new Error("D1 local ne contient pas le journal d’audit unifié B2.4.");
     }
     for (const table of tablesGeoB23) {
       if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
@@ -235,7 +238,7 @@ async function verifierBaseD1Locale() {
       throw new Error("D1 local: le nombre d’éléments du seed est incohérent.");
     }
     if (nombreMigrations !== fichiers.length) throw new Error(`D1 local enregistre ${nombreMigrations} migrations au lieu de ${fichiers.length}.`);
-    if (nombreIndexesD1 !== 145) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 145 index versionnés après B2.3-A.`);
+    if (nombreIndexesD1 !== 150) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 150 index versionnés après B2.4.`);
     if (nombreDeclencheursD1 !== 72) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des 72 déclencheurs de validation versionnés.`);
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
@@ -288,10 +291,20 @@ const colonnesTechniquesAttendues = new Map([
   ["defis_mfa", []],
   ["recuperations_acces_proprietaire", []],
   ["operations_centrales_distribution", []],
+  ["journaux_audit", []],
+  ["audits_territoire", []],
+  ["historique_decoupages", []],
+  ["decisions_comptes", []],
+  ["historique_operations_centrales", []],
 ]);
 const colonnesTechniquesRequises = new Map([
   ["defis_mfa", ["activation_initiale", "recuperation_id"]],
   ["recuperations_acces_proprietaire", []],
+  ["journaux_audit", ["request_id"]],
+  ["audits_territoire", ["request_id"]],
+  ["historique_decoupages", ["request_id"]],
+  ["decisions_comptes", ["request_id"]],
+  ["historique_operations_centrales", ["request_id"]],
 ]);
 for (const correspondance of sqlMigrationsSchema.matchAll(/ALTER\s+TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ADD\s+COLUMN\s+([a-zA-Z_][a-zA-Z0-9_]*)/giu)) {
   const nomTable = correspondance[1];
@@ -319,7 +332,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 146) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 146 index attendus après B2.3-A.`);
+if (indexesMigrations.size !== 151) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 151 index attendus après B2.4.`);
 for (const [nom, definition] of [
   ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
   ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
@@ -424,7 +437,10 @@ try {
   ).get().total;
   const erreursClesEtrangeres = base.prepare("PRAGMA foreign_key_check").all();
 
-  if (nombreTables !== 100) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 100 après B2.3-A.`);
+  if (nombreTables !== 101) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 101 après B2.4.`);
+  if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'evenements_audit'").get()) {
+    throw new Error("La migration B2.4 n’a pas créé le journal d’audit unifié evenements_audit.");
+  }
   for (const table of tablesGeoB23) {
     if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
       throw new Error(`Le socle B2.3-A n’a pas créé la table ${table}.`);
@@ -475,7 +491,7 @@ try {
   }
   if (nombreCategories !== 5) throw new Error(`Le référentiel contient ${nombreCategories} catégories d’aide au lieu de 5.`);
   if (nombreUnites !== 6) throw new Error(`Le référentiel contient ${nombreUnites} unités de mesure au lieu de 6.`);
-  if (nombreIndexes !== 145) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 145 index définis après B2.3-A.`);
+  if (nombreIndexes !== 150) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 150 index définis après B2.4.`);
   if (nombreDeclencheurs !== 72) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de 72.`);
   if (erreursClesEtrangeres.length > 0) throw new Error("La vérification des clés étrangères a détecté une incohérence.");
   verifierContraintes(base, "SQLite vierge");

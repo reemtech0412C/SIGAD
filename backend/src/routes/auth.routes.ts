@@ -500,6 +500,7 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
       entiteType: "AUTHENTIFICATION_MFA",
       entiteId: idDefi,
       adresseIp: adresseIp(c.req.raw),
+      requestId: c.get("requestId"),
     });
     if (activationInitiale) {
       const empreinteActivation = utilisateur.code_activation_hash;
@@ -530,10 +531,10 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
              AND EXISTS (SELECT 1 FROM defis_mfa WHERE id = ? AND recuperation_id = recuperations_acces_proprietaire.id)`,
         ).bind(idDefi, utilisateur.code_activation_recuperation_id, utilisateur.id, idDefi),
         c.env.DB.prepare(
-          `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip)
-           SELECT ?, ?, ?, ?, 'DEFI_MFA_CREE', 'AUTHENTIFICATION_MFA', ?, ?
+          `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, request_id)
+           SELECT ?, ?, ?, ?, 'DEFI_MFA_CREE', 'AUTHENTIFICATION_MFA', ?, ?, ?
            WHERE EXISTS (SELECT 1 FROM defis_mfa WHERE id = ?)`
-        ).bind(crypto.randomUUID(), utilisateur.id, utilisateur.role, utilisateur.province_id, idDefi, adresseIp(c.req.raw), idDefi),
+        ).bind(crypto.randomUUID(), utilisateur.id, utilisateur.role, utilisateur.province_id, idDefi, adresseIp(c.req.raw), c.get("requestId"), idDefi),
       ];
       try {
         const resultats = await c.env.DB.batch(instructionsDefi);
@@ -590,10 +591,10 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
        SELECT ?, ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
     ).bind(crypto.randomUUID(), identifiant, utilisateur.id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null, idSessionActivation);
     const auditActivation = c.env.DB.prepare(
-      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip)
-       SELECT ?, ?, ?, ?, 'ACTIVATION_INITIALE_DEBUTEE', 'UTILISATEUR', ?, ?
+      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, request_id)
+       SELECT ?, ?, ?, ?, 'ACTIVATION_INITIALE_DEBUTEE', 'UTILISATEUR', ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
-    ).bind(crypto.randomUUID(), utilisateur.id, utilisateur.role, utilisateur.province_id, utilisateur.id, adresseIp(c.req.raw), idSessionActivation);
+    ).bind(crypto.randomUUID(), utilisateur.id, utilisateur.role, utilisateur.province_id, utilisateur.id, adresseIp(c.req.raw), c.get("requestId"), idSessionActivation);
     try {
       const resultats = await c.env.DB.batch([
         sessionActivation,
@@ -657,6 +658,7 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
     entiteType: "UTILISATEUR",
     entiteId: utilisateur.id,
     adresseIp: adresseIp(c.req.raw),
+    requestId: c.get("requestId"),
   });
   await c.env.DB.batch([ouvertureSession, reinitialisationTentatives, evenement, journal]);
 
@@ -730,6 +732,7 @@ routesAuth.post("/changer-mot-de-passe-initial", authMiddleware, csrfSessionMidd
     entiteType: "UTILISATEUR",
     entiteId: session.utilisateur.id,
     adresseIp: adresseIp(c.req.raw),
+    requestId: c.get("requestId"),
     donneesApres: JSON.stringify({ doit_changer_mot_de_passe: false }),
   });
   const invalidationAutresSessions = c.env.DB.prepare(
@@ -786,6 +789,7 @@ routesAuth.post("/deconnexion", authMiddleware, csrfSessionMiddleware, async (c)
       entiteType: "SESSION",
       entiteId: session.id,
       adresseIp: adresseIp(c.req.raw),
+      requestId: c.get("requestId"),
     });
     await c.env.DB.batch([revoquer, audit]);
   }
@@ -827,6 +831,7 @@ routesAuth.post("/mfa/initialiser", authMiddleware, csrfSessionMiddleware, async
     entiteType: "AUTHENTIFICATION_MFA",
     entiteId: session.utilisateur.id,
     adresseIp: adresseIp(c.req.raw),
+    requestId: c.get("requestId"),
   });
   const resultats = await c.env.DB.batch([miseAJour, audit]);
   if (resultats[0]?.meta.changes !== 1) return c.json({ erreur: "La configuration MFA a déjà été activée ou modifiée." }, 409);
@@ -916,6 +921,7 @@ routesAuth.post("/mfa/confirmer", authMiddleware, csrfSessionMiddleware, async (
     entiteType: "AUTHENTIFICATION_MFA",
     entiteId: session.utilisateur.id,
     adresseIp: adresseIp(c.req.raw),
+    requestId: c.get("requestId"),
     donneesApres: JSON.stringify({ actif: true, nombre_codes_recuperation: codesRecuperation.length }),
   });
   const resultats = await c.env.DB.batch([
@@ -1029,10 +1035,10 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
        SELECT ?, ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ?)`,
     ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null, idSession));
     instructions.push(c.env.DB.prepare(
-      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip)
-       SELECT ?, ?, ?, ?, 'CONNEXION_MFA_REUSSIE', 'AUTHENTIFICATION_MFA', ?, ?
+      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, request_id)
+       SELECT ?, ?, ?, ?, 'CONNEXION_MFA_REUSSIE', 'AUTHENTIFICATION_MFA', ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ?)`
-    ).bind(crypto.randomUUID(), defi.utilisateur_id, defi.role, defi.province_id, defi.id, adresseIp(c.req.raw), idSession));
+    ).bind(crypto.randomUUID(), defi.utilisateur_id, defi.role, defi.province_id, defi.id, adresseIp(c.req.raw), c.get("requestId"), idSession));
     const resultats = await c.env.DB.batch(instructions);
     const indexSession = compteurTotp === null ? 1 : 2;
     if (resultats[indexSession]?.meta.changes !== 1) {
@@ -1111,9 +1117,9 @@ routesAuth.post("/mfa/reinitialiser/:utilisateurId", authMiddleware, csrfSession
     c.env.DB.prepare("DELETE FROM compteurs_totp_utilises WHERE utilisateur_id = ?").bind(cible),
     c.env.DB.prepare("UPDATE defis_mfa SET consomme = 1 WHERE utilisateur_id = ? AND consomme = 0").bind(cible),
     c.env.DB.prepare(
-      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, donnees_apres)
-       VALUES (?, ?, 'PROPRIETAIRE', NULL, 'REINITIALISATION_MFA', 'UTILISATEUR', ?, ?, ?)`
-    ).bind(crypto.randomUUID(), session.utilisateur.id, cible, adresseIp(c.req.raw), JSON.stringify({ double_facteur_actif: false })),
+      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, donnees_apres, request_id)
+       VALUES (?, ?, 'PROPRIETAIRE', NULL, 'REINITIALISATION_MFA', 'UTILISATEUR', ?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), session.utilisateur.id, cible, adresseIp(c.req.raw), JSON.stringify({ double_facteur_actif: false }), c.get("requestId")),
   ]);
   if (resultats[1]?.meta.changes !== 1) return c.json({ erreur: "Le compte a changé pendant la réinitialisation." }, 409);
   return c.json({ message: "Le dispositif MFA du compte central a été réinitialisé. La prochaine connexion exigera une nouvelle configuration." });

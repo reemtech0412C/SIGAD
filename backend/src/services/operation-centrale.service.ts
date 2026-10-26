@@ -1,4 +1,5 @@
 import { creerInstructionAudit } from "../middlewares/audit.middleware.ts";
+import { obtenirRequestIdAudit } from "../core/audit/contexte.ts";
 import { detecterTypeMimeDocument } from "./fichiers-securite.service.ts";
 import { televerserPuisReferencerR2 } from "./stockage-r2.service.ts";
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings.ts";
@@ -149,9 +150,9 @@ export async function creerOperationCentrale(
       operation: "historique initial",
       instruction: db.prepare(
         `INSERT INTO historique_operations_centrales
-         (id, operation_id, statut_precedent, nouveau_statut, motif_ou_commentaire, auteur_id)
-         VALUES (?, ?, NULL, 'BROUILLON', 'Création initiale du projet d’opération centrale.', ?)`,
-      ).bind(crypto.randomUUID(), id, utilisateur.id),
+         (id, operation_id, statut_precedent, nouveau_statut, motif_ou_commentaire, auteur_id, request_id)
+         VALUES (?, ?, NULL, 'BROUILLON', 'Création initiale du projet d’opération centrale.', ?, ?)`,
+      ).bind(crypto.randomUUID(), id, utilisateur.id, obtenirRequestIdAudit(utilisateur)),
       changementsAttendus: 1,
     },
     {
@@ -441,9 +442,9 @@ export async function changerStatutOperationCentrale(
       operation: "enregistrement de l'historique de statut",
       instruction: db.prepare(
         `INSERT INTO historique_operations_centrales
-         (id, operation_id, statut_precedent, nouveau_statut, motif_ou_commentaire, auteur_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      ).bind(crypto.randomUUID(), id, statutActuel, cible, entree.motif_ou_commentaire ?? entree.motif_annulation ?? null, utilisateur.id),
+         (id, operation_id, statut_precedent, nouveau_statut, motif_ou_commentaire, auteur_id, request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(crypto.randomUUID(), id, statutActuel, cible, entree.motif_ou_commentaire ?? entree.motif_annulation ?? null, utilisateur.id, obtenirRequestIdAudit(utilisateur)),
       changementsAttendus: 1,
     },
   ];

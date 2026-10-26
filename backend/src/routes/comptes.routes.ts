@@ -643,13 +643,13 @@ async function approuverInscription(c: Context<EnvironnementApplication>, inscri
     motif_decision = ?, utilisateur_cree_id = ?, modifie_le = datetime('now') WHERE id = ? AND statut = 'EN_ATTENTE_APPROBATION'
     AND utilisateur_cree_id IS NULL AND EXISTS (SELECT 1 FROM utilisateurs WHERE id = ? AND role = 'DELEGUE_PROVINCIAL')`)
     .bind(acteur.id, resultat.data.motif, nouvelUtilisateurId, inscriptionId, nouvelUtilisateurId));
-  commandes.push(c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, inscription_id, utilisateur_cible_id, action, motif, details_json)
-    SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM utilisateurs WHERE id = ?)`)
+  commandes.push(c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, inscription_id, utilisateur_cible_id, action, motif, details_json, request_id)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM utilisateurs WHERE id = ?)`)
     .bind(crypto.randomUUID(), acteur.id, inscriptionId, nouvelUtilisateurId,
       remplacementId ? "REMPLACEMENT_DELEGUE" : "APPROBATION_DELEGUE", resultat.data.motif,
       JSON.stringify({ ancien_delegue_id: remplacementId, verification_identite_administrative: true,
         verification_courriel: inscription.courriel_verifie_le ? "VERIFIEE" : "NON_VERIFIEE",
-        acces_apres_decision: emailActif ? "CODE_ACTIVATION" : "MOT_DE_PASSE_INSCRIPTION" }), nouvelUtilisateurId));
+        acces_apres_decision: emailActif ? "CODE_ACTIVATION" : "MOT_DE_PASSE_INSCRIPTION" }), c.get("requestId"), nouvelUtilisateurId));
   commandes.push(creerInstructionAudit(c.env.DB, { utilisateur: acteur,
     action: remplacementId ? "REMPLACEMENT_DELEGUE_PROVINCIAL" : "APPROBATION_DELEGUE_PROVINCIAL",
     entiteType: "INSCRIPTION_DELEGUE", entiteId: inscriptionId, adresseIp: ipRequete(c),
@@ -693,9 +693,9 @@ routesAdministration.post("/delegues/:id/refuser", async (c) => {
       .bind(acteur.id, resultat.data.motif, id),
     c.env.DB.prepare(`UPDATE verifications_courriel SET consomme_le = datetime('now') WHERE inscription_id = ? AND consomme_le IS NULL`)
       .bind(id),
-    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, inscription_id, action, motif)
-      SELECT ?, ?, ?, 'REFUS_DELEGUE', ? WHERE EXISTS (SELECT 1 FROM inscriptions_delegues WHERE id = ? AND statut = 'REFUSEE' AND decide_par = ?)`)
-      .bind(crypto.randomUUID(), acteur.id, id, resultat.data.motif, id, acteur.id),
+    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, inscription_id, action, motif, request_id)
+      SELECT ?, ?, ?, 'REFUS_DELEGUE', ?, ? WHERE EXISTS (SELECT 1 FROM inscriptions_delegues WHERE id = ? AND statut = 'REFUSEE' AND decide_par = ?)`)
+      .bind(crypto.randomUUID(), acteur.id, id, resultat.data.motif, c.get("requestId"), id, acteur.id),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "REFUS_DEMANDE_DELEGATION", entiteType: "INSCRIPTION_DELEGUE", entiteId: id, adresseIp: ipRequete(c) }),
   ];
   const executions = await c.env.DB.batch(commandes);
@@ -719,9 +719,9 @@ async function changerStatutDelegue(c: Context<EnvironnementApplication>, statut
       modifie_le = datetime('now') WHERE id = ? AND role = 'DELEGUE_PROVINCIAL'`)
       .bind(statut, id),
     ...(statut === "SUSPENDU" ? [c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(id)] : []),
-    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json)
-      VALUES (?, ?, ?, ?, ?, ?)`)
-      .bind(crypto.randomUUID(), acteur.id, id, action, resultat.data.motif, JSON.stringify({ province_id: cible.province_id, ancien_statut: cible.statut, nouveau_statut: statut })),
+    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json, request_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(crypto.randomUUID(), acteur.id, id, action, resultat.data.motif, JSON.stringify({ province_id: cible.province_id, ancien_statut: cible.statut, nouveau_statut: statut }), c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action, entiteType: "UTILISATEUR", entiteId: id, adresseIp: ipRequete(c),
       donneesAvant: JSON.stringify({ statut: cible.statut }), donneesApres: JSON.stringify({ statut }) }),
   ];
@@ -745,8 +745,8 @@ routesAdministration.post("/delegues/:utilisateurId/revoquer-sessions", async (c
   if (!cible) return c.json({ erreur: "Le compte délégué est introuvable." }, 404);
   const commandes = [
     c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(id),
-    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif) VALUES (?, ?, ?, 'REVOCATION_SESSIONS_DELEGUE', ?)")
-      .bind(crypto.randomUUID(), acteur.id, id, resultat.data.motif),
+    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, request_id) VALUES (?, ?, ?, 'REVOCATION_SESSIONS_DELEGUE', ?, ?)")
+      .bind(crypto.randomUUID(), acteur.id, id, resultat.data.motif, c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "REVOCATION_SESSIONS_DELEGUE", entiteType: "UTILISATEUR", entiteId: id, adresseIp: ipRequete(c) }),
   ];
   const resultatBatch = await c.env.DB.batch(commandes);
@@ -776,8 +776,8 @@ routesAdministration.post("/delegues/:utilisateurId/renvoyer-invitation", async 
       .bind(hash, hash, expiration, id),
     c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(id),
     c.env.DB.prepare("UPDATE defis_mfa SET consomme = 1 WHERE utilisateur_id = ? AND consomme = 0").bind(id),
-    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif) VALUES (?, ?, ?, 'REEMISSION_INVITATION_DELEGUE', ?)")
-      .bind(crypto.randomUUID(), acteur.id, id, resultat.data.motif),
+    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, request_id) VALUES (?, ?, ?, 'REEMISSION_INVITATION_DELEGUE', ?, ?)")
+      .bind(crypto.randomUUID(), acteur.id, id, resultat.data.motif, c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "REEMISSION_INVITATION_DELEGUE", entiteType: "UTILISATEUR", entiteId: id, adresseIp: ipRequete(c) }),
   ]);
   try { await envoyerInvitation(c, compte.courriel, compte.identifiant, code, "DELEGUE_PROVINCIAL"); }
@@ -831,9 +831,9 @@ routesAdministration.post("/consultation", async (c) => {
     ...valeur.provinces.map((provinceId) => c.env.DB.prepare(`INSERT INTO perimetres_provinciaux_consultation (compte_consultation_id, province_id)
       SELECT ?, ? WHERE EXISTS (SELECT 1 FROM comptes_consultation WHERE id = ? AND perimetre IN ('PROVINCIAL', 'MULTI_PROVINCIAL'))`)
       .bind(id, provinceId, id)),
-    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json)
-      VALUES (?, ?, ?, 'CREATION_COMPTE_CONSULTATION', ?, ?)`)
-      .bind(crypto.randomUUID(), acteur.id, utilisateurId, valeur.motif, JSON.stringify({ perimetre: valeur.perimetre, provinces: valeur.provinces })),
+    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json, request_id)
+      VALUES (?, ?, ?, 'CREATION_COMPTE_CONSULTATION', ?, ?, ?)`)
+      .bind(crypto.randomUUID(), acteur.id, utilisateurId, valeur.motif, JSON.stringify({ perimetre: valeur.perimetre, provinces: valeur.provinces }), c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "CREATION_COMPTE_CONSULTATION", entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c),
       donneesApres: JSON.stringify({ utilisateur_id: utilisateurId, perimetre: valeur.perimetre, nombre_provinces: valeur.provinces.length }) }),
   ];
@@ -899,9 +899,9 @@ routesAdministration.patch("/consultation/:id/perimetre", async (c) => {
       .bind(resultat.data.perimetre, id),
     ...resultat.data.provinces.map((provinceId) => c.env.DB.prepare("INSERT INTO perimetres_provinciaux_consultation (compte_consultation_id, province_id) VALUES (?, ?)")
       .bind(id, provinceId)),
-    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json)
-      SELECT ?, ?, utilisateur_id, 'MODIFICATION_PERIMETRE_CONSULTATION', ?, ? FROM comptes_consultation WHERE id = ?`)
-      .bind(crypto.randomUUID(), acteur.id, resultat.data.motif, JSON.stringify({ ancien_perimetre: compte.perimetre, nouveau_perimetre: resultat.data.perimetre, provinces: resultat.data.provinces }), id),
+    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json, request_id)
+      SELECT ?, ?, utilisateur_id, 'MODIFICATION_PERIMETRE_CONSULTATION', ?, ?, ? FROM comptes_consultation WHERE id = ?`)
+      .bind(crypto.randomUUID(), acteur.id, resultat.data.motif, JSON.stringify({ ancien_perimetre: compte.perimetre, nouveau_perimetre: resultat.data.perimetre, provinces: resultat.data.provinces }), c.get("requestId"), id),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "MODIFICATION_PERIMETRE_CONSULTATION", entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c),
       donneesAvant: JSON.stringify({ perimetre: compte.perimetre }), donneesApres: JSON.stringify({ perimetre: resultat.data.perimetre, provinces: resultat.data.provinces }) }),
   ];
@@ -924,9 +924,9 @@ routesAdministration.post("/consultation/:id/revoquer-sessions", async (c) => {
   if (!compte) return c.json({ erreur: "Le compte de consultation est introuvable." }, 404);
   const executions = await c.env.DB.batch([
     c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(compte.utilisateur_id),
-    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif)
-      VALUES (?, ?, ?, 'REVOCATION_SESSIONS_CONSULTATION', ?)`)
-      .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, resultat.data.motif),
+    c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, request_id)
+      VALUES (?, ?, ?, 'REVOCATION_SESSIONS_CONSULTATION', ?, ?)`)
+      .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, resultat.data.motif, c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "REVOCATION_SESSIONS_CONSULTATION", entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c) }),
   ]);
   return c.json({ message: "Les sessions du compte consultatif ont été révoquées.", sessions_revoquees: executions[0]?.meta.changes ?? 0 });
@@ -955,8 +955,8 @@ routesAdministration.post("/consultation/:id/renvoyer-invitation", async (c) => 
       .bind(hash, hash, expiration, compte.utilisateur_id),
     c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(compte.utilisateur_id),
     c.env.DB.prepare("UPDATE defis_mfa SET consomme = 1 WHERE utilisateur_id = ? AND consomme = 0").bind(compte.utilisateur_id),
-    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif) VALUES (?, ?, ?, 'REEMISSION_INVITATION_CONSULTATION', ?)")
-      .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, resultat.data.motif),
+    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, request_id) VALUES (?, ?, ?, 'REEMISSION_INVITATION_CONSULTATION', ?, ?)")
+      .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, resultat.data.motif, c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "REEMISSION_INVITATION_CONSULTATION", entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c) }),
   ]);
   if (emailActif) {
@@ -986,8 +986,8 @@ async function changerStatutConsultation(c: Context<EnvironnementApplication>, s
     c.env.DB.prepare("UPDATE comptes_consultation SET statut = ?, modifie_le = datetime('now') WHERE id = ?")
       .bind(statut, id),
     ...(statut === "SUSPENDU" ? [c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(compte.utilisateur_id)] : []),
-    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif) VALUES (?, ?, ?, ?, ?)")
-      .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, action, resultat.data.motif),
+    c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, request_id) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, action, resultat.data.motif, c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action, entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c),
       donneesAvant: JSON.stringify({ statut: compte.statut }), donneesApres: JSON.stringify({ statut }) }),
   ];

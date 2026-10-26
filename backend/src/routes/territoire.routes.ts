@@ -757,8 +757,8 @@ routesTerritoire.post("/propositions/corrections", async (c) => {
   const instructions: D1PreparedStatement[] = [
     c.env.DB.prepare(
       `INSERT INTO audits_territoire
-       (id, action, entite_type, entite_id, utilisateur_id, anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip)
-       VALUES (?, 'MODIFICATION', ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, action, entite_type, entite_id, utilisateur_id, anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id)
+       VALUES (?, 'MODIFICATION', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       idProposition,
       proposition.type_unite,
@@ -774,6 +774,7 @@ routesTerritoire.post("/propositions/corrections", async (c) => {
       proposition.source_documentation ?? "Proposition de correction territoriale",
       proposition.motif_correction,
       adresseIp(c.req.raw),
+      c.get("requestId"),
     ),
     creerInstructionAudit(c.env.DB, {
       utilisateur,

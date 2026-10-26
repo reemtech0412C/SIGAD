@@ -1542,6 +1542,16 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
       "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'SUSPENSION_COMPTE' AND entite_id = 'usr-sila'",
     ).get();
     assert.equal(Reflect.get(auditSuspension, "total"), 1, "La suspension doit produire une entrée d’audit.");
+    const requestIdSuspension = suspensionSila.reponse.headers.get("X-Request-ID");
+    assert.match(requestIdSuspension ?? "", /^[0-9a-f-]{36}$/iu, "La réponse et les événements doivent partager un identifiant de requête.");
+    const auditUnifieSuspension = baseLocale.prepare(
+      "SELECT action, source_table, request_id FROM evenements_audit WHERE request_id = ? AND cible_type = 'UTILISATEUR' AND cible_id = 'usr-sila'",
+    ).all(requestIdSuspension);
+    assert.equal(auditUnifieSuspension.length, 1, "La suspension du compte doit produire un seul événement unifié.");
+    assert.equal(auditUnifieSuspension[0]?.action, "SUSPENSION_COMPTE");
+    assert.equal(auditUnifieSuspension[0]?.source_table, "journaux_audit");
+    assert.equal(auditUnifieSuspension[0]?.request_id, requestIdSuspension,
+      "L’événement unifié doit être corrélé à la requête HTTP.");
 
     const delegueOuaddai = new ClientLocal();
     const connexionOuaddai = await delegueOuaddai.connexion("ouaddai", motDePasseOuaddaiPhase3);

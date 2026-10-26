@@ -350,6 +350,7 @@ try {
     "operations-centrales-worker.test.mjs",
     "donnees-test-worker.test.mjs",
     "caracterisation-roles-worker.test.mjs",
+    "audit-unifie-worker.test.mjs",
   ];
   const testsSelectionnes = process.env.SIGAD_INTEGRATION_TESTS
     ? process.env.SIGAD_INTEGRATION_TESTS.split(",").map((nom) => nom.trim()).filter(Boolean)

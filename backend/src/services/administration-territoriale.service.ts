@@ -1,4 +1,5 @@
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings";
+import { obtenirRequestIdAudit } from "../core/audit/contexte.ts";
 type Database = EnvironnementApplication["Bindings"]["DB"];
 import { zipSync, unzipSync } from "fflate";
 import { XMLParser } from "fast-xml-parser";
@@ -855,11 +856,11 @@ export async function ajouterUniteTerritoriale(
   const auditSql = db.prepare(`
     INSERT INTO audits_territoire (
       id, action, entite_type, entite_id, utilisateur_id,
-      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-    ) VALUES (?, 'CREATION', ?, ?, ?, NULL, ?, ?, ?, ?)
+      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+    ) VALUES (?, 'CREATION', ?, ?, ?, NULL, ?, ?, ?, ?, ?)
   `).bind(
     auditId, donnee.type, id, utilisateur.id, JSON.stringify(donnee),
-    donnee.source_officielle, donnee.observations || "Création initiale", adresseIp
+    donnee.source_officielle, donnee.observations || "Création initiale", adresseIp, obtenirRequestIdAudit(utilisateur)
   );
 
   await db.batch([instructionSql, auditSql]);
@@ -988,11 +989,11 @@ export async function modifierUniteTerritoriale(
   const auditSql = db.prepare(`
     INSERT INTO audits_territoire (
       id, action, entite_type, entite_id, utilisateur_id,
-      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-    ) VALUES (?, 'MODIFICATION', ?, ?, ?, ?, ?, ?, ?, ?)
+      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+    ) VALUES (?, 'MODIFICATION', ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     auditId, type, id, utilisateur.id, JSON.stringify(existante),
-    JSON.stringify(donnee), donnee.source_officielle || "Modification administrative", donnee.motif, adresseIp
+    JSON.stringify(donnee), donnee.source_officielle || "Modification administrative", donnee.motif, adresseIp, obtenirRequestIdAudit(utilisateur)
   );
 
   await db.batch([updateSql!, auditSql]);
@@ -1165,11 +1166,11 @@ export async function modifierRattachementTerritorial(
   const auditSql = db.prepare(`
     INSERT INTO audits_territoire (
       id, action, entite_type, entite_id, utilisateur_id,
-      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-    ) VALUES (?, 'MODIFICATION_RATTACHEMENT', ?, ?, ?, ?, ?, ?, ?, ?)
+      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+    ) VALUES (?, 'MODIFICATION_RATTACHEMENT', ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     auditId, type, id, utilisateur.id, JSON.stringify({ ancien: simulation.ancien_rattachement }),
-    JSON.stringify({ nouveau: simulation.nouveau_rattachement }), donnee.justificatif, donnee.motif, adresseIp
+    JSON.stringify({ nouveau: simulation.nouveau_rattachement }), donnee.justificatif, donnee.motif, adresseIp, obtenirRequestIdAudit(utilisateur)
   );
 
   await db.batch([updateSql!, auditSql]);
@@ -1391,13 +1392,13 @@ export async function executerFusionUnites(
     db.prepare(`
       INSERT INTO audits_territoire (
         id, action, entite_type, entite_id, utilisateur_id,
-        anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-      ) VALUES (?, 'FUSION', ?, ?, ?, ?, ?, ?, ?, ?)
+        anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+      ) VALUES (?, 'FUSION', ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       auditId, type, principaleId, utilisateur.id,
       JSON.stringify({ doublon_id: doublonId, nom_doublon: simulation.nom_source }),
       JSON.stringify({ principale_id: principaleId, nom_principale: simulation.nom_cible }),
-      justificatif, motif, adresseIp
+      justificatif, motif, adresseIp, obtenirRequestIdAudit(utilisateur)
     )
   );
 
@@ -1470,9 +1471,9 @@ export async function archiverUniteTerritoriale(
   const auditSql = db.prepare(`
     INSERT INTO audits_territoire (
       id, action, entite_type, entite_id, utilisateur_id,
-      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-    ) VALUES (?, 'ARCHIVAGE', ?, ?, ?, NULL, '{"statut":"ARCHIVE"}', 'Archivage administratif', ?, ?)
-  `).bind(auditId, type, id, utilisateur.id, motif, adresseIp);
+      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+    ) VALUES (?, 'ARCHIVAGE', ?, ?, ?, NULL, '{"statut":"ARCHIVE"}', 'Archivage administratif', ?, ?, ?)
+  `).bind(auditId, type, id, utilisateur.id, motif, adresseIp, obtenirRequestIdAudit(utilisateur));
 
   await db.batch([updateSql, auditSql]);
   return { id, type, message: "Unité territoriale archivée." };
@@ -1537,9 +1538,9 @@ export async function reactiverUniteTerritoriale(
   const auditSql = db.prepare(`
     INSERT INTO audits_territoire (
       id, action, entite_type, entite_id, utilisateur_id,
-      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-    ) VALUES (?, 'REACTIVATION', ?, ?, ?, '{"statut":"ARCHIVE"}', '{"statut":"ACTIF"}', 'Réactivation par le Propriétaire', ?, ?)
-  `).bind(auditId, type, id, utilisateur.id, motif, adresseIp);
+      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+    ) VALUES (?, 'REACTIVATION', ?, ?, ?, '{"statut":"ARCHIVE"}', '{"statut":"ACTIF"}', 'Réactivation par le Propriétaire', ?, ?, ?)
+  `).bind(auditId, type, id, utilisateur.id, motif, adresseIp, obtenirRequestIdAudit(utilisateur));
 
   await db.batch([updateSql, auditSql]);
   return { id, type, statut_validation: "VALIDE", message: "Unité territoriale réactivée avec succès." };
@@ -1714,9 +1715,9 @@ export async function supprimerUniteTerritoriale(
 
   const auditId = crypto.randomUUID();
   const auditSql = db.prepare(`
-    INSERT INTO audits_territoire (id, action, entite_type, entite_id, utilisateur_id, motif, adresse_ip)
-    VALUES (?, 'SUPPRESSION', ?, ?, ?, ?, ?)
-  `).bind(auditId, type, id, utilisateur.id, motif, adresseIp);
+    INSERT INTO audits_territoire (id, action, entite_type, entite_id, utilisateur_id, motif, adresse_ip, request_id)
+    VALUES (?, 'SUPPRESSION', ?, ?, ?, ?, ?, ?)
+  `).bind(auditId, type, id, utilisateur.id, motif, adresseIp, obtenirRequestIdAudit(utilisateur));
 
   await db.batch([deleteSql, auditSql]);
   return { id, type, message: `Unité ${type} supprimée avec succès (aucune dépendance détectée).` };
@@ -1768,12 +1769,12 @@ export async function validerUniteTerritoriale(
   const auditSql = db.prepare(`
     INSERT INTO audits_territoire (
       id, action, entite_type, entite_id, utilisateur_id,
-      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-    ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+      anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+    ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
   `).bind(
     auditId, action, type, id, utilisateur.id,
     JSON.stringify({ statut_validation: donnee.statut_validation }),
-    donnee.source_officielle, donnee.motif, adresseIp
+    donnee.source_officielle, donnee.motif, adresseIp, obtenirRequestIdAudit(utilisateur)
   );
 
   await db.batch([updateSql, auditSql]);
@@ -1823,12 +1824,12 @@ export async function validerLotUnitesTerritoriales(
       db.prepare(`
         INSERT INTO audits_territoire (
           id, action, entite_type, entite_id, utilisateur_id,
-          anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-        ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+          anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+        ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
       `).bind(
         auditId, action, type, id, utilisateur.id,
         JSON.stringify({ statut_validation: donnee.statut_validation }),
-        donnee.source_officielle, donnee.motif, adresseIp
+        donnee.source_officielle, donnee.motif, adresseIp, obtenirRequestIdAudit(utilisateur)
       )
     );
   }

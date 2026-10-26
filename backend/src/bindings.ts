@@ -59,6 +59,7 @@ export interface DiagnosticRecuperation {
 }
 
 export interface VariablesRequete {
+  requestId: string;
   utilisateur: UtilisateurSession;
   session: SessionActive;
   diagnosticRecuperation?: DiagnosticRecuperation;

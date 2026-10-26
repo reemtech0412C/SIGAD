@@ -164,8 +164,8 @@ routesValidationTerritoire.post("/referentiel-territorial/propositions/:type/:id
   const insertionHistorique = c.env.DB.prepare(
     `INSERT INTO historique_decoupages
      (id, entite_type, entite_id, type_modification, anciennes_valeurs, nouvelles_valeurs,
-      source_officielle, date_effet, auteur_id)
-     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
+      source_officielle, date_effet, auteur_id, request_id)
+     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
   ).bind(
     crypto.randomUUID(),
     valeurType,
@@ -176,13 +176,14 @@ routesValidationTerritoire.post("/referentiel-territorial/propositions/:type/:id
     sourceOfficielle,
     dateEffet,
     c.get("utilisateur").id,
+    c.get("requestId"),
   );
   const utilisateur = c.get("utilisateur");
   const audit = c.env.DB.prepare(
     `INSERT INTO journaux_audit
      (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id,
-      donnees_avant, donnees_apres, adresse_ip)
-     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
+      donnees_avant, donnees_apres, adresse_ip, request_id)
+     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
   ).bind(
     crypto.randomUUID(),
     utilisateur.id,
@@ -194,6 +195,7 @@ routesValidationTerritoire.post("/referentiel-territorial/propositions/:type/:id
     JSON.stringify(proposition.donnees),
     JSON.stringify({ statut_validation: statutEnregistre, source_officielle: sourceOfficielle, date_effet: dateEffet }),
     adresseIp(c.req.raw),
+    c.get("requestId"),
   );
   const resultats = await c.env.DB.batch([miseAJour, insertionHistorique, audit]);
   if ((resultats[0]?.meta.changes ?? 0) !== 1) return c.json({ erreur: "La proposition a été traitée simultanément par un autre utilisateur." }, 409);

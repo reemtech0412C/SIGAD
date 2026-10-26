@@ -1,4 +1,5 @@
 import type { UtilisateurSession } from "../bindings";
+import { obtenirRequestIdAudit } from "../core/audit/contexte.ts";
 import { ROLES_TERRAIN } from "../../../shared/constantes/roles";
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
 import type { ReponseAjoutDynamiqueTerritoire } from "../../../shared/types/territoire";
@@ -958,8 +959,8 @@ export async function creerUniteTerritorialeDynamique(
     .prepare(
       `INSERT INTO audits_territoire (
         id, action, entite_type, entite_id, utilisateur_id,
-        anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip
-      ) VALUES (?, 'CREATION', ?, ?, ?, NULL, ?, 'Ajout dynamique opérationnel', 'Création directe depuis le sélecteur géographique', ?)`,
+        anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip, request_id
+      ) VALUES (?, 'CREATION', ?, ?, ?, NULL, ?, 'Ajout dynamique opérationnel', 'Création directe depuis le sélecteur géographique', ?, ?)`,
     )
     .bind(
       auditTerritoireId,
@@ -968,6 +969,7 @@ export async function creerUniteTerritorialeDynamique(
       utilisateur.id,
       JSON.stringify({ ...uniteCreee, provenance: "AJOUT_DYNAMIQUE" }),
       adresseIp,
+      obtenirRequestIdAudit(utilisateur),
     );
 
   const instructionAuditGlobal = creerInstructionAudit(db, {
