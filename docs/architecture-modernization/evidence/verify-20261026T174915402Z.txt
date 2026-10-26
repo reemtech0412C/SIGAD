@@ -1,0 +1,2870 @@
+SIGAD — preuve d’exécution du pipeline verify
+Statut global: FAIL
+Mode: integration-only
+Début: 2026-10-26T17:49:15.402Z (26/10/2026 18:49:15 Africa/Ndjamena)
+Fin: 2026-10-26T17:49:46.676Z (26/10/2026 18:49:46 Africa/Ndjamena)
+Durée totale: 31.3 s
+Branche: codex/b2-2-roles-scopes-shadow
+Révision: d60b449
+État Git avant exécution: modifié
+M backend/src/middlewares/auth.middleware.ts
+ M scripts/verifier-schema-local.mjs
+?? backend/src/core/authz/ombre.ts
+?? docs/architecture-modernization/evidence/verify-20261026T174846199Z.txt
+?? migrations/0036_roles_permissions_affectations_portees_ombre.sql
+?? tests/unit/b22-roles-portees-ombre.test.mjs
+Node: v24.19.0
+Configuration Wrangler temporaire: C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-Veq9fe
+Isolation: configuration écrite dans le répertoire temporaire; identifiant D1 fictif; D1/R2/service Wrangler en mode --local avec --persist-to temporaire; aucun account_id/zone_id/route/binding distant; variables Cloudflare/API/proxy/secrets retirées des environnements enfants.
+Le libellé ENVIRONMENT=staging est conservé uniquement pour caractériser le comportement local; aucune ressource Staging ou Production n’est ciblée.
+wrangler.toml et worker-configuration.d.ts sont vérifiés par empreinte; Wrangler ne charge pas wrangler.toml et aucune commande ne génère ces fichiers.
+D-10 reste ouvert; ce pipeline n’altère pas la configuration Production suivie par Git.
+
+## Intégration Wrangler locale
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\tests\\integration\\run-auth-worker.mjs"]
+Début: 2026-10-26T17:49:15.991Z (26/10/2026 18:49:15 Africa/Ndjamena)
+Fin: 2026-10-26T17:49:45.619Z (26/10/2026 18:49:45 Africa/Ndjamena)
+Durée: 29.6 s
+Code de sortie: 1
+Sortie:
+Seed initial sécurisé généré pour le développement local.
+Seed SQL conservé hors du dépôt : C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-Veq9fe\sigad-acceptation-worker-X17DfX\seed-initial.sql
+Codes d’activation conservés hors du dépôt : C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-Veq9fe\sigad-acceptation-worker-X17DfX\codes-activation.json
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+Migrations to be applied:
+┌───────────────────────────────────────────────────────┐
+│ name                                                  │
+├───────────────────────────────────────────────────────┤
+│ 0001_utilisateurs_securite.sql                        │
+├───────────────────────────────────────────────────────┤
+│ 0002_referentiel_territorial.sql                      │
+├───────────────────────────────────────────────────────┤
+│ 0003_partenaires_beneficiaires.sql                    │
+├───────────────────────────────────────────────────────┤
+│ 0004_articles_et_stocks.sql                           │
+├───────────────────────────────────────────────────────┤
+│ 0005_approvisionnements_centraux.sql                  │
+├───────────────────────────────────────────────────────┤
+│ 0006_distributions_provinciales.sql                   │
+├───────────────────────────────────────────────────────┤
+│ 0007_controle_et_documents.sql                        │
+├───────────────────────────────────────────────────────┤
+│ 0008_seed_initial_data.sql                            │
+├───────────────────────────────────────────────────────┤
+│ 0009_integrite_referentiel_territorial.sql            │
+├───────────────────────────────────────────────────────┤
+│ 0010_integrite_partenaires_menages.sql                │
+├───────────────────────────────────────────────────────┤
+│ 0011_import_communes_loi_015.sql                      │
+├───────────────────────────────────────────────────────┤
+│ 0012_protection_doublons_concurrents.sql              │
+├───────────────────────────────────────────────────────┤
+│ 0013_unicite_signalements_doublons.sql                │
+├───────────────────────────────────────────────────────┤
+│ 0014_integrite_stocks.sql                             │
+├───────────────────────────────────────────────────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │
+├───────────────────────────────────────────────────────┤
+│ 0016_integrite_distributions_provinciales.sql         │
+├───────────────────────────────────────────────────────┤
+│ 0017_controle_audit_notifications.sql                 │
+├───────────────────────────────────────────────────────┤
+│ 0018_indexation_rapports.sql                          │
+├───────────────────────────────────────────────────────┤
+│ 0019_indexation_listes_phase9.sql                     │
+├───────────────────────────────────────────────────────┤
+│ 0020_authentification_mfa.sql                         │
+├───────────────────────────────────────────────────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │
+├───────────────────────────────────────────────────────┤
+│ 0022_cloture_revue_doublons.sql                       │
+├───────────────────────────────────────────────────────┤
+│ 0023_activation_initiale_securisee.sql                │
+├───────────────────────────────────────────────────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │
+├───────────────────────────────────────────────────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │
+├───────────────────────────────────────────────────────┤
+│ 0026_operations_centrales_distribution.sql            │
+├───────────────────────────────────────────────────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │
+├───────────────────────────────────────────────────────┤
+│ 0028_refonte_referentiel_territorial.sql              │
+├───────────────────────────────────────────────────────┤
+│ 0029_mise_en_service_stocks.sql                       │
+├───────────────────────────────────────────────────────┤
+│ 0030_profils_operationnels_terrain.sql                │
+├───────────────────────────────────────────────────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │
+├───────────────────────────────────────────────────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │
+├───────────────────────────────────────────────────────┤
+│ 0033_activation_operationnelle_departements.sql       │
+├───────────────────────────────────────────────────────┤
+│ 0034_finalisation_administration_territoriale.sql     │
+├───────────────────────────────────────────────────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │
+├───────────────────────────────────────────────────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │
+└───────────────────────────────────────────────────────┘
+? About to apply 36 migration(s)
+Your database may not be available to serve requests during the migration, continue?
+🤖 Using fallback value in non-interactive context: yes
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 10 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 14 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 12 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 14 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 9 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 12 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 18 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 6 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 27 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 25 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 3 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 3 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 5 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 21 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 37 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 52 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 26 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 10 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 3 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 8 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 4 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 35 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 20 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 16 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 26 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 18 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 17 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 96 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 4 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 7 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 4 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 139 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 17 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 12 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ 🕒️    │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 154 commands executed successfully.
+┌───────────────────────────────────────────────────────┬────────┐
+│ name                                                  │ status │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0001_utilisateurs_securite.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0002_referentiel_territorial.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0003_partenaires_beneficiaires.sql                    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0004_articles_et_stocks.sql                           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0005_approvisionnements_centraux.sql                  │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0006_distributions_provinciales.sql                   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0007_controle_et_documents.sql                        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0008_seed_initial_data.sql                            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0009_integrite_referentiel_territorial.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0010_integrite_partenaires_menages.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0011_import_communes_loi_015.sql                      │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0012_protection_doublons_concurrents.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0013_unicite_signalements_doublons.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0014_integrite_stocks.sql                             │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0015_integrite_approvisionnements_centraux.sql        │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0016_integrite_distributions_provinciales.sql         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0017_controle_audit_notifications.sql                 │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0018_indexation_rapports.sql                          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0019_indexation_listes_phase9.sql                     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0020_authentification_mfa.sql                         │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0021_reconciliation_doublons_concurrents.sql          │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0022_cloture_revue_doublons.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0023_activation_initiale_securisee.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0024_securiser_retour_recuperation_proprietaire.sql   │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0025_inscriptions_comptes_et_profils.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0026_operations_centrales_distribution.sql            │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0027_donnees_test_et_purge_proprietaire.sql           │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0028_refonte_referentiel_territorial.sql              │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0029_mise_en_service_stocks.sql                       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0030_profils_operationnels_terrain.sql                │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0031_tracabilite_operations_approvisionnements.sql    │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0032_administration_territoriale_proprietaire.sql     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0033_activation_operationnelle_departements.sql       │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0034_finalisation_administration_territoriale.sql     │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0035_refonte_territoriale_dynamique_sans_communes.sql │ ✅     │
+├───────────────────────────────────────────────────────┼────────┤
+│ 0036_roles_permissions_affectations_portees_ombre.sql │ 🕒️    │
+└───────────────────────────────────────────────────────┴────────┘
+🌀 Executing on local database DB (00000000-0000-4000-8000-000000000001) from ..\..\AppData\Local\Temp\sigad-verify-Veq9fe\state\sigad-acceptation-worker-state-pjXDsl\v3\d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mtoo many terms in compound SELECT: SQLITE_ERROR[0m
+
+
+🪵  Logs were written to "C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-Veq9fe\sigad-acceptation-worker-X17DfX\appdata\xdg\.wrangler\logs\wrangler-2026-10-26_17-49-19_086.log"
+La commande Node s’est terminée avec le code 1.
+
+
+## عدم تعديل ملفات المشروع بواسطة الفحوص
+Commande: SHA-256 snapshot of tracked/non-ignored project files; compare ignored-root inventory
+Début: 2026-10-26T17:49:46.675Z (26/10/2026 18:49:46 Africa/Ndjamena)
+Fin: 2026-10-26T17:49:46.675Z (26/10/2026 18:49:46 Africa/Ndjamena)
+Durée: 0.0 s
+Code de sortie: 0
+Sortie:
+Tracked/non-ignored files changed: 0
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
+Échecs: Intégration Wrangler locale

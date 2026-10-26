@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { comparerRoleEtPorteeOmbre } from "../backend/src/core/authz/ombre.ts";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dossierMigrations = resolve(racine, "migrations");
@@ -10,7 +11,9 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 35) throw new Error(`Les trente-cinq migrations versionnées, dont la refonte territoriale dynamique 0035, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 36 || !fichiers.at(-1)?.startsWith("0036_")) {
+  throw new Error(`Les trente-six migrations versionnées, dont l’ombre rôles/portées 0036, sont requises; ${fichiers.length} trouvées.`);
+}
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -90,6 +93,50 @@ function verifierContraintes(base, source) {
   if (!rejetCourrielDuplique) throw new Error(`${source}: une adresse e-mail insensible à la casse ou aux espaces a été dupliquée.`);
 }
 
+function verifierEgaliteRolesPorteesOmbre(base, source) {
+  const utilisateurs = base.prepare(`SELECT u.id, u.role, u.province_id,
+      cc.perimetre AS perimetre_consultation,
+      (SELECT json_group_array(p.province_id) FROM perimetres_provinciaux_consultation p
+        WHERE p.compte_consultation_id = cc.id) AS provinces_autorisees_json,
+      (SELECT p.role_terrain FROM profils_operationnels_terrain p
+        WHERE p.utilisateur_id = u.id AND p.statut = 'ACTIF' ORDER BY p.id LIMIT 1) AS role_terrain_actif,
+      (SELECT p.province_id FROM profils_operationnels_terrain p
+        WHERE p.utilisateur_id = u.id AND p.statut = 'ACTIF' ORDER BY p.id LIMIT 1) AS province_terrain_active
+    FROM utilisateurs u LEFT JOIN comptes_consultation cc ON cc.utilisateur_id = u.id ORDER BY u.id`).all();
+  let divergences = 0;
+  for (const ligne of utilisateurs) {
+    const roleHistorique = ligne.perimetre_consultation !== null
+      ? "CONSULTATION_INSTITUTIONNELLE"
+      : ligne.role_terrain_actif ?? ligne.role;
+    const provincesAutorisees = ligne.provinces_autorisees_json
+      ? JSON.parse(ligne.provinces_autorisees_json)
+      : [];
+    const affectations = base.prepare(`SELECT r.code AS role_code, p.type_unite, p.gid,
+        p.source_legacy,
+        CASE WHEN p.type_unite = 'PROVINCE' THEN p.gid
+             WHEN p.type_unite = 'LOCALITE' THEN l.province_id ELSE NULL END AS province_id_effectif
+      FROM affectations_roles ar JOIN roles r ON r.code = ar.role_code
+      LEFT JOIN portees_acces p ON p.id = ar.portee_id AND p.statut = 'ACTIF'
+        AND (p.valide_du IS NULL OR p.valide_du <= datetime('now'))
+        AND (p.valide_au IS NULL OR p.valide_au > datetime('now'))
+      LEFT JOIN localites l ON p.type_unite = 'LOCALITE' AND l.id = p.gid
+      WHERE ar.utilisateur_id = ? AND ar.statut = 'ACTIF'
+        AND (ar.valide_du IS NULL OR ar.valide_du <= datetime('now'))
+        AND (ar.valide_au IS NULL OR ar.valide_au > datetime('now'))`).all(ligne.id);
+    const comparaison = comparerRoleEtPorteeOmbre({
+      role: roleHistorique,
+      province_id: ligne.province_terrain_active ?? ligne.province_id,
+      provinces_autorisees: provincesAutorisees,
+      perimetre_consultation: ligne.perimetre_consultation,
+    }, affectations);
+    if (comparaison.divergences.length) divergences += 1;
+  }
+  if (divergences > 0) {
+    throw new Error(`${source}: ${divergences}/${utilisateurs.length} comptes présentent une divergence B2.2 entre le CASE historique et rôles/portées.`);
+  }
+  return divergences;
+}
+
 async function verifierBaseD1Locale() {
   const dossierEtat = process.env.SIGAD_D1_STATE_DIR ?? resolve(racine, ".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
   const candidats = (await readdir(dossierEtat)).filter((nom) => nom.endsWith(".sqlite") && nom !== "metadata.sqlite");
@@ -114,11 +161,11 @@ async function verifierBaseD1Locale() {
     const nombreTables = baseD1.prepare(
       "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')",
     ).get().total;
-    if (nombreTables !== 86) {
+    if (nombreTables !== 91) {
       const nomsTables = baseD1.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA') ORDER BY name",
       ).all().map((ligne) => ligne.name);
-      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 86: ${nomsTables.join(", ")}.`);
+      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 91: ${nomsTables.join(", ")}.`);
     }
     for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa", "preuves_operateur_recuperation", "recuperations_acces_proprietaire",
       "inscriptions_delegues", "journaux_inscriptions", "verifications_courriel", "limites_inscription_publique", "decisions_comptes",
@@ -175,13 +222,14 @@ async function verifierBaseD1Locale() {
       throw new Error("D1 local: le nombre d’éléments du seed est incohérent.");
     }
     if (nombreMigrations !== fichiers.length) throw new Error(`D1 local enregistre ${nombreMigrations} migrations au lieu de ${fichiers.length}.`);
-    if (nombreIndexesD1 !== 134) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 134 index versionnés.`);
+    if (nombreIndexesD1 !== 136) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 136 index versionnés.`);
     if (nombreDeclencheursD1 !== 72) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des 72 déclencheurs de validation versionnés.`);
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
     verifierCorrespondanceProvinces(baseD1, "D1 local");
     verifierPlansIndexation(baseD1, "D1 local");
-    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 80 tables (68 métier, 3 MFA, 2 récupération et 7 gestion des comptes); ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+    const divergencesOmbre = verifierEgaliteRolesPorteesOmbre(baseD1, "D1 local");
+    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; ${nombreTables} tables SIGAD; ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes et 25 codes d’activation hachés avec changement obligatoire; ombre rôles/portées: ${nombreUtilisateurs - divergencesOmbre}/${nombreUtilisateurs}, zéro divergence; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   } finally {
     baseD1.close();
   }
@@ -258,7 +306,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 135) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 135 index attendus.`);
+if (indexesMigrations.size !== 137) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 137 index attendus.`);
 for (const [nom, definition] of [
   ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
   ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
@@ -363,7 +411,7 @@ try {
   ).get().total;
   const erreursClesEtrangeres = base.prepare("PRAGMA foreign_key_check").all();
 
-  if (nombreTables !== 86) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 86.`);
+  if (nombreTables !== 91) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 91.`);
   if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'correspondances_fusions_territoriales'").get()) {
     throw new Error("La migration territoriale 0032 n’a pas créé correspondances_fusions_territoriales.");
   }
@@ -406,7 +454,7 @@ try {
   }
   if (nombreCategories !== 5) throw new Error(`Le référentiel contient ${nombreCategories} catégories d’aide au lieu de 5.`);
   if (nombreUnites !== 6) throw new Error(`Le référentiel contient ${nombreUnites} unités de mesure au lieu de 6.`);
-  if (nombreIndexes !== 134) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 134 index définis.`);
+  if (nombreIndexes !== 136) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 136 index définis.`);
   if (nombreDeclencheurs !== 72) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de 72.`);
   if (erreursClesEtrangeres.length > 0) throw new Error("La vérification des clés étrangères a détecté une incohérence.");
   verifierContraintes(base, "SQLite vierge");
@@ -414,9 +462,10 @@ try {
   if (nombreCategoriesPopulation !== 5 || nombreVulnerabilites !== 5 || nombreCommunes !== 0 || nombreCommunesEnRelecture !== 0 || nombreCommunesActives !== 0) {
     throw new Error(`Le référentiel territorial et bénéficiaire est incohérent : ${nombreCommunes} communes (${nombreCommunesEnRelecture} à relire, ${nombreCommunesActives} activées), ${nombreCategoriesPopulation} catégories de population et ${nombreVulnerabilites} vulnérabilités.`);
   }
+  const divergencesOmbre = verifierEgaliteRolesPorteesOmbre(base, "SQLite vierge");
   verifierCorrespondanceProvinces(base, "SQLite vierge");
   verifierPlansIndexation(base, "SQLite vierge");
-  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations appliquées jusqu’à ${fichiers.at(-1)?.slice(0, 4)}; 80 tables (68 métier, 3 MFA, 2 récupération, 7 gestion des comptes); ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations appliquées jusqu’à ${fichiers.at(-1)?.slice(0, 4)}; ${nombreTables} tables SIGAD; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; ombre rôles/portées: ${nombreUtilisateurs - divergencesOmbre}/${nombreUtilisateurs}, zéro divergence; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   if (process.argv.includes("--d1-local")) await verifierBaseD1Locale();
 } finally {
   base.close();

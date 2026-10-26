@@ -75,6 +75,7 @@ class ClientLocal {
     const reponse = await fetch(new URL(chemin, adresseApi), {
       method: options.methode ?? "GET",
       headers: entetes,
+      signal: AbortSignal.timeout(15_000),
       ...(options.corps === undefined ? {} : { body: JSON.stringify(options.corps) }),
     });
     for (const cookie of reponse.headers.getSetCookie()) {
@@ -251,13 +252,18 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
       assert.ok(compte && client, `Le contexte de test du rôle ${role} doit être prêt.`);
       for (let index = 0; index < routesOrdinaires.length; index += 1) {
         const route = routesOrdinaires[index];
-        const resultat = await client.requete(cheminConcrete(route.chemin, compte.province_id ?? "prov-sila"), {
-          methode: route.methode,
-          ...(route.methode === "GET" ? {} : {
-            corps: await corpsCaracterisation(route, role, compte),
-            cleIdempotence: `role-char-${role}-${String(index).padStart(3, "0")}-0001`,
-          }),
-        });
+        let resultat;
+        try {
+          resultat = await client.requete(cheminConcrete(route.chemin, compte.province_id ?? "prov-sila"), {
+            methode: route.methode,
+            ...(route.methode === "GET" ? {} : {
+              corps: await corpsCaracterisation(route, role, compte),
+              cleIdempotence: `role-char-${role}-${String(index).padStart(3, "0")}-0001`,
+            }),
+          });
+        } catch (erreur) {
+          throw new Error(`Sonde HTTP sans réponse pour ${role} ${route.methode} ${route.chemin}.`, { cause: erreur });
+        }
         const attendu = attendrePolicy(route.politique, role, route.methode);
         observations.get(role).push({
           methode: route.methode,

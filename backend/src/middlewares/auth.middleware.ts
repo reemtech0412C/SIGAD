@@ -1,8 +1,23 @@
 import type { MiddlewareHandler } from "hono";
 import type { EnvironnementApplication, SessionActive, UtilisateurSession } from "../bindings";
+import { comparerRoleEtPorteeOmbre, type AffectationRoleOmbre } from "../core/authz/ombre";
 import { hacherJeton } from "../services/cryptographie.service";
 
 const NOM_COOKIE_SESSION = "sigad_session";
+const INTERVALLE_OBSERVATION_OMBRE_MS = 5_000;
+const DERNIERE_OBSERVATION_OMBRE_PAR_SESSION = new Map<string, number>();
+
+function reserverObservationOmbre(sessionId: string, maintenant = Date.now()): boolean {
+  const precedente = DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.get(sessionId);
+  if (precedente !== undefined && maintenant - precedente < INTERVALLE_OBSERVATION_OMBRE_MS) return false;
+  DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.delete(sessionId);
+  DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.set(sessionId, maintenant);
+  if (DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.size > 4_096) {
+    const sessionLaPlusAncienne = DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.keys().next().value;
+    if (sessionLaPlusAncienne) DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.delete(sessionLaPlusAncienne);
+  }
+  return true;
+}
 
 function lireCookie(requete: Request, nom: string): string | null {
   const cookies = requete.headers.get("Cookie");
@@ -96,6 +111,57 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
     ...(ligne.fonction !== null ? { fonction: ligne.fonction } : {}),
     ...(ligne.perimetre_consultation ? { perimetre_consultation: ligne.perimetre_consultation } : {}),
   };
+
+  const db = c.env.DB;
+  const identiteHistorique = {
+    role: utilisateur.role,
+    province_id: utilisateur.province_id,
+    provinces_autorisees: utilisateur.provinces_autorisees ?? [],
+    perimetre_consultation: utilisateur.perimetre_consultation ?? null,
+  };
+  if (reserverObservationOmbre(ligne.id)) c.executionCtx.waitUntil((async () => {
+    try {
+      const affectationsOmbre = await db.prepare(
+        `SELECT r.code AS role_code, p.type_unite, p.gid, p.source_legacy,
+                CASE
+                  WHEN p.type_unite = 'PROVINCE' THEN p.gid
+                  WHEN p.type_unite = 'LOCALITE' THEN l.province_id
+                  ELSE NULL
+                END AS province_id_effectif
+         FROM affectations_roles ar
+         INNER JOIN roles r ON r.code = ar.role_code
+         LEFT JOIN portees_acces p ON p.id = ar.portee_id
+           AND p.statut = 'ACTIF'
+           AND (p.valide_du IS NULL OR p.valide_du <= datetime('now'))
+           AND (p.valide_au IS NULL OR p.valide_au > datetime('now'))
+         LEFT JOIN localites l ON p.type_unite = 'LOCALITE' AND l.id = p.gid
+         WHERE ar.utilisateur_id = ? AND ar.statut = 'ACTIF'
+           AND (ar.valide_du IS NULL OR ar.valide_du <= datetime('now'))
+           AND (ar.valide_au IS NULL OR ar.valide_au > datetime('now'))
+         ORDER BY r.code, p.type_unite, p.gid`,
+      ).bind(utilisateur.id).all<AffectationRoleOmbre>();
+      const comparaisonOmbre = comparerRoleEtPorteeOmbre(identiteHistorique, affectationsOmbre.results ?? []);
+      if (comparaisonOmbre.divergences.length > 0) {
+        console.warn(JSON.stringify({
+          event: "SIGAD_AUTHZ_B2_2_DIVERGENCE",
+          divergences: comparaisonOmbre.divergences,
+          role_historique: utilisateur.role,
+          role_ombre: comparaisonOmbre.role_effectif_nouveau,
+          province_historique: utilisateur.province_id,
+          provinces_ombre: comparaisonOmbre.provinces_effectives_nouvelles,
+          provinces_consultation_ombre: comparaisonOmbre.provinces_consultation_nouvelles,
+          portee_nationale_ombre: comparaisonOmbre.portee_nationale_nouvelle,
+        }));
+      }
+    } catch (erreur) {
+      DERNIERE_OBSERVATION_OMBRE_PAR_SESSION.delete(ligne.id);
+      console.warn(JSON.stringify({
+        event: "SIGAD_AUTHZ_B2_2_SHADOW_READ_FAILED",
+        type_erreur: erreur instanceof Error ? erreur.name : "UNKNOWN",
+      }));
+    }
+  })());
+
   const session: SessionActive = {
     id: ligne.id,
     jeton_csrf: ligne.jeton_csrf,
