@@ -23,6 +23,7 @@ environnementLocal.WRANGLER_SEND_METRICS = "false";
 environnementLocal.DO_NOT_TRACK = "1";
 let dossierTemporaire;
 let dossierPersistance;
+let fichierConfigurationWranglerIntegration;
 let processusWorker;
 let processusCourriel;
 const cleMfaLocale = randomBytes(32).toString("base64url");
@@ -159,6 +160,18 @@ try {
     racineTemporaireVerifiee.slice(temporaireParente.length + 1).startsWith("sigad-acceptation-worker-"),
     "Le répertoire de test doit être un dossier temporaire SIGAD créé par ce script.",
   );
+  const dossierAssetsIntegration = join(racineTemporaireVerifiee, "assets");
+  assert.ok(dossierAssetsIntegration.startsWith(`${racineTemporaireVerifiee}${sep}`));
+  await mkdir(dossierAssetsIntegration, { recursive: true });
+  fichierConfigurationWranglerIntegration = join(racineTemporaireVerifiee, "wrangler.verify.integration.toml");
+  const configurationIntegration = configurationWranglerLocale.replace(
+    /(\[assets\]\r?\n)directory = "[^"]*"/mu,
+    `$1directory = ${JSON.stringify(dossierAssetsIntegration.replaceAll("\\", "/"))}`,
+  );
+  if (configurationIntegration === configurationWranglerLocale) {
+    throw new Error("La configuration locale doit contenir un répertoire Assets réécrit dans le dossier temporaire du Worker.");
+  }
+  await writeFile(fichierConfigurationWranglerIntegration, configurationIntegration, { encoding: "utf8", flag: "wx" });
   dossierPersistance = await mkdtemp(join(persistanceParente, "sigad-acceptation-worker-state-"));
   const racinePersistanceVerifiee = resolve(dossierPersistance);
   assert.ok(
@@ -198,7 +211,7 @@ try {
     "apply",
     "DB",
     "--config",
-    fichierConfigurationWrangler,
+    fichierConfigurationWranglerIntegration,
     "--local",
     "--persist-to",
     dossierPersistance,
@@ -209,7 +222,7 @@ try {
     "execute",
     "DB",
     "--config",
-    fichierConfigurationWrangler,
+    fichierConfigurationWranglerIntegration,
     "--local",
     "--persist-to",
     dossierPersistance,
@@ -284,7 +297,7 @@ try {
     executableWrangler,
     "dev",
     "--config",
-    fichierConfigurationWrangler,
+    fichierConfigurationWranglerIntegration,
     "--local",
     "--ip",
     "127.0.0.1",
