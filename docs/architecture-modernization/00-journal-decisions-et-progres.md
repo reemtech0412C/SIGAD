@@ -8,11 +8,13 @@
 |---|---|---|---|---|
 | Phase 0 — Audit de référence | **Terminé (documents)** | 2026-10-26 | `01-audit-baseline.md`, `evidence/` | non versionné (voir F-01) |
 | Phase 0 — Audit du code mort | **Terminé (documents)** | 2026-10-26 | `02-audit-code-mort.md`, `evidence/analyse-code-mort.json` | — |
-| Phase 1 — Architecture cible + feuille de route | **Terminé (documents) — en attente de revue** | 2026-10-26 | `03`, `04`, `05` | — |
-| B0.1 Versionner l'existant | À faire (en attente de D-09) | — | — | — |
-| B0.2 `npm run verify` | À faire | — | — | — |
-| B1.1 → B1.3 | À faire | — | — | — |
-| Phase 2 → 6 | Non démarrées — **bloquées jusqu'à la revue** | — | — | — |
+| Phase 1 — Architecture cible + feuille de route | **Terminé; orientations D-01/02/03/04/13 approuvées, D-12 ouverte** | 2026-10-26 | `03`, `04`, `05`, `07` | `b7bf0b2`, `6cc8ffd` |
+| B0.1 Versionner l'existant | **Terminé localement** | 2026-10-26 | `07-readiness-for-phase-2.md`, preuves baseline | branche `baseline/2026-10-26-etat-actuel` |
+| B0.2 `npm run verify` | **Terminé** | 2026-10-26 | `evidence/verify-20261026T153504120Z.txt` | baseline + B1 local |
+| B1.1 Characterization of Permissions | **Terminé — 7×216** | 2026-10-26 | snapshots/diff classés dans `07` | `1081fad`, `b7bf0b2` |
+| B1.2 Household Rejection Defect | **Terminé — D-01 approuvée** | 2026-10-26 | preuves avant/après et verify complète | `6cc8ffd` |
+| B1.3 Approval Workflow Verification | **تتبع مكتمل؛ D-12 تمنع تغيير القاعدة** | 2026-10-26 | مصفوفة التتبع والاختصاص في `07` | `b7bf0b2` |
+| Phase 2 → 6 | **لم تبدأ**؛ B2.1 مرشحة للمراقبة، دفعاتها الأخرى مشروطة بقراراتها | — | `07` §شروط الانتقال | — |
 
 ## 2. Registre des décisions (format ADR)
 
@@ -40,7 +42,9 @@
 ### ADR-007 — Authentification mobile
 * **Décision** : jetons opaques hachés avec rotation et détection de réutilisation, liés à un appareil autorisé ; cookies + CSRF conservés pour le web.
 
-### Décisions **en attente** (utilisateur) : D-01 … D-14 → `05-decisions-a-valider.md`.
+### Décisions et orientations
+
+D-01/02/03/04/13 ont été approuvées le 2026-10-26; D-02/03/04/13 fixent le sens d'architecture mais leurs matrices/autorités restent à détailler avant enforcement ou géographie. D-12 reste ouverte; D-05/06/07/08/09/10/11/14 gardent le statut indiqué dans `05-decisions-a-valider.md`.
 
 ## 3. Journal des commandes et résultats (preuves — session du 2026-10-26)
 
@@ -72,4 +76,13 @@ Uniquement **ajout de fichiers** sous `docs/architecture-modernization/` (docume
 * **Phase 1 — dossier de conception : complet pour revue.** `03-architecture-cible.md`, `04-feuille-de-route.md` et `05-decisions-a-valider.md` sont présents ; les décisions D-01 à D-14 sont listées, ouvertes ou conditionnelles. Les deux références erronées à un fichier `06` ont été corrigées vers `05`. Aucun document `06` n'est attendu.
 * **Correction étayée par le code (F-10)** : `POST /api/territoire/unites-dynamiques` appelle `creerUniteTerritorialeDynamique`; les rôles terrain `RESPONSABLE_STOCK`, `SUPERVISEUR_TERRAIN` et `AGENT_DISTRIBUTION` figurent dans `ROLES_CREATION_DIRECTE_UNITE_TERRITORIALE`. Le service écrit les unités dynamiques à l'état `VALIDE` (ou utilise ce défaut pour les sous-préfectures) ; la création d'un département reste réservée au propriétaire ou à l'administration centrale. Voir `backend/src/index.ts`, `shared/constantes/roles.ts`, `backend/src/routes/territoire.routes.ts`, `backend/src/services/territoire.service.ts` et `migrations/0035_refonte_territoriale_dynamique_sans_communes.sql`. L'incertitude de F-10 est donc levée sans prétendre certifier l'exactitude administrative des unités.
 * **État Git au début de cette revue** : HEAD `371f0be`, 67 fichiers modifiés, 1 supprimé et 235 non suivis (`git status --short`). Le compte 302 non suivis noté en §3 est la capture antérieure, pas l'état actuel ; aucun changement local n'a été supprimé ni réinitialisé.
-* **Prêt pour Phase 2 : non.** B0.1, B0.2 et B1.1–B1.3 restent à faire selon §1 ; D-09/D-10 conditionnent B0.1/B0.2, D-01 conditionne B1.2, et les décisions métier ouvertes bloquent leurs lots de Phase 2 respectifs. Aucune phase de développement n'a été commencée pendant cette revue ; aucun code, schéma/base, test, migration, déploiement ou push n'a été modifié ou exécuté.
+* **Clôture de cette revue initiale :** le statut ci-dessus décrit l'état à la date de l'audit. L'exécution ultérieure B0/B1 est enregistrée dans la mise à jour courante au §7; les faits historiques de cette section ne sont pas réécrits.
+
+## 7. Mise à jour de clôture B1 — 2026-10-26
+
+* **D-01 approuvée:** `REJETE` est l'état interne officiel; `REFUSER` reste accepté en entrée et est normalisé avant persistance.
+* **B1.2 commit local:** `6cc8ffd fix: persist household rejection as REJETE`. Changement limité au mapping du refus, types/filtre de statut et test d'intégration; aucune migration, migration historique, permission ou règle d'approbation modifiée.
+* **Preuve avant/après:** `evidence/verify-20261026T152612652Z.txt` reproduit le comportement HTTP 500 attendu avant le correctif (commande terminée 0 car l'assertion décrivait le bug). `evidence/verify-20261026T153257468Z.txt` après correctif: 2 tests pass, 0 fail, exit 0; Worker/D1 local; la comparaison de chaque ligne (`id`, `code_menage`, `statut`, `statut_validation`) montre que seul le statut du ménage ciblé passe à `REJETE`, sans ajout/suppression ni modification d'autres lignes.
+* **Vérification complète:** `npm run verify`, 332.8 s, exit 0 (`evidence/verify-20261026T153504120Z.txt`): TypeScript 0; Vitest 31 fichiers/151 tests pass; matrice 216 routes pass; SQLite mémoire 35 migrations jusqu'à 0035; intégration Worker/D1 locale pass; fichiers suivis/non-ignorés modifiés automatiquement = 0. Harness local temporaire, identifiant D1 fictif, aucune commande distante ni connexion en écriture à Staging/Production.
+* **قرارات التصميم المعتمدة:** D-02/D-03/D-04/D-13 هي مبادئ معتمدة، لكن التعيينات التفصيلية ومرجع/جهة التصديق الجغرافي لم تُحسم. D-12 مفتوحة؛ لا تغيير لسير الموافقات.
+* **الحالة:** B1.1 وB1.2 وB1.3 مكتملة تقنيًا؛ Phase 2 لم تبدأ. يمكن أن تكون B2.1 دفعة المراقبة الأولى فقط إذا بقيت بلا enforcement واستوفت شروط `07-readiness-for-phase-2.md`. لا push ولا نشر.
