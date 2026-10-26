@@ -1127,17 +1127,53 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     controleDecisionDistincte.close();
   }
 
-  const validationParDelegue = await delegueSila.requete(`/api/gestion/menages/${await (async () => {
-    const base = ouvrirD1Locale();
-    try { return base.prepare("SELECT id FROM menages WHERE telephone = '23566004010' ORDER BY id LIMIT 1").get().id; }
-    finally { base.close(); }
-  })()}/validation`, { methode: "POST", corps: { decision: "VALIDER", observations: "Tentative de validation provinciale" } });
-  assert.equal(validationParDelegue.reponse.status, 403, "La validation individuelle est réservée à l’administration centrale.");
   const idMenageAValider = (() => {
     const base = ouvrirD1Locale();
-    try { return base.prepare("SELECT id FROM menages WHERE telephone = '23566004010' ORDER BY id LIMIT 1").get().id; }
+    try {
+      const menage = base.prepare(`SELECT m.id FROM menages m
+        WHERE m.province_id = 'prov-sila' AND m.statut = 'INACTIF' AND m.statut_validation = 'A_VERIFIER'
+          AND NOT EXISTS (
+            SELECT 1 FROM signalements_doublons sd
+            WHERE sd.province_id = m.province_id AND sd.statut_traitement = 'EN_ATTENTE'
+              AND (sd.menage_source_id = m.id OR sd.menage_suspect_id = m.id)
+          )
+        ORDER BY m.id LIMIT 1`).get();
+      assert.ok(menage, "Le seed local doit fournir un ménage synthétique en attente de validation.");
+      return menage.id;
+    } finally { base.close(); }
+  })();
+  const validationParDelegue = await delegueSila.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
+    methode: "POST", corps: { decision: "VALIDER", observations: "Tentative de validation provinciale" },
+  });
+  assert.equal(validationParDelegue.reponse.status, 403, "La validation individuelle est réservée à l’administration centrale.");
+  const etatAvantRefusMenage = (() => {
+    const base = ouvrirD1Locale();
+    try {
+      return base.prepare("SELECT id, code_menage, statut, statut_validation FROM menages WHERE id = ?").get(idMenageAValider);
+    } finally { base.close(); }
+  })();
+  const nombreMenagesAvantRefus = (() => {
+    const base = ouvrirD1Locale();
+    try { return base.prepare("SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila'").get().total; }
     finally { base.close(); }
   })();
+  const refusMenageReproducteur = await administrateurCentral.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
+    methode: "POST", corps: { decision: "REFUSER", observations: "Motif synthétique de refus pour reproduire la contrainte." },
+  });
+  assert.equal(refusMenageReproducteur.reponse.status, 500,
+    "REFUSER reproduit le conflit entre l’API (REFUSE) et la contrainte SQLite (REJETE).");
+  const etatApresRefusMenage = (() => {
+    const base = ouvrirD1Locale();
+    try {
+      const etat = base.prepare("SELECT id, code_menage, statut, statut_validation FROM menages WHERE id = ?").get(idMenageAValider);
+      const nombre = base.prepare("SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila'").get().total;
+      return { etat, nombre };
+    } finally { base.close(); }
+  })();
+  assert.deepEqual(etatApresRefusMenage.etat, etatAvantRefusMenage,
+    "L’échec de REFUSER doit préserver l’identifiant, le code et l’état du ménage.");
+  assert.equal(etatApresRefusMenage.nombre, nombreMenagesAvantRefus,
+    "L’échec de REFUSER ne doit modifier ni supprimer aucun ménage.");
   const validationParProprietaire = await proprietaire.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
     methode: "POST", corps: { decision: "VALIDER", observations: "Tentative du compte technique" },
   });

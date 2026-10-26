@@ -24,7 +24,6 @@ const environnementEnfant = Object.fromEntries(
 for (const nom of [
   "SIGAD_RUN_PLAYWRIGHT",
   "SIGAD_PHASE114_ACTIVATION",
-  "SIGAD_INTEGRATION_TESTS",
   "SIGAD_PLAYWRIGHT_GREP",
   "SIGAD_PLAYWRIGHT_GREP_INVERT",
   "NODE_OPTIONS",
@@ -32,6 +31,7 @@ for (const nom of [
   "NPM_CONFIG_USERCONFIG",
   "NPM_CONFIG_REGISTRY",
 ]) delete environnementEnfant[nom];
+if (!integrationSeulement) delete environnementEnfant.SIGAD_INTEGRATION_TESTS;
 environnementEnfant.WRANGLER_SEND_METRICS = "false";
 environnementEnfant.DO_NOT_TRACK = "1";
 
