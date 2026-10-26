@@ -1,0 +1,75 @@
+# 00 — Journal des décisions d'architecture et du progrès
+
+> **Fichier vivant.** À mettre à jour à la fin de chaque lot. Permet de reprendre le travail dans une session vierge : lire d'abord `README.md`, puis ce journal, puis le lot suivant dans `04-feuille-de-route.md`.
+
+## 1. Tableau d'avancement
+
+| Phase / Lot | Statut | Date | Preuve | Commit |
+|---|---|---|---|---|
+| Phase 0 — Audit de référence | **Terminé (documents)** | 2026-10-26 | `01-audit-baseline.md`, `evidence/` | non versionné (voir F-01) |
+| Phase 0 — Audit du code mort | **Terminé (documents)** | 2026-10-26 | `02-audit-code-mort.md`, `evidence/analyse-code-mort.json` | — |
+| Phase 1 — Architecture cible + feuille de route | **Terminé (documents) — en attente de revue** | 2026-10-26 | `03`, `04`, `05` | — |
+| B0.1 Versionner l'existant | À faire (en attente de D-09) | — | — | — |
+| B0.2 `npm run verify` | À faire | — | — | — |
+| B1.1 → B1.3 | À faire | — | — | — |
+| Phase 2 → 6 | Non démarrées — **bloquées jusqu'à la revue** | — | — | — |
+
+## 2. Registre des décisions (format ADR)
+
+### ADR-001 — Approche *strangler* et migrations additives uniquement
+* **Contexte** : D1 sans `foreign_keys=OFF` effectif, migrations déjà immuables, deux refontes de tables (0028, 0035) ayant introduit une régression (F-02) et une suppression de données de référence (F-09).
+* **Décision** : toute fondation nouvelle est ajoutée à côté de l'existant ; aucune reconstruction de table centrale sans essai sur copie et accord ; retrait seulement en Phase 5 après période d'équivalence.
+* **Conséquences** : coexistence temporaire de deux modèles (géo, rôles, audit) avec double écriture/mode ombre ; complexité transitoire acceptée pour garantir la réversibilité.
+
+### ADR-002 — Aucune dépendance runtime supplémentaire
+* **Contexte** : aucune dépendance npm inutilisée (`02` classe E) ; la contrainte « réduire les dépendances » n'a donc pas de gain par retrait.
+* **Décision** : OpenAPI généré depuis Zod 4 (`z.toJSONSchema`), i18n légère maison, jetons mobiles opaques en D1 (pas de JWT), identifiants via `crypto.randomUUID`.
+
+### ADR-003 — Ordre des phases ajusté
+* **Décision** : insertion de **B0.1/B0.2** et des **lots 1.x** (stabilisation) avant la Phase 2 ; audit unifié et appareils placés en Phase 2 ; Phase 5 entrelacée (on retire ce qu'un lot remplace). **Raison** : F-01 (travail non versionné), F-02/F-03 (défauts confirmés) et besoin d'un oracle de non-régression. Détails : `04-feuille-de-route.md` §1.
+
+### ADR-004 — Identifiants géographiques stables
+* **Décision** : `gid` = identifiant existant pour les unités existantes (aucune réécriture de clés étrangères) ; UUID aléatoire pour les nouvelles ; jamais dérivé d'un nom. Codes externes (OCHA/INSEED/Loi 015) en table dédiée.
+
+### ADR-005 — Rattachements datés, jamais mis à jour en place
+* **Décision** : changer le parent d'une unité = fermer la ligne courante (`valide_au`) et en ouvrir une nouvelle ; la fermeture transitive courante est dérivée et reconstruisible.
+
+### ADR-006 — La synchronisation mobile n'écrit que dans la collecte
+* **Décision** : canal mobile sans permission sur `menages`, listes ou distributions ; `menages` n'est alimenté qu'à l'approbation (acteur ≠ collecteur) ; défense en profondeur par trigger. Garantit « la synchronisation ne contourne pas la chaîne d'approbation ».
+
+### ADR-007 — Authentification mobile
+* **Décision** : jetons opaques hachés avec rotation et détection de réutilisation, liés à un appareil autorisé ; cookies + CSRF conservés pour le web.
+
+### Décisions **en attente** (utilisateur) : D-01 … D-14 → `05-decisions-a-valider.md`.
+
+## 3. Journal des commandes et résultats (preuves — session du 2026-10-26)
+
+| Commande | Résultat |
+|---|---|
+| `git status --short` | 67 modifiés, 1 supprimé, 302 non suivis (HEAD `371f0be`) |
+| `npx tsc --noEmit -p tsconfig.json` | exit 0, aucune sortie |
+| `npx vitest run --config vitest.config.ts --pool=threads --maxWorkers=1` | 31 fichiers, 151 tests OK |
+| `node scripts/generer-matrice-securite-phase9.mjs --check` | PASS, 216 routes |
+| `node tests/integration/run-auth-worker.mjs` | exit 0 ; 18 tests : 17 OK, 1 ignoré (voulu), 0 échec ; 191 s |
+| `node docs/architecture-modernization/tools/inventaire-schema-memoire.mjs` | 35/35 migrations OK en mémoire ; 86 tables, 133 triggers, 134 index ; `UPDATE menages SET statut_validation='REFUSE'` → CHECK constraint failed |
+| `node docs/architecture-modernization/tools/inventaire-geo-memoire.mjs` | 112 départements : 80 `VALIDE` / 32 `A_VERIFIER` ; 0 sous-préfecture/commune/canton ; coordonnées `NON_RENSEIGNE` ×112 |
+| `node docs/architecture-modernization/tools/analyse-code-mort.mjs` | 225 fichiers ; orphelins applicatifs = points d'entrée + `hors-ligne.service.ts` ; 121 exports non référencés (23 sans aucun usage) ; 0 dépendance npm inutilisée ; 35 scripts non référencés |
+
+## 4. Modifications effectuées dans le dépôt pendant la Phase 0/1
+
+Uniquement **ajout de fichiers** sous `docs/architecture-modernization/` (documents, `tools/` en lecture seule, `evidence/`). Aucun fichier de code applicatif, de migration, de configuration ou de test n'a été modifié. Aucune base distante ni locale persistante n'a été touchée (les tests d'intégration utilisent un dossier temporaire jeté par le runner). Aucun push, aucun déploiement.
+
+## 5. Reprise de travail (checklist de session vierge)
+1. `git status` et lire `README.md` + ce journal.
+2. Lire `05-decisions-a-valider.md` : quelles décisions ont été tranchées ?
+3. Exécuter la suite de référence (ou `npm run verify` une fois B0.2 livré) et comparer aux chiffres de §3.
+4. Prendre le **premier lot non terminé** de `04-feuille-de-route.md` dont les dépendances sont satisfaites ; respecter ses critères d'acceptation et sa section retour arrière.
+5. Clore le lot : mettre à jour §1 et §2 de ce journal, régénérer la matrice de sécurité, noter les commandes/résultats en §3.
+
+## 6. Revue de complétude documentaire (26-10-2026)
+
+* **Phase 0 — audit documentaire : complet.** `01-audit-baseline.md`, `02-audit-code-mort.md` et les preuves référencées sont présents. `baseline-tsc.txt`, auparavant vide, consigne maintenant la commande, le code de sortie 0 et l'absence attendue de diagnostics ; aucun test n'a été relancé.
+* **Phase 1 — dossier de conception : complet pour revue.** `03-architecture-cible.md`, `04-feuille-de-route.md` et `05-decisions-a-valider.md` sont présents ; les décisions D-01 à D-14 sont listées, ouvertes ou conditionnelles. Les deux références erronées à un fichier `06` ont été corrigées vers `05`. Aucun document `06` n'est attendu.
+* **Correction étayée par le code (F-10)** : `POST /api/territoire/unites-dynamiques` appelle `creerUniteTerritorialeDynamique`; les rôles terrain `RESPONSABLE_STOCK`, `SUPERVISEUR_TERRAIN` et `AGENT_DISTRIBUTION` figurent dans `ROLES_CREATION_DIRECTE_UNITE_TERRITORIALE`. Le service écrit les unités dynamiques à l'état `VALIDE` (ou utilise ce défaut pour les sous-préfectures) ; la création d'un département reste réservée au propriétaire ou à l'administration centrale. Voir `backend/src/index.ts`, `shared/constantes/roles.ts`, `backend/src/routes/territoire.routes.ts`, `backend/src/services/territoire.service.ts` et `migrations/0035_refonte_territoriale_dynamique_sans_communes.sql`. L'incertitude de F-10 est donc levée sans prétendre certifier l'exactitude administrative des unités.
+* **État Git au début de cette revue** : HEAD `371f0be`, 67 fichiers modifiés, 1 supprimé et 235 non suivis (`git status --short`). Le compte 302 non suivis noté en §3 est la capture antérieure, pas l'état actuel ; aucun changement local n'a été supprimé ni réinitialisé.
+* **Prêt pour Phase 2 : non.** B0.1, B0.2 et B1.1–B1.3 restent à faire selon §1 ; D-09/D-10 conditionnent B0.1/B0.2, D-01 conditionne B1.2, et les décisions métier ouvertes bloquent leurs lots de Phase 2 respectifs. Aucune phase de développement n'a été commencée pendant cette revue ; aucun code, schéma/base, test, migration, déploiement ou push n'a été modifié ou exécuté.

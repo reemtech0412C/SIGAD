@@ -1,0 +1,23 @@
+// Distribution des statuts de validation territoriale après migrations (SQLite en mémoire, aucune donnée réelle).
+import { DatabaseSync } from "node:sqlite";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+const racine = resolve(import.meta.dirname, "..", "..", "..");
+const db = new DatabaseSync(":memory:");
+for (const f of readdirSync(join(racine, "migrations")).filter((n) => n.endsWith(".sql")).sort()) db.exec(readFileSync(join(racine, "migrations", f), "utf8"));
+const out = {};
+const q = (nom, sql) => { try { out[nom] = db.prepare(sql).all(); } catch (e) { out[nom] = String(e.message); } };
+q("departements_par_validation", "SELECT validation_administrative AS va, validation_rattachement AS vr, statut_validation AS sv, statut_operationnel AS so, provenance, COUNT(*) AS n FROM departements GROUP BY 1,2,3,4,5");
+q("departements_par_province_top", "SELECT province_id, COUNT(*) AS n FROM departements GROUP BY 1 ORDER BY n DESC LIMIT 5");
+q("provinces_statut_particulier", "SELECT id, nom FROM provinces WHERE statut_particulier = 1");
+q("departements_coordonnees", "SELECT validation_coordonnees AS v, COUNT(*) AS n FROM departements GROUP BY 1");
+q("sous_prefectures", "SELECT COUNT(*) AS n FROM sous_prefectures");
+q("communes", "SELECT COUNT(*) AS n FROM communes");
+q("cantons", "SELECT COUNT(*) AS n FROM cantons");
+q("localites_par_type", "SELECT type_localite, statut_validation, provenance, COUNT(*) AS n FROM localites GROUP BY 1,2,3");
+q("sites_humanitaires", "SELECT COUNT(*) AS n FROM sites_humanitaires");
+q("entrepots", "SELECT COUNT(*) AS n FROM entrepots");
+q("roles_utilisateurs_seed", "SELECT role, COUNT(*) AS n FROM utilisateurs GROUP BY 1");
+q("tables_avec_province_id", "SELECT m.name AS t FROM sqlite_master m WHERE m.type='table' AND EXISTS (SELECT 1 FROM pragma_table_info(m.name) WHERE name='province_id') ORDER BY 1");
+q("tables_avec_departement_id", "SELECT m.name AS t FROM sqlite_master m WHERE m.type='table' AND EXISTS (SELECT 1 FROM pragma_table_info(m.name) WHERE name='departement_id') ORDER BY 1");
+console.log(JSON.stringify(out, null, 1));

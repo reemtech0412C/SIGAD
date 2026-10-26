@@ -1,0 +1,121 @@
+# Journal d'intégration condensé (lignes de résultats uniquement ; le journal brut Wrangler de 745 Ko a été retiré).
+# Note : l'encodage des symboles ✔/ℹ est altéré par la redirection PowerShell sous Windows ; B0.2 (npm run verify) produira un journal propre en UTF-8.
+# Commande : node tests/integration/run-auth-worker.mjs  — durée 191 s — exit 0
+# Totaux (somme des fichiers) : tests 18 · pass 17 · fail 0 · skipped 1 · cancelled 0
+
+  Ô£ö Mesures r├®p├®t├®es de la liste des m├®nages sur D1 local et EXPLAIN QUERY PLAN (6163.2018ms)
+Ô£ö Authentification et contr├┤les de s├®curit├® dans le Worker Cloudflare local (16069.586ms)
+Ôä╣ tests 2
+Ôä╣ suites 0
+Ôä╣ pass 2
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 16222.7549
+´╣ú Inscription, approbation et activation de consultation sans fournisseur dÔÇÖe-mail (1.023ms) # Ce parcours est ex├®cut├® s├®par├®ment avec EMAIL_DELIVERY_ENABLED=false.
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 0
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 1
+Ôä╣ todo 0
+Ôä╣ duration_ms 124.7436
+Ô£ö Une demande non v├®rifi├®e en mode sans e-mail peut reprendre lÔÇÖOTP apr├¿s activation du service (166.291ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 282.4936
+Ô£ö R├®cup├®ration propri├®taire limit├®e, atomique, ├á usage unique et r├®vocable sur Wrangler/D1 locaux (2066.3317ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 2192.8566
+Ô£ö Matrice API : chaque route est prot├®g├®e et chaque refus ne modifie aucune donn├®e (10598.2372ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 10728.4411
+Ô£ö Gestion des articles et stocks dans le Worker Cloudflare et D1 locaux (1526.057ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 1661.0985
+Ô£ö Approvisionnements centraux, r├®ception provinciale et int├®grit├® atomique dans Wrangler local (4374.3698ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 4533.7039
+  Ô£ö CSRF, RBAC et s├®paration stricte Sila/Ouadda├» (353.6872ms)
+  Ô£ö Cr├®ation autonome, partenariats, liste et plusieurs zones (42.9316ms)
+  Ô£ö Validation FEFO, exclusion des lots impropres, snapshot et rejeu idempotent (125.554ms)
+  Ô£ö Remise compl├¿te, d├®passement, idempotence et conflit de contenu (309.6645ms)
+  Ô£ö Remise partielle concurrente, m├®nage absent et absence de double d├®bit (265.5688ms)
+  Ô£ö D├®claration, retour sans r├®├®criture des remises, validation centrale et cl├┤ture avec lib├®ration (1280.5693ms)
+  Ô£ö Rollback de toute la validation si lÔÇÖaudit final ├®choue (522.8923ms)
+  Ô£ö Concurrence entre deux validations et coh├®rence lots_stock / soldes_stock (439.8918ms)
+  Ô£ö P├®rim├¿tre du journal, notifications, idempotence et rollback des observations (357.8913ms)
+Ô£ö Cycle de distribution provinciale avec isolation, FEFO, atomicit├®, remises et cl├┤ture dans Wrangler local (17770.5333ms)
+Ôä╣ tests 10
+Ôä╣ suites 0
+Ôä╣ pass 10
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 17896.6334
+  Ô£ö Le tableau de bord applique les filtres temporels, les totaux distincts et les p├®rim├¿tres provinciaux (314.6539ms)
+  Ô£ö Les quinze rapports sont ex├®cutables avec leurs filtres et leurs r├®f├®rences op├®rationnelles (781.8939ms)
+  Ô£ö Les m├®triques des m├®nages ne se multiplient pas selon les articles et la distribution reste v├®rifiable (187.1969ms)
+  Ô£ö Les exports fran├ºais CSV, XLSX et PDF prot├¿gent les donn├®es et produisent un PDF pagin├® (1805.0684ms)
+  Ô£ö LÔÇÖexport CSV natif accepte uniquement le jeton CSRF du formulaire et renvoie un fichier exploitable (232.611ms)
+  Ô£ö La g├®n├®ration archiv├®e applique les m├¬mes droits, lÔÇÖidempotence des r├®f├®rences et le CSRF (600.5716ms)
+  Ô£ö Les quatre KPI cartographiques correspondent aux preuves D1 et respectent le p├®rim├¿tre de session (518.4646ms)
+Ô£ö Rapports SIGAD: calculs, exports, confidentialit├® provinciale et archives sur Wrangler local (64999.9134ms)
+Ôä╣ tests 8
+Ôä╣ suites 0
+Ôä╣ pass 8
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 65136.945
+Ô£ö Cycle complet de validation des Op├®rations Centrales de Distribution sur Worker local, D1 et R2 (2537.3813ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 2739.1668
+Ô£ö Cycle complet de gestion et purge s├®curis├®e des donn├®es de test sur Worker local (19089.0596ms)
+Ôä╣ tests 1
+Ôä╣ suites 0
+Ôä╣ pass 1
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 19239.8222

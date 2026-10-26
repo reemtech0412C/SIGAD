@@ -1,0 +1,13 @@
+import { readFileSync } from "node:fs";
+const j = JSON.parse(readFileSync(new URL("../evidence/analyse-code-mort.json", import.meta.url), "utf8").replace(/^\uFEFF/, ""));
+console.log("fichiers analysés:", j.nombre_fichiers_analyses);
+console.log("== orphelins");
+for (const o of j.orphelins_modules) console.log(`${o.fichier} (${o.taille}b) code=${o.reference_texte_code} docs=${o.reference_docs}`);
+console.log("== exports non référencés:", j.exports_non_references.length);
+const g = {};
+for (const e of j.exports_non_references) (g[e.fichier] ??= []).push(e.symbole + (e.usage_local ? "*" : ""));
+for (const [f, s] of Object.entries(g).sort((a, b) => b[1].length - a[1].length).slice(0, 40)) console.log(`${f}: ${s.join(", ")}`);
+console.log("== dépendances");
+for (const [n, d] of Object.entries(j.dependances)) console.log(`${n} [${d.section}] imports=${d.importe_dans} script=${d.script_npm} ${d.exemples.join(" | ")}`);
+console.log("== scripts non référencés:", j.scripts_non_references_par_package_ou_code.length);
+for (const s of j.scripts_non_references_par_package_ou_code) console.log(`${s.script} doc=${s.documente}`);

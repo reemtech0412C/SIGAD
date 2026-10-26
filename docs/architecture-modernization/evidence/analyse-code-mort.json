@@ -1,0 +1,1243 @@
+﻿{
+  "genere_le": "2026-10-26T10:09:58.000Z",
+  "nombre_fichiers_analyses": 225,
+  "orphelins_modules": [
+    {
+      "fichier": "backend/src/env.d.ts",
+      "taille": 64,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "backend/src/index.ts",
+      "taille": 15128,
+      "reference_texte_code": true,
+      "reference_docs": true
+    },
+    {
+      "fichier": "frontend/src/main.tsx",
+      "taille": 1134,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "frontend/src/services/hors-ligne.service.ts",
+      "taille": 3553,
+      "reference_texte_code": true,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/audit-contradictoire-volumes-reels.mjs",
+      "taille": 6570,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/capture-galerie-ui-harmonisation.mjs",
+      "taille": 30754,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/compter-donnees-territoire.mjs",
+      "taille": 4084,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/diagnostiquer-menages.mjs",
+      "taille": 1406,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/emettre-activation-proprietaire-staging.mjs",
+      "taille": 5358,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/exporter-d1-staging-chiffree.mjs",
+      "taille": 33928,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/generer-matrice-securite-phase9.mjs",
+      "taille": 15787,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/generer-migration-0032.mjs",
+      "taille": 41200,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/generer-referentiel-loi-015.mjs",
+      "taille": 13960,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/generer-seed-initial.mjs",
+      "taille": 9683,
+      "reference_texte_code": true,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/inspecter-schemas-territoire.mjs",
+      "taille": 253,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/inspecter-tables-territoire.mjs",
+      "taille": 359,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/inspecter-triggers-localites.mjs",
+      "taille": 401,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/inspecter-triggers-menages.mjs",
+      "taille": 654,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/inspecter-triggers-quartiers.mjs",
+      "taille": 633,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/preparer-base-locale.mjs",
+      "taille": 2973,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/preparer-copie-staging-isolee.mjs",
+      "taille": 2901,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/recette-incident-recherche-500.mjs",
+      "taille": 9876,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/recette-navigateur-administration-territoriale.mjs",
+      "taille": 16548,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/recette-navigateur-reelle.mjs",
+      "taille": 34211,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/recette-public-staging-phase12-5.mjs",
+      "taille": 6077,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/recette-staging-0035.mjs",
+      "taille": 29365,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/recette-staging-demonstration-operations-centrales.mjs",
+      "taille": 13762,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/recette-staging-phase12-5.mjs",
+      "taille": 31263,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/recette-staging-post-deploiement.mjs",
+      "taille": 7748,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/recette-staging-visuelle-en-ligne.mjs",
+      "taille": 11868,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/restaurer-d1-staging-depuis-backup.mjs",
+      "taille": 4686,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/sauvegarder-d1-staging-pre-0026.mjs",
+      "taille": 14793,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/sauvegarder-d1-staging-pre-0027.mjs",
+      "taille": 15393,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/sauvegarder-d1-staging-pre-0028.mjs",
+      "taille": 10602,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/sauvegarder-d1-staging-pre-0035.mjs",
+      "taille": 13502,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/tester-administration-territoriale-et-gouvernance.mjs",
+      "taille": 47561,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/tester-migration-0032.mjs",
+      "taille": 1085,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/tester-restauration-d1-distante-isolee.mjs",
+      "taille": 6484,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/tester-restauration-sqlite-synthetique.mjs",
+      "taille": 3601,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/tester-stats-reelles.mjs",
+      "taille": 1382,
+      "reference_texte_code": false,
+      "reference_docs": false
+    },
+    {
+      "fichier": "scripts/verifier-coffre-recuperation-dpapi.mjs",
+      "taille": 2268,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/verifier-geojson-chad-adm1.mjs",
+      "taille": 20171,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/verifier-migration-0022.mjs",
+      "taille": 6071,
+      "reference_texte_code": false,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/verifier-migration-0023-copie-staging.mjs",
+      "taille": 25847,
+      "reference_texte_code": true,
+      "reference_docs": true
+    },
+    {
+      "fichier": "scripts/verifier-schema-local.mjs",
+      "taille": 28751,
+      "reference_texte_code": true,
+      "reference_docs": true
+    }
+  ],
+  "exports_non_references": [
+    {
+      "fichier": "backend/src/bindings.ts",
+      "symbole": "AppBindings",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/bindings.ts",
+      "symbole": "VariablesRequete",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/courriel.service.ts",
+      "symbole": "ConfigurationCourriel",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/courriel.service.ts",
+      "symbole": "ObjetCourrielVerification",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/courriel.service.ts",
+      "symbole": "MessageCourriel",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/diagnostic-recuperation.service.ts",
+      "symbole": "CodeErreurRecuperation",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/fichiers-securite.service.ts",
+      "symbole": "TypeMimeDocument",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/notifications.service.ts",
+      "symbole": "NotificationDestinataire",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/operation-centrale.service.ts",
+      "symbole": "changerStatutOperation",
+      "usage_local": false
+    },
+    {
+      "fichier": "backend/src/services/operation-centrale.service.ts",
+      "symbole": "enregistrerApprobationOperation",
+      "usage_local": false
+    },
+    {
+      "fichier": "backend/src/services/operation-centrale.service.ts",
+      "symbole": "obtenirDetailOperation",
+      "usage_local": false
+    },
+    {
+      "fichier": "backend/src/services/operation-centrale.service.ts",
+      "symbole": "calculerConsolidationNationale",
+      "usage_local": false
+    },
+    {
+      "fichier": "backend/src/services/preuve-doublon.service.ts",
+      "symbole": "PreuveDoublonCalculee",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/preuve-doublon.service.ts",
+      "symbole": "SignerPreuve",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports-export.service.ts",
+      "symbole": "MetadonneesFichierRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports-export.service.ts",
+      "symbole": "FichierRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "LigneRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "ColonneRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "ResultatApercuRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "IndicateursRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "PointMensuelRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "LigneProvinceRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "TableauDeBordRapports",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "appliquerPerimetreUtilisateur",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/rapports.service.ts",
+      "symbole": "obtenirContexteRapport",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/recuperation-proprietaire.service.ts",
+      "symbole": "PreuveOperateurValidee",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/stock.service.ts",
+      "symbole": "ResultatIdempotent",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/stockage-r2.service.ts",
+      "symbole": "OptionEcritureR2",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/stockage-r2.service.ts",
+      "symbole": "ContenuEcritureR2",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/stockage-r2.service.ts",
+      "symbole": "ParametresEcritureR2",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/stockage-r2.service.ts",
+      "symbole": "ObjetArchiveR2",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/stockage-r2.service.ts",
+      "symbole": "ResultatReconciliationArchivesR2",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/territoire.service.ts",
+      "symbole": "PaginationTerritoriale",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/territoire.service.ts",
+      "symbole": "TypeRessourceTerritoriale",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/territoire.service.ts",
+      "symbole": "PorteeTerritoriale",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/verification-courriel.service.ts",
+      "symbole": "D1RequetesLimitees",
+      "usage_local": true
+    },
+    {
+      "fichier": "backend/src/services/xlsx-menages.service.ts",
+      "symbole": "FeuilleMenagesExcel",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADAlert.tsx",
+      "symbole": "SIGADAlertVariant",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADAlert.tsx",
+      "symbole": "SIGADAlertProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADBadge.tsx",
+      "symbole": "SIGADBadgeVariant",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADBadge.tsx",
+      "symbole": "SIGADBadgeSize",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADBadge.tsx",
+      "symbole": "SIGADBadgeProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADButton.tsx",
+      "symbole": "SIGADButtonVariant",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADButton.tsx",
+      "symbole": "SIGADButtonSize",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADButton.tsx",
+      "symbole": "SIGADButtonProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADCard.tsx",
+      "symbole": "SIGADCardProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADCard.tsx",
+      "symbole": "SIGADCardHeaderProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADCard.tsx",
+      "symbole": "SIGADCardTitleProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADCard.tsx",
+      "symbole": "SIGADCardSubtitleProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADCard.tsx",
+      "symbole": "SIGADCardFooter",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADEmptyState.tsx",
+      "symbole": "SIGADEmptyStateProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADFormField.tsx",
+      "symbole": "SIGADFormFieldProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADFormField.tsx",
+      "symbole": "SIGADInputProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADFormField.tsx",
+      "symbole": "SIGADSelectProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADFormField.tsx",
+      "symbole": "SIGADTextareaProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADIcon.tsx",
+      "symbole": "SIGADIconProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADModal.tsx",
+      "symbole": "SIGADModalSize",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADModal.tsx",
+      "symbole": "SIGADModalVariant",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADModal.tsx",
+      "symbole": "SIGADModalProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADModal.tsx",
+      "symbole": "SIGADConfirmModalProps",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADPagination.tsx",
+      "symbole": "SIGADPaginationProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "SIGADPanelSide",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "SIGADSidePanelProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "SIGADDetailPanelProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "SIGADFormPanelProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "EtapeWizardSIGAD",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "SIGADWizardPanelProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADSidePanel.tsx",
+      "symbole": "SIGADConfirmPanelProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADStatCard.tsx",
+      "symbole": "SIGADStatCardProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableHead",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableBody",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableRow",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableHeaderCellProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableHeaderCell",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableCellProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTable.tsx",
+      "symbole": "SIGADTableCell",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTabs.tsx",
+      "symbole": "SIGADTabsListProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/components/ui/SIGADTabs.tsx",
+      "symbole": "SIGADTabProps",
+      "usage_local": true
+    },
+    {
+      "fichier": "frontend/src/services/hors-ligne.service.ts",
+      "symbole": "ElementFileSynchronisation",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/services/hors-ligne.service.ts",
+      "symbole": "CONFIGURATION_HORS_LIGNE",
+      "usage_local": false
+    },
+    {
+      "fichier": "frontend/src/services/hors-ligne.service.ts",
+      "symbole": "serviceHorsLigne",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/constantes/provinces.ts",
+      "symbole": "ProvinceInitiale",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/constantes/roles.ts",
+      "symbole": "ROLES_UTILISATEUR",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/constantes/roles.ts",
+      "symbole": "ROLES_TERRAIN",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/constantes/roles.ts",
+      "symbole": "RoleTerrain",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "TypeIntervention",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "SourceVivres",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "StatutDossierExecution",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "TypeApprobation",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "DecisionApprobation",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "CATEGORIES_DOCUMENT_OPERATION",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "CategorieDocumentOperation",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "ApprobationOperation",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/operations-centrales.ts",
+      "symbole": "DocumentOperation",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/types/territoire.ts",
+      "symbole": "ProvenanceUniteTerritoriale",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/utils/localisation-dynamique.ts",
+      "symbole": "NatureLieuSelection",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/utils/localisation-dynamique.ts",
+      "symbole": "ModeDecoupageUrbain",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/utils/localisation-dynamique.ts",
+      "symbole": "ChampsLocalisationAffiches",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/approvisionnements.ts",
+      "symbole": "PaginationApprovisionnements",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/beneficiaires.ts",
+      "symbole": "CODES_VULNERABILITE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/beneficiaires.ts",
+      "symbole": "schemaMembreMenage",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/beneficiaires.ts",
+      "symbole": "MilieuIntervention",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/beneficiaires.ts",
+      "symbole": "CreationPartenaire",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/beneficiaires.ts",
+      "symbole": "FiltresMenages",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/controle.ts",
+      "symbole": "TYPES_OPERATION_CONTROLE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/controle.ts",
+      "symbole": "STATUTS_OPERATION_CONTROLE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/indicateurs-carte.ts",
+      "symbole": "ETATS_DONNEES_CARTE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/indicateurs-carte.ts",
+      "symbole": "schemaProvinceIndicateursCarte",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/rapports.ts",
+      "symbole": "FORMATS_RAPPORT",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/stocks.ts",
+      "symbole": "schemaLigneReception",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/stocks.ts",
+      "symbole": "schemaReservationStock",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "TYPES_LOCALITE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "TYPES_LOCALITE_PROPOSABLES",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "MILIEUX_RESIDENCE_TERRITORIALE",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "CATEGORIES_SITE_HUMANITAIRE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "TYPES_UNITES_TERRITORIALES",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "TYPES_UNITES_AJOUT_DYNAMIQUE",
+      "usage_local": true
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "DonneesPropositionCorrectionTerritoriale",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "schemaSuppressionUniteTerritoriale",
+      "usage_local": false
+    },
+    {
+      "fichier": "shared/validations/territoire.ts",
+      "symbole": "TypeUniteAdministrative",
+      "usage_local": false
+    }
+  ],
+  "dependances": {
+    "fast-xml-parser": {
+      "section": "dependencies",
+      "version": "5.11.2",
+      "importe_dans": 2,
+      "exemples": [
+        "backend/src/services/administration-territoriale.service.ts",
+        "backend/src/services/xlsx-menages.service.ts"
+      ],
+      "script_npm": false
+    },
+    "fflate": {
+      "section": "dependencies",
+      "version": "0.8.3",
+      "importe_dans": 6,
+      "exemples": [
+        "backend/src/services/administration-territoriale.service.ts",
+        "backend/src/services/rapports-export.service.ts",
+        "backend/src/services/xlsx-menages.service.ts"
+      ],
+      "script_npm": false
+    },
+    "hono": {
+      "section": "dependencies",
+      "version": "4.13.13",
+      "importe_dans": 21,
+      "exemples": [
+        "backend/src/index.ts",
+        "backend/src/middlewares/auth.middleware.ts",
+        "backend/src/middlewares/csrf.middleware.ts"
+      ],
+      "script_npm": false
+    },
+    "qrcode-generator": {
+      "section": "dependencies",
+      "version": "2.0.4",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/src/components/connexion/ConfigurationMfa.tsx"
+      ],
+      "script_npm": false
+    },
+    "react": {
+      "section": "dependencies",
+      "version": "19.3.0",
+      "importe_dans": 38,
+      "exemples": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/administration/AdministrationComptes.tsx",
+        "frontend/src/components/administration/MonCompte.tsx"
+      ],
+      "script_npm": false
+    },
+    "react-dom": {
+      "section": "dependencies",
+      "version": "19.3.0",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/src/main.tsx"
+      ],
+      "script_npm": false
+    },
+    "zod": {
+      "section": "dependencies",
+      "version": "4.6.7",
+      "importe_dans": 17,
+      "exemples": [
+        "backend/src/routes/approvisionnements.routes.ts",
+        "backend/src/routes/gestion.routes.ts",
+        "backend/src/services/administration-territoriale.service.ts"
+      ],
+      "script_npm": false
+    },
+    "@playwright/test": {
+      "section": "devDependencies",
+      "version": "1.64.1",
+      "importe_dans": 19,
+      "exemples": [
+        "playwright.config.ts",
+        "scripts/capture-galerie-ui-harmonisation.mjs",
+        "scripts/recette-navigateur-administration-territoriale.mjs"
+      ],
+      "script_npm": true
+    },
+    "@tailwindcss/vite": {
+      "section": "devDependencies",
+      "version": "4.3.3",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/vite.config.ts"
+      ],
+      "script_npm": true
+    },
+    "@types/node": {
+      "section": "devDependencies",
+      "version": "^24.10.0",
+      "importe_dans": 0,
+      "exemples": [],
+      "script_npm": true
+    },
+    "@types/react": {
+      "section": "devDependencies",
+      "version": "19.3.0",
+      "importe_dans": 0,
+      "exemples": [],
+      "script_npm": false
+    },
+    "@types/react-dom": {
+      "section": "devDependencies",
+      "version": "19.3.0",
+      "importe_dans": 0,
+      "exemples": [],
+      "script_npm": false
+    },
+    "@vitejs/plugin-react": {
+      "section": "devDependencies",
+      "version": "6.1.2",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/vite.config.ts"
+      ],
+      "script_npm": false
+    },
+    "concurrently": {
+      "section": "devDependencies",
+      "version": "9.2.5",
+      "importe_dans": 0,
+      "exemples": [],
+      "script_npm": true
+    },
+    "tailwindcss": {
+      "section": "devDependencies",
+      "version": "4.3.3",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/src/styles.css"
+      ],
+      "script_npm": false
+    },
+    "typescript": {
+      "section": "devDependencies",
+      "version": "7.0.2",
+      "importe_dans": 0,
+      "exemples": [],
+      "script_npm": false
+    },
+    "vite": {
+      "section": "devDependencies",
+      "version": "8.3.5",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/vite.config.ts"
+      ],
+      "script_npm": true
+    },
+    "vite-plugin-pwa": {
+      "section": "devDependencies",
+      "version": "2.0.0",
+      "importe_dans": 1,
+      "exemples": [
+        "frontend/vite.config.ts"
+      ],
+      "script_npm": false
+    },
+    "vitest": {
+      "section": "devDependencies",
+      "version": "4.1.12",
+      "importe_dans": 32,
+      "exemples": [
+        "tests/unit/carte-tchad.test.mjs",
+        "tests/unit/comptes-courriel.test.mjs",
+        "tests/unit/cryptographie.test.mjs"
+      ],
+      "script_npm": true
+    },
+    "wrangler": {
+      "section": "devDependencies",
+      "version": "^4.151.3",
+      "importe_dans": 0,
+      "exemples": [],
+      "script_npm": true
+    }
+  },
+  "scripts_non_references_par_package_ou_code": [
+    {
+      "script": "scripts/audit-contradictoire-volumes-reels.mjs",
+      "taille": 6570,
+      "documente": false
+    },
+    {
+      "script": "scripts/capture-galerie-ui-harmonisation.mjs",
+      "taille": 30754,
+      "documente": false
+    },
+    {
+      "script": "scripts/compter-donnees-territoire.mjs",
+      "taille": 4084,
+      "documente": false
+    },
+    {
+      "script": "scripts/diagnostiquer-menages.mjs",
+      "taille": 1406,
+      "documente": false
+    },
+    {
+      "script": "scripts/emettre-activation-proprietaire-staging.mjs",
+      "taille": 5358,
+      "documente": true
+    },
+    {
+      "script": "scripts/exporter-d1-staging-chiffree.mjs",
+      "taille": 33928,
+      "documente": true
+    },
+    {
+      "script": "scripts/generer-migration-0032.mjs",
+      "taille": 41200,
+      "documente": false
+    },
+    {
+      "script": "scripts/generer-referentiel-loi-015.mjs",
+      "taille": 13960,
+      "documente": false
+    },
+    {
+      "script": "scripts/inspecter-schemas-territoire.mjs",
+      "taille": 253,
+      "documente": false
+    },
+    {
+      "script": "scripts/inspecter-tables-territoire.mjs",
+      "taille": 359,
+      "documente": false
+    },
+    {
+      "script": "scripts/inspecter-triggers-localites.mjs",
+      "taille": 401,
+      "documente": false
+    },
+    {
+      "script": "scripts/inspecter-triggers-menages.mjs",
+      "taille": 654,
+      "documente": false
+    },
+    {
+      "script": "scripts/inspecter-triggers-quartiers.mjs",
+      "taille": 633,
+      "documente": false
+    },
+    {
+      "script": "scripts/preparer-copie-staging-isolee.mjs",
+      "taille": 2901,
+      "documente": false
+    },
+    {
+      "script": "scripts/recette-incident-recherche-500.mjs",
+      "taille": 9876,
+      "documente": true
+    },
+    {
+      "script": "scripts/recette-navigateur-administration-territoriale.mjs",
+      "taille": 16548,
+      "documente": true
+    },
+    {
+      "script": "scripts/recette-navigateur-reelle.mjs",
+      "taille": 34211,
+      "documente": true
+    },
+    {
+      "script": "scripts/recette-public-staging-phase12-5.mjs",
+      "taille": 6077,
+      "documente": true
+    },
+    {
+      "script": "scripts/recette-staging-0035.mjs",
+      "taille": 29365,
+      "documente": false
+    },
+    {
+      "script": "scripts/recette-staging-demonstration-operations-centrales.mjs",
+      "taille": 13762,
+      "documente": false
+    },
+    {
+      "script": "scripts/recette-staging-phase12-5.mjs",
+      "taille": 31263,
+      "documente": true
+    },
+    {
+      "script": "scripts/recette-staging-post-deploiement.mjs",
+      "taille": 7748,
+      "documente": false
+    },
+    {
+      "script": "scripts/recette-staging-visuelle-en-ligne.mjs",
+      "taille": 11868,
+      "documente": false
+    },
+    {
+      "script": "scripts/restaurer-d1-staging-depuis-backup.mjs",
+      "taille": 4686,
+      "documente": true
+    },
+    {
+      "script": "scripts/sauvegarder-d1-staging-pre-0026.mjs",
+      "taille": 14793,
+      "documente": false
+    },
+    {
+      "script": "scripts/sauvegarder-d1-staging-pre-0027.mjs",
+      "taille": 15393,
+      "documente": false
+    },
+    {
+      "script": "scripts/sauvegarder-d1-staging-pre-0028.mjs",
+      "taille": 10602,
+      "documente": true
+    },
+    {
+      "script": "scripts/sauvegarder-d1-staging-pre-0035.mjs",
+      "taille": 13502,
+      "documente": false
+    },
+    {
+      "script": "scripts/tester-administration-territoriale-et-gouvernance.mjs",
+      "taille": 47561,
+      "documente": true
+    },
+    {
+      "script": "scripts/tester-migration-0032.mjs",
+      "taille": 1085,
+      "documente": false
+    },
+    {
+      "script": "scripts/tester-restauration-d1-distante-isolee.mjs",
+      "taille": 6484,
+      "documente": true
+    },
+    {
+      "script": "scripts/tester-restauration-sqlite-synthetique.mjs",
+      "taille": 3601,
+      "documente": true
+    },
+    {
+      "script": "scripts/tester-stats-reelles.mjs",
+      "taille": 1382,
+      "documente": false
+    },
+    {
+      "script": "scripts/verifier-coffre-recuperation-dpapi.mjs",
+      "taille": 2268,
+      "documente": true
+    },
+    {
+      "script": "scripts/verifier-geojson-chad-adm1.mjs",
+      "taille": 20171,
+      "documente": true
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+﻿
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.12 [39m[90mC:/Users/Lenovo/Downloads/SIGAD[39m
+
+ [32mÔ£ô[39m tests/unit/stocks-service-0029.test.mjs [2m([22m[2m4 tests[22m[2m)[22m[33m 1493[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m v├®rifie le catalogue d'articles et conditionnements de r├®f├®rence dans la migration 0029 [33m 401[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m v├®rifie le r├®seau d'entrep├┤ts central et provinciaux de d├®monstration dans le banc de test [33m 339[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m v├®rifie la r├¿gle FEFO et le calcul automatique des soldes sur les stocks de d├®monstration [33m 358[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m interdit les stocks n├®gatifs et r├®servations sup├®rieures au disponible [33m 393[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/gouvernance-approbations-0030.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[33m 1066[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m permet l'├®dition compl├¿te d'une op├®ration en statut BROUILLON [33m 365[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m g├¿re le circuit de retour pour correction SOUMISE_A_APPROBATION -> BROUILLON [33m 354[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m distingue les actes constitutifs minist├®riels et approbations de pilotage [33m 345[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/roles-responsabilites-0030.test.mjs [2m([22m[2m2 tests[22m[2m)[22m[33m 755[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m cr├®e les profils op├®rationnels de terrain et d├®rive le r├┤le effectif [33m 377[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m garantit les r├¿gles de s├®paration des t├óches incompatibles et contraintes CHECK [33m 376[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/donnees-test.test.mjs [2m([22m[2m12 tests[22m[2m)[22m[33m 626[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/refonte-territoriale-dynamique-0035.test.mjs [2m([22m[2m23 tests[22m[2m)[22m[33m 411[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/operations-centrales.test.mjs [2m([22m[2m9 tests[22m[2m)[22m[33m 413[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/recette-operationnelle-complete.test.mjs [2m([22m[2m1 test[22m[2m)[22m[33m 361[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m ex├®cute avec succ├¿s les 21 ├®tapes du parcours de bout en bout [33m 359[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/referentiel-territorial-0028.test.mjs [2m([22m[2m5 tests[22m[2m)[22m[33m 383[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m v├®rifie l'int├®grit├® SQLite de la migration 0028 et des 112 d├®partements candidats [33m 374[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/tracabilite-approvisionnements-0031.test.mjs [2m([22m[2m1 test[22m[2m)[22m[33m 405[2mms[22m[39m
+     [33m[2mÔ£ô[22m[39m relie l'op├®ration centrale ├á l'approvisionnement, exp├®dition, r├®ception, stock et distribution [33m 403[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/cryptographie.test.mjs [2m([22m[2m5 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/recherche-territoire-500.test.mjs [2m([22m[2m14 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/comptes-courriel.test.mjs [2m([22m[2m6 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/diagnostic-recuperation.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/revoquer-activation-staging.test.mjs [2m([22m[2m4 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/fichiers-securite.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/recuperation-proprietaire.test.mjs [2m([22m[2m5 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/xlsx-menages.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/mfa.test.mjs [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/rapports-export.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/preuve-doublon.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/ui-map-kpi-contract.test.mjs [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/pwa-update-state.test.mjs [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/carte-tchad.test.mjs [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/stockage-r2.test.mjs [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/shadcn-admin-navigation.test.mjs [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/ergonomie-hors-ligne-0032.test.mjs [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/recherche-territoire.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/localisation-dynamique.test.mjs [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/roles-proposition-territoriale.test.mjs [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/stock-fefo.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32mÔ£ô[39m tests/unit/securite-http.test.mjs [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m31 passed[39m[22m[90m (31)[39m
+[2m      Tests [22m [1m[32m151 passed[39m[22m[90m (151)[39m
+[2m   Start at [22m 11:08:02
+[2m   Duration [22m 11.20s[2m (transform 386ms, setup 0ms, import 1.24s, tests 6.24s, environment 3ms)[22m
+

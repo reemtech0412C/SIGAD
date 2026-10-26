@@ -1,0 +1,4 @@
+Commande : `npx tsc --noEmit -p tsconfig.json`
+Code de sortie consigné dans `00-journal-decisions-et-progres.md` §3 : 0.
+Sortie standard/erreurs : aucune (résultat attendu de `tsc` sans diagnostic).
+Cette note explicite la preuve de session ; ce fichier n'est pas une capture brute du terminal.

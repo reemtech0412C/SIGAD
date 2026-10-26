@@ -1,0 +1,228 @@
+{
+ "departements_par_validation": [
+  {
+   "va": "A_VERIFIER",
+   "vr": "A_VERIFIER",
+   "sv": "VALIDE",
+   "so": "ACTIF",
+   "provenance": "SOCLE_INITIAL",
+   "n": 32
+  },
+  {
+   "va": "VALIDE",
+   "vr": "VALIDE",
+   "sv": "VALIDE",
+   "so": "ACTIF",
+   "provenance": "SOCLE_INITIAL",
+   "n": 80
+  }
+ ],
+ "departements_par_province_top": [
+  {
+   "province_id": "prov-batha",
+   "n": 7
+  },
+  {
+   "province_id": "prov-wadi-fira",
+   "n": 7
+  },
+  {
+   "province_id": "prov-ennedi-est",
+   "n": 6
+  },
+  {
+   "province_id": "prov-ennedi-ouest",
+   "n": 6
+  },
+  {
+   "province_id": "prov-lac",
+   "n": 6
+  }
+ ],
+ "provinces_statut_particulier": [
+  {
+   "id": "prov-ndjamena",
+   "nom": "N'Djamena"
+  }
+ ],
+ "departements_coordonnees": [
+  {
+   "v": "NON_RENSEIGNE",
+   "n": 112
+  }
+ ],
+ "sous_prefectures": [
+  {
+   "n": 0
+  }
+ ],
+ "communes": [
+  {
+   "n": 0
+  }
+ ],
+ "cantons": [
+  {
+   "n": 0
+  }
+ ],
+ "localites_par_type": [
+  {
+   "type_localite": "VILLE",
+   "statut_validation": "VALIDE",
+   "provenance": "SOCLE_INITIAL",
+   "n": 1
+  }
+ ],
+ "sites_humanitaires": [
+  {
+   "n": 0
+  }
+ ],
+ "entrepots": [
+  {
+   "n": 0
+  }
+ ],
+ "roles_utilisateurs_seed": [
+  {
+   "role": "ADMIN_CENTRAL",
+   "n": 1
+  },
+  {
+   "role": "DELEGUE_PROVINCIAL",
+   "n": 23
+  },
+  {
+   "role": "PROPRIETAIRE",
+   "n": 1
+  }
+ ],
+ "tables_avec_province_id": [
+  {
+   "t": "ajustements_stock"
+  },
+  {
+   "t": "articles_approvisionnement"
+  },
+  {
+   "t": "clotures_distribution"
+  },
+  {
+   "t": "communes"
+  },
+  {
+   "t": "demandes_correction"
+  },
+  {
+   "t": "departements"
+  },
+  {
+   "t": "destinations_approvisionnement"
+  },
+  {
+   "t": "distributions_provinciales"
+  },
+  {
+   "t": "dossiers_execution_provinciaux"
+  },
+  {
+   "t": "entrepots"
+  },
+  {
+   "t": "inscriptions_delegues"
+  },
+  {
+   "t": "journaux_audit"
+  },
+  {
+   "t": "listes_beneficiaires"
+  },
+  {
+   "t": "localites"
+  },
+  {
+   "t": "lots_stock"
+  },
+  {
+   "t": "menages"
+  },
+  {
+   "t": "menages_distribution"
+  },
+  {
+   "t": "mouvements_stock"
+  },
+  {
+   "t": "observations_controle"
+  },
+  {
+   "t": "operations_centrales_provinces"
+  },
+  {
+   "t": "perimetres_provinciaux_consultation"
+  },
+  {
+   "t": "pieces_jointes"
+  },
+  {
+   "t": "profils_operationnels_terrain"
+  },
+  {
+   "t": "rapports_generes"
+  },
+  {
+   "t": "receptions_provinciales"
+  },
+  {
+   "t": "receptions_stock"
+  },
+  {
+   "t": "remises_distribution"
+  },
+  {
+   "t": "reservations_stock"
+  },
+  {
+   "t": "signalements_doublons"
+  },
+  {
+   "t": "sites_humanitaires"
+  },
+  {
+   "t": "soldes_stock"
+  },
+  {
+   "t": "utilisateurs"
+  },
+  {
+   "t": "validations_distribution"
+  },
+  {
+   "t": "zones_distribution"
+  }
+ ],
+ "tables_avec_departement_id": [
+  {
+   "t": "cantons"
+  },
+  {
+   "t": "distributions_provinciales"
+  },
+  {
+   "t": "localites"
+  },
+  {
+   "t": "menages"
+  },
+  {
+   "t": "rattachements_territoriaux"
+  },
+  {
+   "t": "sites_humanitaires"
+  },
+  {
+   "t": "sous_prefectures"
+  }
+ ]
+}
