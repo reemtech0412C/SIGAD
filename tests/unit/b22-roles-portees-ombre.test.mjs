@@ -9,6 +9,7 @@ import { comparerRoleEtPorteeOmbre } from "../../backend/src/core/authz/ombre.ts
 const racine = resolve(import.meta.dirname, "../..");
 const migrations = readdirSync(join(racine, "migrations")).filter((nom) => /^\d{4}_.*\.sql$/u.test(nom)).sort();
 const migrationB22 = migrations.find((nom) => nom.startsWith("0036_"));
+const indexMigrationB22 = migrations.indexOf(migrationB22);
 let db;
 
 function lignes(table, cle = "id") {
@@ -18,10 +19,10 @@ function lignes(table, cle = "id") {
 describe("B2.2 — rétro-remplissage et comparaison en mode ombre", () => {
   beforeAll(() => {
     expect(migrationB22).toBeTruthy();
-    expect(migrations.at(-1)).toBe(migrationB22);
+    expect(indexMigrationB22).toBeGreaterThanOrEqual(0);
     db = new DatabaseSync(":memory:");
     db.exec("PRAGMA foreign_keys = ON;");
-    for (const fichier of migrations.filter((nom) => nom !== migrationB22)) {
+    for (const fichier of migrations.slice(0, indexMigrationB22)) {
       db.exec(readFileSync(join(racine, "migrations", fichier), "utf8"));
     }
 
