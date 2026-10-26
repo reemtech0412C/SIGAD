@@ -175,6 +175,7 @@ const etiquetteHorodatage = debutGlobal.toISOString().replaceAll(":", "").replac
 const fichierPreuve = join(racine, "docs/architecture-modernization/evidence", `verify-${etiquetteHorodatage}.txt`);
 const branche = execFileSync("git", ["branch", "--show-current"], { cwd: racine, encoding: "utf8" }).trim();
 const revision = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: racine, encoding: "utf8" }).trim();
+const statutGitInitial = execFileSync("git", ["status", "--short", "--untracked-files=all"], { cwd: racine, encoding: "utf8" }).trim();
 const instantaneAvant = await prendreInstantaneProjet();
 const inventaireIgnoreAvant = lireInventaireIgnore();
 let racineTemporaire = null;
@@ -256,6 +257,7 @@ const lignes = [
   `Durée totale: ${((finGlobal.getTime() - debutGlobal.getTime()) / 1000).toFixed(1)} s`,
   `Branche: ${branche}`,
   `Révision: ${revision}`,
+  `État Git avant exécution: ${statutGitInitial ? `modifié\n${statutGitInitial}` : "propre"}`,
   `Node: ${process.version}`,
   `Configuration Wrangler temporaire: ${racineTemporaire ?? "non utilisée"}`,
   "Isolation: configuration écrite dans le répertoire temporaire; identifiant D1 fictif; D1/R2/service Wrangler en mode --local avec --persist-to temporaire; aucun account_id/zone_id/route/binding distant; variables Cloudflare/API/proxy/secrets retirées des environnements enfants.",
