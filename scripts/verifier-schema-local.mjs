@@ -11,9 +11,14 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 36 || !fichiers.at(-1)?.startsWith("0036_")) {
-  throw new Error(`Les trente-six migrations versionnées, dont l’ombre rôles/portées 0036, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 37 || !fichiers.at(-1)?.startsWith("0037_")) {
+  throw new Error(`Les trente-sept migrations versionnées, dont le socle géographique additif 0037, sont requises; ${fichiers.length} trouvées.`);
 }
+
+const tablesGeoB23 = [
+  "geo_sources", "geo_types_unites", "geo_regles_parente", "geo_unites", "geo_rattachements",
+  "geo_fermeture", "geo_codes_externes", "geo_alias", "geo_journal_versions",
+];
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -161,11 +166,19 @@ async function verifierBaseD1Locale() {
     const nombreTables = baseD1.prepare(
       "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')",
     ).get().total;
-    if (nombreTables !== 91) {
+    if (nombreTables !== 100) {
       const nomsTables = baseD1.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA') ORDER BY name",
       ).all().map((ligne) => ligne.name);
-      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 91: ${nomsTables.join(", ")}.`);
+      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 100: ${nomsTables.join(", ")}.`);
+    }
+    for (const table of tablesGeoB23) {
+      if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
+        throw new Error(`D1 local ne contient pas la table additive B2.3 ${table}.`);
+      }
+      if (baseD1.prepare(`SELECT COUNT(*) AS total FROM ${table}`).get().total !== 0) {
+        throw new Error(`D1 local doit garder la table B2.3 ${table} vide jusqu’à la validation des sources.`);
+      }
     }
     for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa", "preuves_operateur_recuperation", "recuperations_acces_proprietaire",
       "inscriptions_delegues", "journaux_inscriptions", "verifications_courriel", "limites_inscription_publique", "decisions_comptes",
@@ -222,7 +235,7 @@ async function verifierBaseD1Locale() {
       throw new Error("D1 local: le nombre d’éléments du seed est incohérent.");
     }
     if (nombreMigrations !== fichiers.length) throw new Error(`D1 local enregistre ${nombreMigrations} migrations au lieu de ${fichiers.length}.`);
-    if (nombreIndexesD1 !== 136) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 136 index versionnés.`);
+    if (nombreIndexesD1 !== 145) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 145 index versionnés après B2.3-A.`);
     if (nombreDeclencheursD1 !== 72) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des 72 déclencheurs de validation versionnés.`);
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
@@ -306,7 +319,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 137) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 137 index attendus.`);
+if (indexesMigrations.size !== 146) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 146 index attendus après B2.3-A.`);
 for (const [nom, definition] of [
   ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
   ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
@@ -411,7 +424,15 @@ try {
   ).get().total;
   const erreursClesEtrangeres = base.prepare("PRAGMA foreign_key_check").all();
 
-  if (nombreTables !== 91) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 91.`);
+  if (nombreTables !== 100) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 100 après B2.3-A.`);
+  for (const table of tablesGeoB23) {
+    if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
+      throw new Error(`Le socle B2.3-A n’a pas créé la table ${table}.`);
+    }
+    if (base.prepare(`SELECT COUNT(*) AS total FROM ${table}`).get().total !== 0) {
+      throw new Error(`La table B2.3 ${table} doit rester vide jusqu’à la validation des sources.`);
+    }
+  }
   if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'correspondances_fusions_territoriales'").get()) {
     throw new Error("La migration territoriale 0032 n’a pas créé correspondances_fusions_territoriales.");
   }
@@ -454,7 +475,7 @@ try {
   }
   if (nombreCategories !== 5) throw new Error(`Le référentiel contient ${nombreCategories} catégories d’aide au lieu de 5.`);
   if (nombreUnites !== 6) throw new Error(`Le référentiel contient ${nombreUnites} unités de mesure au lieu de 6.`);
-  if (nombreIndexes !== 136) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 136 index définis.`);
+  if (nombreIndexes !== 145) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 145 index définis après B2.3-A.`);
   if (nombreDeclencheurs !== 72) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de 72.`);
   if (erreursClesEtrangeres.length > 0) throw new Error("La vérification des clés étrangères a détecté une incohérence.");
   verifierContraintes(base, "SQLite vierge");
