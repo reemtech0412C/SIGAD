@@ -1,0 +1,78 @@
+SIGAD — preuve d’exécution du pipeline verify
+Statut global: FAIL
+Mode: integration-only
+Début: 2026-10-26T11:36:20.565Z (26/10/2026 12:36:20 Africa/Ndjamena)
+Fin: 2026-10-26T11:36:32.487Z (26/10/2026 12:36:32 Africa/Ndjamena)
+Durée totale: 11.9 s
+Branche: baseline/2026-10-26-etat-actuel
+Révision: d116581
+Node: v24.19.0
+Configuration Wrangler temporaire: C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR
+Isolation: configuration écrite dans le répertoire temporaire; identifiant D1 fictif; D1/R2/service Wrangler en mode --local avec --persist-to temporaire; aucun account_id/zone_id/route/binding distant; variables Cloudflare/API/proxy/secrets retirées des environnements enfants.
+Le libellé ENVIRONMENT=staging est conservé uniquement pour caractériser le comportement local; aucune ressource Staging ou Production n’est ciblée.
+wrangler.toml et worker-configuration.d.ts sont vérifiés par empreinte; Wrangler ne charge pas wrangler.toml et aucune commande ne génère ces fichiers.
+D-10 reste ouvert; ce pipeline n’altère pas la configuration Production suivie par Git.
+
+## Intégration Wrangler locale
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\tests\\integration\\run-auth-worker.mjs"]
+Début: 2026-10-26T11:36:23.157Z (26/10/2026 12:36:23 Africa/Ndjamena)
+Fin: 2026-10-26T11:36:30.997Z (26/10/2026 12:36:30 Africa/Ndjamena)
+Durée: 7.8 s
+Code de sortie: 1
+Sortie:
+Seed initial sécurisé généré pour le développement local.
+Seed SQL conservé hors du dépôt : C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR\sigad-acceptation-worker-o5A7Ir\seed-initial.sql
+Codes d’activation conservés hors du dépôt : C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR\sigad-acceptation-worker-o5A7Ir\codes-activation.json
+🪵  Writing logs to "C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR\sigad-acceptation-worker-o5A7Ir\appdata\xdg\.wrangler\logs\wrangler-2026-10-26_11-36-29_472.log"
+.env file not found at "C:\Users\Lenovo\Downloads\SIGAD\.env". Continuing... For more details, refer to https://developers.cloudflare.com/workers/wrangler/system-environment-variables/
+.env file not found at "C:\Users\Lenovo\Downloads\SIGAD\.env.local". Continuing... For more details, refer to https://developers.cloudflare.com/workers/wrangler/system-environment-variables/
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+Metrics dispatcher: Dispatching disabled - would have sent {"deviceId":"56f9d081-0254-4950-805d-d4391d06cae8","event":"wrangler command started","timestamp":1793014589895,"properties":{"amplitude_session_id":1793014589872,"amplitude_event_id":0,"wranglerVersion":"4.151.3","wranglerMajorVersion":4,"wranglerMinorVersion":151,"wranglerPatchVersion":3,"osPlatform":"Windows","osVersion":"Windows 11 Pro","nodeVersion":24,"packageManager":"npm","isFirstUsage":true,"configFileType":"toml","isCI":false,"isPagesCI":false,"isWorkersCI":false,"isInteractive":false,"hasAssets":true,"agent":"codex","argsUsed":["config","local","persistTo"],"argsCombination":"config, local, persistTo","sanitizedCommand":"d1 migrations apply","sanitizedArgs":{"local":true},"currentAgentSkillsInstalled":null}}.
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mA fetch request failed, likely due to a connectivity issue.[0m
+
+  
+  Common causes:
+    - No internet connection or network connectivity problems
+    - Firewall or VPN blocking the request
+    - Network proxy configuration issues
+  
+  Please check your network connection and try again.
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mfetch failed[0m
+
+
+TypeError: fetch failed
+    at Object.processResponse (C:\Users\Lenovo\Downloads\SIGAD\node_modules\undici\lib\web\fetch\index.js:237:16)
+    at C:\Users\Lenovo\Downloads\SIGAD\node_modules\undici\lib\web\fetch\index.js:1081:19
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at C:\Users\Lenovo\Downloads\SIGAD\node_modules\undici\index.js:157:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async MessagePort.<anonymous> ([worker eval]:35:22)
+[32mIf you think this is a bug then please create an issue at https://github.com/cloudflare/workers-sdk/issues/new/choose[0m
+Metrics dispatcher: Dispatching disabled - would have sent {"deviceId":"56f9d081-0254-4950-805d-d4391d06cae8","event":"wrangler command errored","timestamp":1793014590926,"properties":{"amplitude_session_id":1793014589872,"amplitude_event_id":1,"wranglerVersion":"4.151.3","wranglerMajorVersion":4,"wranglerMinorVersion":151,"wranglerPatchVersion":3,"osPlatform":"Windows","osVersion":"Windows 11 Pro","nodeVersion":24,"packageManager":"npm","isFirstUsage":true,"configFileType":"toml","isCI":false,"isPagesCI":false,"isWorkersCI":false,"isInteractive":false,"hasAssets":true,"agent":"codex","argsUsed":["config","local","persistTo"],"argsCombination":"config, local, persistTo","sanitizedCommand":"d1 migrations apply","sanitizedArgs":{"local":true},"durationMs":989,"errorType":"TypeError","currentAgentSkillsInstalled":null}}.
+🪵  Logs were written to "C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR\sigad-acceptation-worker-o5A7Ir\appdata\xdg\.wrangler\logs\wrangler-2026-10-26_11-36-29_472.log"
+La commande Node s’est terminée avec le code 1.
+État temporaire conservé pour diagnostic: C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR\sigad-acceptation-worker-o5A7Ir
+Persistance D1 temporaire conservée pour diagnostic: C:\Users\Lenovo\AppData\Local\Packages\sandbox.{87fd0ffa-9b17-471a-a2b5-92cc911e99e8}\AC\Temp\sigad-verify-33pctR\state\sigad-acceptation-worker-state-3ORwd5
+
+
+## عدم تعديل ملفات المشروع بواسطة الفحوص
+Commande: SHA-256 snapshot of tracked/non-ignored project files; compare ignored-root inventory
+Début: 2026-10-26T11:36:32.486Z (26/10/2026 12:36:32 Africa/Ndjamena)
+Fin: 2026-10-26T11:36:32.486Z (26/10/2026 12:36:32 Africa/Ndjamena)
+Durée: 0.0 s
+Code de sortie: 0
+Sortie:
+Tracked/non-ignored files changed: 0
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
+Échecs: Intégration Wrangler locale
