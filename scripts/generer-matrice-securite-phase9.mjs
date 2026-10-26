@@ -1,10 +1,21 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const routes = resolve(racine, "backend/src/routes");
 const destination = resolve(racine, "docs/matrice-securite-api-phase9.md");
+const catalogueDestination = resolve(racine, "shared/permissions/catalogue.ts");
+
+const rolesSIGAD = [
+  "PROPRIETAIRE",
+  "ADMIN_CENTRAL",
+  "DELEGUE_PROVINCIAL",
+  "RESPONSABLE_STOCK",
+  "SUPERVISEUR_TERRAIN",
+  "AGENT_DISTRIBUTION",
+  "CONSULTATION_INSTITUTIONNELLE",
+];
 
 const montages = {
   app: [{ prefixe: "", roles: "Public pour la santé; profil délégué authentifié", province: "Session authentifiée pour le profil; aucune donnée métier pour la santé" }],
@@ -39,9 +50,45 @@ const fichiers = (await readdir(routes)).filter((nom) => nom.endsWith(".routes.t
 const chemins = [...fichiers.map((nom) => resolve(routes, nom)), resolve(racine, "backend/src/index.ts")];
 const lignes = [];
 const expression = /\b([A-Za-z][A-Za-z0-9]*)\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/gu;
+const declarationsRoutage = /\b((?:routes[A-Za-z0-9]*|app))\.(get|post|put|patch|delete|all|on|head|options)\s*\(/gu;
+
+function rolesAutorises(politique, methode) {
+  if (/Public|Défi MFA pré-authentifié|preuve opérateur|pré-authentification/iu.test(politique)) return [];
+  const rubrique = methode === "GET" ? /Lecture\s*:\s*([^;]+)/iu : /Mutations?\s*:\s*([^;]+)/iu;
+  const segment = politique.match(rubrique)?.[1] ?? politique;
+  if (methode === "GET" && /trois rôles/iu.test(segment)) {
+    return ["PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"];
+  }
+  const trouves = rolesSIGAD.filter((role) => segment.includes(role));
+  if (/CONSULTATION_INSTITUTIONNELLE\s+(?:est\s+)?interdite/iu.test(segment)) {
+    return trouves.filter((role) => role !== "CONSULTATION_INSTITUTIONNELLE");
+  }
+  if (trouves.length) return trouves;
+  if (/session authentifiée|toute session/iu.test(segment)) return [...rolesSIGAD];
+  return [];
+}
+
+function modeAcces(politique, rolesAutorisesRoute) {
+  if (/\bPublic\b/iu.test(politique)) return "PUBLIC";
+  if (/Défi MFA pré-authentifié|preuve opérateur|pré-authentification/iu.test(politique)) return "PREAUTH";
+  if (/session authentifiée|toute session/iu.test(politique) && rolesAutorisesRoute.length === rolesSIGAD.length) return "SESSION";
+  if (rolesAutorisesRoute.length) return "ROLE";
+  throw new Error(`La politique ne définit ni rôle ni contrôle public/pré-authentifié : ${politique}`);
+}
 
 for (const fichier of chemins) {
   const source = await readFile(fichier, "utf8");
+  const declarations = [...source.matchAll(declarationsRoutage)];
+  const declarationsLitterales = [...source.matchAll(expression)]
+    .filter(([, variable]) => variable?.startsWith("routes") || variable === "app");
+  for (const [, variable, methode] of declarations) {
+    if (!["get", "post", "put", "patch", "delete"].includes(methode)) {
+      throw new Error(`La méthode de route ${variable}.${methode} n’est pas encore classée dans ${fichier}.`);
+    }
+  }
+  if (declarations.length !== declarationsLitterales.length) {
+    throw new Error(`Une déclaration de route n’utilise pas un chemin littéral vérifiable dans ${fichier}.`);
+  }
   for (const correspondance of source.matchAll(expression)) {
     const [, variable, methode, chemin] = correspondance;
     if (!variable || !methode || !chemin) continue;
@@ -120,7 +167,25 @@ for (const fichier of chemins) {
       const controles = mutation
         ? `Refus du rôle hors périmètre; CSRF obligatoire; identifiants enfants vérifiés; ${province.toLowerCase().includes("session") ? "province d’une autre délégation rejetée" : "contrôle du périmètre métier"}`
         : `Lecture hors périmètre rejetée; ressource enfant vérifiée; pagination serveur si collection; ${province.toLowerCase().includes("session") ? "province d’une autre délégation rejetée" : "filtre et rôle vérifiés"}`;
-      lignes.push({ methode: methode.toUpperCase(), chemin: routeComplete, roles, province, csrf, controles });
+      const methodeApi = methode.toUpperCase();
+      const rolesRoute = rolesAutorises(roles, methodeApi);
+      const accessMode = modeAcces(roles, rolesRoute);
+      lignes.push({
+        permission: `API:${methodeApi}:${routeComplete}`,
+        methode: methodeApi,
+        action: { get: "LECTURE", post: "COMMANDE", put: "REMPLACEMENT", patch: "MODIFICATION", delete: "SUPPRESSION" }[methode],
+        chemin: routeComplete,
+        accessMode,
+        rolesAutorises: rolesRoute,
+        rolesConditionnels: methodeApi === "POST" && routeComplete === "/api/rapports/:type/export"
+          ? [{ role: "CONSULTATION_INSTITUTIONNELLE", condition: "RAPPORT_NON_SENSIBLE" }]
+          : [],
+        portee: province,
+        csrf,
+        roles,
+        province,
+        controles,
+      });
     }
   }
 }
@@ -129,13 +194,39 @@ lignes.sort((a, b) => a.chemin.localeCompare(b.chemin, "fr") || a.methode.locale
 if (lignes.length === 0) throw new Error("Aucune route API n’a été trouvée.");
 
 const tableau = lignes.map((ligne) => `| ${ligne.methode} | \`${ligne.chemin}\` | ${ligne.roles} | ${ligne.province} | ${ligne.csrf} | ${ligne.controles} |`);
-const contenu = `# Matrice de sécurité API — Phase 9\n\nGénérée à partir des routes Hono de \`backend/src/routes\` et \`backend/src/index.ts\`. Une nouvelle route non associée à une politique bloque le générateur. Nombre de routes documentées : **${lignes.length}**.\n\nLes opérations déléguées doivent utiliser \`utilisateur.province_id\` issu de la session vérifiée. Un \`province_id\` fourni par le navigateur ne constitue jamais une autorité. Les détails de ressource (remises, allocations, pièces jointes et archives) sont relus par leur relation parente côté service.\n\n| Méthode | Chemin | Rôles admis | Portée et source de province_id | CSRF | Contrôle de sécurité à couvrir |\n|---|---|---|---|---|---|\n${tableau.join("\n")}\n\n## Limites de preuve\n\nLa suite locale d’intégration exerce les parcours d’authentification, des stocks, des approvisionnements, des distributions, des rapports, des archives, du CSRF, de l’idempotence, de la concurrence et de l’isolation Sila/Ouaddaï. Cette matrice décrit le contrôle requis route par route; elle ne transforme pas ces scénarios en preuve d’un appel négatif distinct sur chaque URL. L’audit exhaustif individuel de toutes les routes, notamment les variantes d’identifiants imbriqués, reste à compléter avant de considérer l’isolation de Phase 1 comme entièrement close.\n`;
+const contenu = `# Matrice de sécurité API — Phase 9\n\nGénérée à partir des routes Hono de \`backend/src/routes\` et \`backend/src/index.ts\`. Une nouvelle route non associée à une politique bloque le générateur. Nombre de routes documentées : **${lignes.length}**.\n\nLes opérations déléguées doivent utiliser \`utilisateur.province_id\` issu de la session vérifiée. Un \`province_id\` fourni par le navigateur ne constitue jamais une autorité. Les détails de ressource (remises, allocations, pièces jointes et archives) sont relus par leur relation parente côté service.\n\n| Méthode | Chemin | Rôles admis | Portée et source de province_id | CSRF | Contrôle de sécurité à couvrir |\n|---|---|---|---|---|---|\n${tableau.join("\n")}\n\n## Accès conditionnel confirmé par le code\n\nLe middleware \`limiterRapportsConsultation\` de \`backend/src/index.ts\` autorise le rôle \`CONSULTATION_INSTITUTIONNELLE\` sur \`POST /api/rapports/{type}/export\` uniquement si la définition du rapport indique \`donneesSensibles === false\`. Il refuse les rapports sensibles avant l’exécution du gestionnaire. Le catalogue machine représente cet accès comme une règle conditionnelle; les essais B1.1 à corps vide ne suffisent pas à l’observer.\n\n## Limites de preuve\n\nLa suite locale d’intégration exerce les parcours d’authentification, des stocks, des approvisionnements, des distributions, des rapports, des archives, du CSRF, de l’idempotence, de la concurrence et de l’isolation Sila/Ouaddaï. Cette matrice décrit le contrôle requis route par route; elle ne transforme pas ces scénarios en preuve d’un appel négatif distinct sur chaque URL. L’audit exhaustif individuel de toutes les routes, notamment les variantes d’identifiants imbriqués, reste à compléter avant de considérer l’isolation de Phase 1 comme entièrement close.\n`;
+const contenuCatalogue = `export type RoleSIGAD = ${rolesSIGAD.map((role) => `"${role}"`).join(" | ")};
+export type ModeAccesPolitique = "PUBLIC" | "PREAUTH" | "SESSION" | "ROLE";
+export type ActionPolitique = "LECTURE" | "COMMANDE" | "REMPLACEMENT" | "MODIFICATION" | "SUPPRESSION";
+
+export interface PolitiqueRouteAPI {
+  readonly permission: string;
+  readonly methode: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  readonly action: ActionPolitique;
+  readonly chemin: string;
+  readonly accessMode: ModeAccesPolitique;
+  readonly rolesAutorises: readonly RoleSIGAD[];
+  readonly rolesConditionnels: readonly { readonly role: RoleSIGAD; readonly condition: "RAPPORT_NON_SENSIBLE" }[];
+  readonly portee: string;
+  readonly csrf: boolean;
+}
+
+// Généré depuis backend/src/routes, backend/src/index.ts et les règles de montage ci-dessus.
+// Une différence avec la matrice B1.1 exige une revue explicite avant régénération.
+export const CATALOGUE_POLITIQUES_API = ${JSON.stringify(lignes.map(({ permission, methode, action, chemin, accessMode, rolesAutorises, rolesConditionnels, portee, csrf }) => ({
+  permission, methode, action, chemin, accessMode, rolesAutorises, rolesConditionnels, portee, csrf: csrf === "Oui, jeton CSRF requis",
+})), null, 2)} as const satisfies readonly PolitiqueRouteAPI[];
+`;
 
 if (process.argv.includes("--check")) {
   const existant = (await readFile(destination, "utf8")).replace(/\r\n?/gu, "\n");
   if (existant !== contenu) throw new Error("La matrice versionnée ne correspond pas aux routes et politiques Hono réelles. Régénérez-la et revoyez chaque entrée.");
+  const catalogueExistant = (await readFile(catalogueDestination, "utf8")).replace(/\r\n?/gu, "\n");
+  if (catalogueExistant !== contenuCatalogue) throw new Error("Le catalogue de politiques ne correspond pas aux routes et règles B1.1. Vérifiez toute différence avant régénération.");
   console.log(`PASS — Matrice de sécurité synchronisée avec ${lignes.length} routes API déclarées.`);
 } else {
   await writeFile(destination, contenu, "utf8");
+  await mkdir(resolve(racine, "shared/permissions"), { recursive: true });
+  await writeFile(catalogueDestination, contenuCatalogue, "utf8");
   console.log(`Matrice écrite : ${lignes.length} routes API.`);
 }

@@ -223,6 +223,10 @@ Les opérations déléguées doivent utiliser `utilisateur.province_id` issu de 
 | GET | `/api/territoire/sous-prefectures` | PROPRIETAIRE, ADMIN_CENTRAL, DELEGUE_PROVINCIAL authentifiés | DELEGUE_PROVINCIAL: utilisateur.province_id issu de la session; autres rôles selon filtres et ressources validés | Non pour cette lecture | Lecture hors périmètre rejetée; ressource enfant vérifiée; pagination serveur si collection; province d’une autre délégation rejetée |
 | POST | `/api/territoire/unites-dynamiques` | PROPRIETAIRE, ADMIN_CENTRAL, DELEGUE_PROVINCIAL, RESPONSABLE_STOCK, SUPERVISEUR_TERRAIN ou AGENT_DISTRIBUTION pour la création directe; CONSULTATION_INSTITUTIONNELLE interdite | PROPRIETAIRE et ADMIN_CENTRAL: portée nationale; rôles provinciaux: province issue de la session; création de département réservée aux rôles centraux | Oui, jeton CSRF requis | Refus du rôle hors périmètre; CSRF obligatoire; identifiants enfants vérifiés; province d’une autre délégation rejetée |
 
+## Accès conditionnel confirmé par le code
+
+Le middleware `limiterRapportsConsultation` de `backend/src/index.ts` autorise le rôle `CONSULTATION_INSTITUTIONNELLE` sur `POST /api/rapports/{type}/export` uniquement si la définition du rapport indique `donneesSensibles === false`. Il refuse les rapports sensibles avant l’exécution du gestionnaire. Le catalogue machine représente cet accès comme une règle conditionnelle; les essais B1.1 à corps vide ne suffisent pas à l’observer.
+
 ## Limites de preuve
 
 La suite locale d’intégration exerce les parcours d’authentification, des stocks, des approvisionnements, des distributions, des rapports, des archives, du CSRF, de l’idempotence, de la concurrence et de l’isolation Sila/Ouaddaï. Cette matrice décrit le contrôle requis route par route; elle ne transforme pas ces scénarios en preuve d’un appel négatif distinct sur chaque URL. L’audit exhaustif individuel de toutes les routes, notamment les variantes d’identifiants imbriqués, reste à compléter avant de considérer l’isolation de Phase 1 comme entièrement close.
