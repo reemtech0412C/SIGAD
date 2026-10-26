@@ -36,6 +36,8 @@ test("B2.4 — adaptateurs d’audit, corrélation, expurgation et immuabilité"
       decoupage: `req-decoupage-${suffixe}`,
       compte: `req-compte-${suffixe}`,
       operation: `req-operation-${suffixe}`,
+      connexion: `req-connexion-${suffixe}`,
+      recuperation: `req-recuperation-${suffixe}`,
     };
 
     base.prepare(`INSERT INTO journaux_audit
@@ -70,6 +72,21 @@ test("B2.4 — adaptateurs d’audit, corrélation, expurgation et immuabilité"
       VALUES (?, ?, 'BROUILLON', 'SOUMISE_A_APPROBATION', ?, ?, ?)`)
       .run(`operation-historique-${suffixe}`, operationId, `Commentaire synthétique ${donneesSensibles}`, acteurId, requestIds.operation);
 
+    const idConnexion = `connexion-${suffixe}`;
+    base.prepare(`INSERT INTO evenements_connexion
+      (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur, request_id)
+      VALUES (?, 'sensible-login@example.invalid', NULL, 0, 'IDENTIFIANT_INCONNU', '192.0.2.10', 'synthetic-agent', ?)`)
+      .run(idConnexion, requestIds.connexion);
+
+    const idPreuveRecuperation = `preuve-recuperation-${suffixe}`;
+    const identiteOperateur = `operateur-test-${suffixe}`;
+    const noncePreuve = `nonce-hash-${suffixe}`;
+    base.prepare(`INSERT INTO preuves_operateur_recuperation
+      (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le, request_id, adresse_ip)
+      VALUES (?, 'usr-proprietaire', ?, ?, 'EMETTRE_ACTIVATION_INITIALE', ?, datetime('now', '+5 minutes'), ?, '192.0.2.11')`)
+      .run(idPreuveRecuperation, identiteOperateur, noncePreuve, `Récupération synthétique ${suffixe}`,
+        requestIds.recuperation);
+
     const sources = [
       ["journaux_audit", `journal-${suffixe}`, requestIds.journal],
       ["audits_territoire", `territoire-${suffixe}`, requestIds.territoire],
@@ -91,6 +108,33 @@ test("B2.4 — adaptateurs d’audit, corrélation, expurgation et immuabilité"
     }
     assert.equal(base.prepare("SELECT action FROM evenements_audit WHERE source_table = 'audits_territoire' AND source_id = ?")
       .get(`territoire-${suffixe}`).action, "FUSION_TERRITORIALE");
+
+    const auditConnexion = base.prepare(`SELECT source_table, source_id, request_id, acteur_id, acteur_role,
+        action, cible_type, cible_id, apres, resultat
+      FROM evenements_audit WHERE source_table = 'evenements_connexion' AND source_id = ?`).get(idConnexion);
+    assert.ok(auditConnexion, "Les tentatives d’authentification doivent alimenter l’audit unifié.");
+    assert.equal(auditConnexion.request_id, requestIds.connexion);
+    assert.equal(auditConnexion.acteur_id, null, "Un identifiant non vérifié ne doit pas être présenté comme l’acteur.");
+    assert.equal(auditConnexion.action, "TENTATIVE_CONNEXION_REFUSEE");
+    assert.equal(auditConnexion.resultat, "ECHEC");
+    assert.doesNotMatch(JSON.stringify(auditConnexion), /sensible-login@example\.invalid|synthetic-agent|IDENTIFIANT_INCONNU/iu,
+      "L’identifiant tenté, l’agent utilisateur et le motif de connexion ne sont pas recopiés dans l’audit unifié.");
+
+    const auditRecuperation = base.prepare(`SELECT source_table, source_id, request_id, acteur_id,
+        acteur_identite, acteur_role, action, cible_type, cible_id, apres, motif, resultat
+      FROM evenements_audit WHERE source_table = 'preuves_operateur_recuperation' AND source_id = ?`)
+      .get(idPreuveRecuperation);
+    assert.ok(auditRecuperation, "La récupération du compte propriétaire doit alimenter l’audit unifié.");
+    assert.equal(auditRecuperation.request_id, requestIds.recuperation);
+    assert.equal(auditRecuperation.acteur_id, null);
+    assert.equal(auditRecuperation.acteur_identite, identiteOperateur);
+    assert.equal(auditRecuperation.acteur_role, "OPERATEUR_EXTERNE");
+    assert.equal(auditRecuperation.action, "EMETTRE_ACTIVATION_INITIALE");
+    assert.equal(auditRecuperation.cible_type, "UTILISATEUR");
+    assert.equal(auditRecuperation.cible_id, "usr-proprietaire");
+    assert.equal(auditRecuperation.resultat, "SUCCES");
+    assert.doesNotMatch(JSON.stringify(auditRecuperation), new RegExp(`${noncePreuve}|sensible-login@example\\.invalid`, "u"),
+      "Le nonce d’autorisation et les identifiants de connexion ne sont jamais inscrits dans l’événement.");
 
     const requestIdDeduplication = `req-dedup-${suffixe}`;
     const cibleDeduplication = `cible-dedup-${suffixe}`;

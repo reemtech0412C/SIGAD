@@ -81,9 +81,14 @@ describe("B2.2 — rétro-remplissage et comparaison en mode ombre", () => {
     }
     expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(db.prepare("SELECT COUNT(*) AS total FROM roles").get().total).toBe(7);
-    expect(db.prepare("SELECT COUNT(*) AS total FROM permissions").get().total).toBe(CATALOGUE_POLITIQUES_API.length);
+    const codesOmbre = new Set(db.prepare("SELECT code FROM permissions ORDER BY code").all().map(({ code }) => code));
+    expect(codesOmbre.size).toBe(216);
+    const politiquesOmbre = CATALOGUE_POLITIQUES_API.filter(({ permission }) => codesOmbre.has(permission));
+    const politiquesHorsOmbre = CATALOGUE_POLITIQUES_API.filter(({ permission }) => !codesOmbre.has(permission));
+    expect(politiquesOmbre).toHaveLength(216);
+    expect(politiquesHorsOmbre).toHaveLength(11);
 
-    for (const politique of CATALOGUE_POLITIQUES_API) {
+    for (const politique of politiquesOmbre) {
       const attendu = new Set();
       const rolesAutorises = politique.accessMode === "SESSION"
         ? ["PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL", "CONSULTATION_INSTITUTIONNELLE", "RESPONSABLE_STOCK", "SUPERVISEUR_TERRAIN", "AGENT_DISTRIBUTION"]
@@ -96,6 +101,10 @@ describe("B2.2 — rétro-remplissage et comparaison en mode ombre", () => {
         WHERE permission_code = ? ORDER BY role_code, condition_code`).all(politique.permission);
       expect(observe.map(({ role_code, condition_code }) => `${role_code}|${condition_code}`))
         .toEqual([...attendu].sort());
+    }
+    for (const politique of politiquesHorsOmbre) {
+      expect(db.prepare("SELECT 1 FROM permissions WHERE code = ?").get(politique.permission)).toBeUndefined();
+      expect(db.prepare("SELECT 1 FROM roles_permissions WHERE permission_code = ?").get(politique.permission)).toBeUndefined();
     }
 
     const roleHistorique = db.prepare(`SELECT u.id,

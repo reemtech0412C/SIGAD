@@ -18,6 +18,32 @@ export interface PolitiqueRouteAPI {
 // Une différence avec la matrice B1.1 exige une revue explicite avant régénération.
 export const CATALOGUE_POLITIQUES_API = [
   {
+    "permission": "API:GET:/api/administration/comptes/appareils",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/administration/comptes/appareils",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central; province de délégation relue en D1; remplacement et unicité protégés par transaction et index partiel",
+    "csrf": false
+  },
+  {
+    "permission": "API:POST:/api/administration/comptes/appareils/:id/revoquer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/administration/comptes/appareils/:id/revoquer",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central; province de délégation relue en D1; remplacement et unicité protégés par transaction et index partiel",
+    "csrf": true
+  },
+  {
     "permission": "API:GET:/api/administration/comptes/consultation",
     "methode": "GET",
     "action": "LECTURE",
@@ -814,6 +840,82 @@ export const CATALOGUE_POLITIQUES_API = [
     "csrf": true
   },
   {
+    "permission": "API:GET:/api/compte/appareils",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/compte/appareils",
+    "accessMode": "SESSION",
+    "rolesAutorises": [
+      "PROPRIETAIRE",
+      "ADMIN_CENTRAL",
+      "DELEGUE_PROVINCIAL",
+      "RESPONSABLE_STOCK",
+      "SUPERVISEUR_TERRAIN",
+      "AGENT_DISTRIBUTION",
+      "CONSULTATION_INSTITUTIONNELLE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1",
+    "csrf": false
+  },
+  {
+    "permission": "API:POST:/api/compte/appareils",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/compte/appareils",
+    "accessMode": "SESSION",
+    "rolesAutorises": [
+      "PROPRIETAIRE",
+      "ADMIN_CENTRAL",
+      "DELEGUE_PROVINCIAL",
+      "RESPONSABLE_STOCK",
+      "SUPERVISEUR_TERRAIN",
+      "AGENT_DISTRIBUTION",
+      "CONSULTATION_INSTITUTIONNELLE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/compte/appareils/:id/revoquer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/compte/appareils/:id/revoquer",
+    "accessMode": "SESSION",
+    "rolesAutorises": [
+      "PROPRIETAIRE",
+      "ADMIN_CENTRAL",
+      "DELEGUE_PROVINCIAL",
+      "RESPONSABLE_STOCK",
+      "SUPERVISEUR_TERRAIN",
+      "AGENT_DISTRIBUTION",
+      "CONSULTATION_INSTITUTIONNELLE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/compte/appareils/defis",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/compte/appareils/defis",
+    "accessMode": "SESSION",
+    "rolesAutorises": [
+      "PROPRIETAIRE",
+      "ADMIN_CENTRAL",
+      "DELEGUE_PROVINCIAL",
+      "RESPONSABLE_STOCK",
+      "SUPERVISEUR_TERRAIN",
+      "AGENT_DISTRIBUTION",
+      "CONSULTATION_INSTITUTIONNELLE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1",
+    "csrf": true
+  },
+  {
     "permission": "API:POST:/api/compte/courriel",
     "methode": "POST",
     "action": "COMMANDE",
@@ -890,10 +992,48 @@ export const CATALOGUE_POLITIQUES_API = [
     "csrf": false
   },
   {
+    "permission": "API:POST:/api/compte/sessions/:id/revoquer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/compte/sessions/:id/revoquer",
+    "accessMode": "SESSION",
+    "rolesAutorises": [
+      "PROPRIETAIRE",
+      "ADMIN_CENTRAL",
+      "DELEGUE_PROVINCIAL",
+      "RESPONSABLE_STOCK",
+      "SUPERVISEUR_TERRAIN",
+      "AGENT_DISTRIBUTION",
+      "CONSULTATION_INSTITUTIONNELLE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1",
+    "csrf": true
+  },
+  {
     "permission": "API:POST:/api/compte/sessions/revoquer-autres",
     "methode": "POST",
     "action": "COMMANDE",
     "chemin": "/api/compte/sessions/revoquer-autres",
+    "accessMode": "SESSION",
+    "rolesAutorises": [
+      "PROPRIETAIRE",
+      "ADMIN_CENTRAL",
+      "DELEGUE_PROVINCIAL",
+      "RESPONSABLE_STOCK",
+      "SUPERVISEUR_TERRAIN",
+      "AGENT_DISTRIBUTION",
+      "CONSULTATION_INSTITUTIONNELLE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/compte/sessions/revoquer-toutes",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/compte/sessions/revoquer-toutes",
     "accessMode": "SESSION",
     "rolesAutorises": [
       "PROPRIETAIRE",
@@ -1635,6 +1775,32 @@ export const CATALOGUE_POLITIQUES_API = [
     "csrf": true
   },
   {
+    "permission": "API:GET:/api/proprietaire/appareils",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/proprietaire/appareils",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; périmètre technique national",
+    "csrf": false
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/appareils/:id/revoquer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/appareils/:id/revoquer",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; périmètre technique national",
+    "csrf": true
+  },
+  {
     "permission": "API:GET:/api/proprietaire/audit",
     "methode": "GET",
     "action": "LECTURE",
@@ -2068,6 +2234,19 @@ export const CATALOGUE_POLITIQUES_API = [
     "methode": "POST",
     "action": "COMMANDE",
     "chemin": "/api/proprietaire/utilisateurs/:id/reinitialiser-acces",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; périmètre technique national",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/utilisateurs/:id/revoquer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/utilisateurs/:id/revoquer",
     "accessMode": "ROLE",
     "rolesAutorises": [
       "PROPRIETAIRE"

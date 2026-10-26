@@ -33,7 +33,7 @@ function routesDeLaMatrice() {
     if (!methode || !chemin) continue;
     resultat.push({ methode, chemin, politique });
   }
-  if (resultat.length !== 216) throw new Error(`La matrice décrit ${resultat.length} routes au lieu de 216; régénérez et auditez la liste.`);
+  if (resultat.length !== 227) throw new Error(`La matrice décrit ${resultat.length} routes au lieu de 227; régénérez et auditez la liste.`);
   return resultat;
 }
 

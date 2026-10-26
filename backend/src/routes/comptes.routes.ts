@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import type { EnvironnementApplication, SessionActive } from "../bindings";
-import { creerInstructionAudit } from "../middlewares/audit.middleware";
+import { creerInstructionAudit, creerInstructionAuditInscriptionAppareil } from "../middlewares/audit.middleware";
 import {
   schemaChangementCourriel,
   schemaChangementMotDePasse,
@@ -17,6 +17,8 @@ import {
 import { hacherMotDePasse, verifierMotDePasse, genererJetonAleatoire } from "../services/cryptographie.service";
 import { envoyerCourriel, envoyerCodeVerification, courrielEstConfigure } from "../services/courriel.service";
 import { empreinteCodeVerification, empreinteLimite, genererCodeSixChiffres, verifierLimiteAction } from "../services/verification-courriel.service";
+import { verifierTransitionCompte, type EtatCompte } from "../modules/identite/etat-compte.ts";
+import { listerAppareils, revoquerAppareil } from "../modules/identite/appareils.ts";
 
 const routesPublics = new Hono<EnvironnementApplication>();
 const routesCompte = new Hono<EnvironnementApplication>();
@@ -101,6 +103,34 @@ function analyserCorps<T>(corps: unknown, schema: { safeParse(value: unknown): {
 
 async function lireJson(c: Context<EnvironnementApplication>): Promise<unknown | null> {
   try { return await c.req.json(); } catch { return null; }
+}
+
+function clePubliqueAppareil(value: unknown): JsonWebKey | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const jwk = value as Record<string, unknown>;
+  if (jwk.kty !== "EC" || jwk.crv !== "P-256" || typeof jwk.x !== "string" || typeof jwk.y !== "string"
+    || !/^[A-Za-z0-9_-]{43}$/u.test(jwk.x) || !/^[A-Za-z0-9_-]{43}$/u.test(jwk.y) || "d" in jwk) return null;
+  return { kty: "EC", crv: "P-256", x: jwk.x, y: jwk.y, ext: true, key_ops: ["verify"] };
+}
+
+function encoderBase64Url(bytes: Uint8Array): string {
+  let binaire = "";
+  for (const byte of bytes) binaire += String.fromCharCode(byte);
+  return btoa(binaire).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+}
+
+function decoderBase64Url(value: string): Uint8Array | null {
+  if (!/^[A-Za-z0-9_-]{80,100}$/u.test(value)) return null;
+  try {
+    const binaire = atob(value.replaceAll("-", "+").replaceAll("_", "/"));
+    return Uint8Array.from(binaire, (caractere) => caractere.charCodeAt(0));
+  } catch { return null; }
+}
+
+async function empreinteClePublique(jwk: JsonWebKey): Promise<string> {
+  const canonique = JSON.stringify({ kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y });
+  const empreinte = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonique)));
+  return [...empreinte].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function erreurSchema(c: Context<EnvironnementApplication>, message: string) {
@@ -430,10 +460,12 @@ routesCompte.post("/mot-de-passe", async (c) => {
 
 routesCompte.get("/sessions", async (c) => {
   const session = c.get("session");
-  const page = await c.env.DB.prepare(`SELECT id, agent_utilisateur, cree_le, expire_le,
-      CASE WHEN id = ? THEN 1 ELSE 0 END AS session_courante
-    FROM sessions WHERE utilisateur_id = ? AND revoquee = 0 AND expire_le > datetime('now')
-    ORDER BY cree_le DESC, id LIMIT 50`)
+  const page = await c.env.DB.prepare(`SELECT s.id, s.agent_utilisateur, s.cree_le, s.expire_le, s.type,
+      a.nom AS appareil,
+      CASE WHEN s.id = ? THEN 1 ELSE 0 END AS session_courante
+    FROM sessions s LEFT JOIN appareils a ON a.id = s.appareil_id
+    WHERE s.utilisateur_id = ? AND s.revoquee = 0 AND s.expire_le > datetime('now')
+    ORDER BY s.cree_le DESC, s.id LIMIT 50`)
     .bind(session.id, session.utilisateur.id).all<{ id: string; agent_utilisateur: string | null; cree_le: string; expire_le: string; session_courante: number }>();
   return c.json({ elements: page.results });
 });
@@ -441,11 +473,126 @@ routesCompte.get("/sessions", async (c) => {
 routesCompte.post("/sessions/revoquer-autres", async (c) => {
   const session = c.get("session");
   const resultat = await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND id <> ? AND revoquee = 0")
+    c.env.DB.prepare("UPDATE sessions SET revoquee = 1, motif_revocation = 'REVOCATION_AUTRES_SESSIONS' WHERE utilisateur_id = ? AND id <> ? AND revoquee = 0")
       .bind(session.utilisateur.id, session.id),
-    creerInstructionAudit(c.env.DB, { utilisateur: session.utilisateur, action: "REVOCATION_AUTRES_SESSIONS", entiteType: "UTILISATEUR", entiteId: session.utilisateur.id, adresseIp: ipRequete(c) }),
+    creerInstructionAudit(c.env.DB, { utilisateur: session.utilisateur, action: "REVOCATION_AUTRES_SESSIONS", entiteType: "UTILISATEUR", entiteId: session.utilisateur.id, adresseIp: ipRequete(c), motif: "Révocation initiée par le titulaire du compte." }),
   ]);
   return c.json({ message: "Les autres sessions ont été révoquées.", sessions_revoquees: resultat[0]?.meta.changes ?? 0 });
+});
+
+routesCompte.post("/sessions/revoquer-toutes", async (c) => {
+  const session = c.get("session");
+  const resultat = await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE sessions SET revoquee = 1, motif_revocation = 'REVOCATION_TOUTES_SESSIONS' WHERE utilisateur_id = ? AND revoquee = 0")
+      .bind(session.utilisateur.id),
+    creerInstructionAudit(c.env.DB, { utilisateur: session.utilisateur, action: "REVOCATION_TOUTES_SESSIONS", entiteType: "UTILISATEUR", entiteId: session.utilisateur.id,
+      adresseIp: ipRequete(c), motif: "Révocation de toutes les sessions par le titulaire." }),
+  ]);
+  return c.json({ message: "Toutes les sessions ont été révoquées.", sessions_revoquees: resultat[0]?.meta.changes ?? 0 });
+});
+
+routesCompte.post("/sessions/:id/revoquer", async (c) => {
+  const session = c.get("session");
+  const id = c.req.param("id");
+  const resultat = await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE sessions SET revoquee = 1, motif_revocation = 'REVOCATION_SESSION_UTILISATEUR'
+      WHERE id = ? AND utilisateur_id = ? AND revoquee = 0`).bind(id, session.utilisateur.id),
+    creerInstructionAudit(c.env.DB, { utilisateur: session.utilisateur, action: "REVOCATION_SESSION", entiteType: "SESSION", entiteId: id,
+      adresseIp: ipRequete(c), motif: "Révocation demandée par le titulaire." }),
+  ]);
+  if (resultat[0]?.meta.changes !== 1) return c.json({ erreur: "La session est introuvable ou déjà révoquée." }, 404);
+  return c.json({ message: "La session a été révoquée." });
+});
+
+routesCompte.get("/appareils", async (c) => {
+  return c.json({ elements: await listerAppareils(c.env.DB, c.get("utilisateur").id) });
+});
+
+routesCompte.post("/appareils/defis", async (c) => {
+  const session = c.get("session");
+  const corps = await lireJson(c) as Record<string, unknown> | null;
+  const cle = clePubliqueAppareil(corps?.cle_publique_jwk);
+  if (!cle) return c.json({ erreur: "Une clé publique ECDSA P-256 valide est requise." }, 400);
+  try {
+    await crypto.subtle.importKey("jwk", cle, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+  } catch { return c.json({ erreur: "La clé publique ne peut pas être utilisée." }, 400); }
+  const id = crypto.randomUUID();
+  const valeurDefi = encoderBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+  const empreinte = await empreinteClePublique(cle);
+  const expiration = dateSqlite(new Date(Date.now() + 5 * 60 * 1000));
+  await c.env.DB.batch([
+    c.env.DB.prepare(`INSERT INTO defis_appareils
+      (id, utilisateur_id, empreinte_cle, cle_publique_jwk, valeur_defi, expire_le)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+      .bind(id, session.utilisateur.id, empreinte, JSON.stringify(cle), valeurDefi, expiration),
+    creerInstructionAudit(c.env.DB, { utilisateur: session.utilisateur, action: "DEFI_ENREGISTREMENT_APPAREIL", entiteType: "DEFI_APPAREIL", entiteId: id,
+      adresseIp: ipRequete(c), motif: "Défi temporaire de preuve de possession d’une clé publique." }),
+  ]);
+  return c.json({ id, defi: valeurDefi, expire_le: expiration });
+});
+
+routesCompte.post("/appareils", async (c) => {
+  const session = c.get("session");
+  const corps = await lireJson(c) as Record<string, unknown> | null;
+  const defiId = typeof corps?.defi_id === "string" ? corps.defi_id : "";
+  const signature = typeof corps?.signature === "string" ? decoderBase64Url(corps.signature) : null;
+  const plateforme = corps?.plateforme;
+  const nom = typeof corps?.nom === "string" ? corps.nom.trim() : "";
+  if (!defiId || !signature || !["ANDROID", "IOS", "WEB"].includes(String(plateforme)) || nom.length < 1 || nom.length > 100) {
+    return c.json({ erreur: "Les informations d’enregistrement de l’appareil sont invalides." }, 400);
+  }
+  const defi = await c.env.DB.prepare(`SELECT empreinte_cle, cle_publique_jwk, valeur_defi
+    FROM defis_appareils WHERE id = ? AND utilisateur_id = ? AND consomme_le IS NULL AND expire_le > datetime('now')`)
+    .bind(defiId, session.utilisateur.id).first<{ empreinte_cle: string; cle_publique_jwk: string; valeur_defi: string }>();
+  if (!defi) return c.json({ erreur: "Le défi est absent, expiré ou déjà consommé." }, 409);
+  let preuveValide = false;
+  try {
+    const cle = await crypto.subtle.importKey("jwk", JSON.parse(defi.cle_publique_jwk) as JsonWebKey,
+      { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+    const message = new TextEncoder().encode(`SIGAD-DEVICE-REGISTER:${session.utilisateur.id}:${defiId}:${defi.valeur_defi}`);
+    const signatureBuffer = new ArrayBuffer(signature.byteLength);
+    new Uint8Array(signatureBuffer).set(signature);
+    preuveValide = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, cle, signatureBuffer, message);
+  } catch { preuveValide = false; }
+  if (!preuveValide) return c.json({ erreur: "La preuve de possession de la clé est invalide." }, 403);
+
+  const appareilId = crypto.randomUUID();
+  const now = dateSqlite(new Date());
+  try {
+    const resultat = await c.env.DB.batch([
+      c.env.DB.prepare(`INSERT INTO appareils
+        (id, utilisateur_id, plateforme, nom, empreinte_cle, cle_publique_jwk, statut, cree_le)
+        SELECT ?, d.utilisateur_id, ?, ?, d.empreinte_cle, d.cle_publique_jwk, 'EN_ATTENTE', ?
+        FROM defis_appareils d WHERE d.id = ? AND d.utilisateur_id = ?
+          AND d.consomme_le IS NULL AND d.expire_le > datetime('now')`)
+        .bind(appareilId, plateforme, nom, now, defiId, session.utilisateur.id),
+      c.env.DB.prepare(`UPDATE defis_appareils SET consomme_le = ?, appareil_cree_id = ?
+        WHERE id = ? AND utilisateur_id = ? AND consomme_le IS NULL AND expire_le > datetime('now')
+          AND EXISTS (SELECT 1 FROM appareils WHERE id = ? AND utilisateur_id = ?)`)
+        .bind(now, appareilId, defiId, session.utilisateur.id, appareilId, session.utilisateur.id),
+      creerInstructionAuditInscriptionAppareil(c.env.DB, { utilisateur: session.utilisateur, action: "ENREGISTREMENT_APPAREIL", entiteType: "APPAREIL", entiteId: appareilId,
+        adresseIp: ipRequete(c), motif: "Enregistrement avec preuve cryptographique; autorisation en attente." }, defiId, appareilId),
+    ]);
+    if ((resultat[0]?.meta.changes ?? 0) < 1 || (resultat[1]?.meta.changes ?? 0) < 1) {
+      return c.json({ erreur: "Le défi ne peut plus être utilisé." }, 409);
+    }
+  } catch (erreur) {
+    const messageTechnique = erreur instanceof Error ? erreur.message : "";
+    const codeErreur = /UNIQUE constraint failed/iu.test(messageTechnique) ? "CONFLIT_UNIQUE"
+      : /CHECK constraint failed/iu.test(messageTechnique) ? "CONTRAINTE_CHECK"
+        : /FOREIGN KEY constraint failed/iu.test(messageTechnique) ? "CLE_ETRANGERE"
+          : "ECHEC_ECRITURE_D1";
+    console.error("SIGAD_APPAREIL_INSCRIPTION_ECHEC", { codeErreur, requestId: c.get("requestId") });
+    return c.json({ erreur: "L’appareil existe déjà ou son enregistrement n’a pas pu être validé." }, 409);
+  }
+  return c.json({ id: appareilId, statut: "EN_ATTENTE" }, 201);
+});
+
+routesCompte.post("/appareils/:id/revoquer", async (c) => {
+  const resultat = await revoquerAppareil(c.env.DB, c.req.param("id"), c.get("utilisateur"),
+    "Révocation demandée par le titulaire du compte.", ipRequete(c), c.get("requestId"), c.get("utilisateur").id);
+  if (resultat !== "REVOQUE") return c.json({ erreur: "L’appareil est introuvable ou déjà révoqué." }, 404);
+  return c.json({ message: "L’appareil a été révoqué et ses sessions invalidées." });
 });
 
 routesCompte.post("/courriel", async (c) => {
@@ -539,6 +686,21 @@ routesCompte.post("/courriel/verifier", async (c) => {
 function exigerAdministration(c: Context<EnvironnementApplication>): boolean {
   return c.get("utilisateur").role === "ADMIN_CENTRAL";
 }
+
+routesAdministration.get("/appareils", async (c) => {
+  if (!exigerAdministration(c)) return c.json({ erreur: "Accès refusé." }, 403);
+  return c.json({ elements: await listerAppareils(c.env.DB) });
+});
+
+routesAdministration.post("/appareils/:id/revoquer", async (c) => {
+  if (!exigerAdministration(c)) return c.json({ erreur: "Accès refusé." }, 403);
+  const resultat = analyserCorps(await lireJson(c), schemaDecisionCompte);
+  if (!resultat.success) return erreurSchema(c, resultat.message);
+  const etat = await revoquerAppareil(c.env.DB, c.req.param("id"), c.get("utilisateur"), resultat.data.motif,
+    ipRequete(c), c.get("requestId"));
+  if (etat !== "REVOQUE") return c.json({ erreur: "L’appareil est introuvable ou déjà révoqué." }, 404);
+  return c.json({ message: "L’appareil a été révoqué et ses sessions invalidées." });
+});
 
 routesAdministration.get("/delegues", async (c) => {
   if (!exigerAdministration(c)) return c.json({ erreur: "Accès refusé." }, 403);
@@ -660,7 +822,7 @@ async function approuverInscription(c: Context<EnvironnementApplication>, inscri
   try {
     const executions = await c.env.DB.batch(commandes);
     const decalage = remplacementId ? 2 : 0;
-    if (remplacementId && executions[0]?.meta.changes !== 1) return c.json({ erreur: "Le délégué actuel a changé. Actualisez la liste et réessayez." }, 409);
+    if (remplacementId && (executions[0]?.meta.changes ?? 0) < 1) return c.json({ erreur: "Le délégué actuel a changé. Actualisez la liste et réessayez." }, 409);
     if (executions[decalage]?.meta.changes !== 1 || executions[decalage + 1]?.meta.changes !== 1) {
       return c.json({ erreur: "La demande ou la province a changé. Aucune nouvelle délégation n’a été accordée." }, 409);
     }
@@ -710,22 +872,38 @@ async function changerStatutDelegue(c: Context<EnvironnementApplication>, statut
   const id = c.req.param("utilisateurId");
   if (!id) return c.json({ erreur: "Le compte délégué est introuvable." }, 404);
   const acteur = c.get("utilisateur");
-  const cible = await c.env.DB.prepare("SELECT id, province_id, statut FROM utilisateurs WHERE id = ? AND role = 'DELEGUE_PROVINCIAL'")
+  const cible = await c.env.DB.prepare("SELECT id, province_id, statut, role FROM utilisateurs WHERE id = ? AND role = 'DELEGUE_PROVINCIAL'")
     .bind(id).first<{ id: string; province_id: string; statut: string }>();
   if (!cible) return c.json({ erreur: "Le compte délégué est introuvable." }, 404);
+  const erreurTransition = verifierTransitionCompte({
+    ancienEtat: cible.statut as EtatCompte,
+    nouvelEtat: statut,
+    roleActeur: acteur.role,
+    roleCible: "DELEGUE_PROVINCIAL",
+    motif: resultat.data.motif,
+  });
+  if (erreurTransition) return c.json({ erreur: `Transition de compte refusée (${erreurTransition}).` }, erreurTransition === "MOTIF_REQUIS" ? 400 : 409);
   const action = statut === "SUSPENDU" ? "SUSPENSION_DELEGUE" : "REACTIVATION_DELEGUE";
+  const transition = cible.statut === statut ? null : c.env.DB.prepare(`INSERT INTO transitions_etat_compte
+    (id, utilisateur_id, ancien_etat, nouvel_etat, acteur_id, acteur_role, motif, request_id)
+    SELECT ?, id, ?, ?, ?, ?, ?, ? FROM utilisateurs WHERE id = ? AND statut = ?`)
+    .bind(crypto.randomUUID(), cible.statut, statut, acteur.id, acteur.role, resultat.data.motif, c.get("requestId"), id, cible.statut);
+  const miseAJourStatut = c.env.DB.prepare(`UPDATE utilisateurs SET statut = ?, tentatives_echouees = 0, verrouille_jusqua = NULL,
+      modifie_le = datetime('now') WHERE id = ? AND role = 'DELEGUE_PROVINCIAL' AND statut = ?`)
+    .bind(statut, id, cible.statut);
   const commandes = [
-    c.env.DB.prepare(`UPDATE utilisateurs SET statut = ?, tentatives_echouees = 0, verrouille_jusqua = NULL,
-      modifie_le = datetime('now') WHERE id = ? AND role = 'DELEGUE_PROVINCIAL'`)
-      .bind(statut, id),
-    ...(statut === "SUSPENDU" ? [c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(id)] : []),
+    ...(transition ? [transition] : []),
+    miseAJourStatut,
     c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json, request_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)`)
       .bind(crypto.randomUUID(), acteur.id, id, action, resultat.data.motif, JSON.stringify({ province_id: cible.province_id, ancien_statut: cible.statut, nouveau_statut: statut }), c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action, entiteType: "UTILISATEUR", entiteId: id, adresseIp: ipRequete(c),
-      donneesAvant: JSON.stringify({ statut: cible.statut }), donneesApres: JSON.stringify({ statut }) }),
+      donneesAvant: JSON.stringify({ statut: cible.statut }), donneesApres: JSON.stringify({ statut }), motif: resultat.data.motif }),
   ];
-  try { await c.env.DB.batch(commandes); }
+  try {
+    const executions = await c.env.DB.batch(commandes);
+    if ((executions[transition ? 1 : 0]?.meta.changes ?? 0) < 1) return c.json({ erreur: "Le compte a changé simultanément; rechargez son état." }, 409);
+  }
   catch { return c.json({ erreur: "La réactivation est impossible tant qu’un autre délégué actif occupe cette province." }, 409); }
   return c.json({ message: statut === "SUSPENDU" ? "Le compte a été suspendu et ses sessions révoquées." : "Le compte a été réactivé." });
 }
@@ -890,20 +1068,23 @@ routesAdministration.patch("/consultation/:id/perimetre", async (c) => {
       .bind(...resultat.data.provinces).first<{ total: number }>();
     if (existantes?.total !== resultat.data.provinces.length) return erreurSchema(c, "Une province sélectionnée n’existe pas.");
   }
-  const compte = await c.env.DB.prepare("SELECT id, perimetre, statut FROM comptes_consultation WHERE id = ?")
-    .bind(id).first<{ id: string; perimetre: string; statut: string }>();
+  const compte = await c.env.DB.prepare("SELECT id, utilisateur_id, perimetre, statut FROM comptes_consultation WHERE id = ?")
+    .bind(id).first<{ id: string; utilisateur_id: string; perimetre: string; statut: string }>();
   if (!compte) return c.json({ erreur: "Le compte de consultation est introuvable." }, 404);
   const commandes = [
     c.env.DB.prepare("DELETE FROM perimetres_provinciaux_consultation WHERE compte_consultation_id = ?").bind(id),
     c.env.DB.prepare("UPDATE comptes_consultation SET perimetre = ?, modifie_le = datetime('now') WHERE id = ?")
       .bind(resultat.data.perimetre, id),
+    c.env.DB.prepare(`UPDATE sessions SET revoquee = 1, motif_revocation = 'PORTEE_MODIFIEE'
+      WHERE utilisateur_id = ? AND revoquee = 0`).bind(compte.utilisateur_id),
     ...resultat.data.provinces.map((provinceId) => c.env.DB.prepare("INSERT INTO perimetres_provinciaux_consultation (compte_consultation_id, province_id) VALUES (?, ?)")
       .bind(id, provinceId)),
     c.env.DB.prepare(`INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, details_json, request_id)
       SELECT ?, ?, utilisateur_id, 'MODIFICATION_PERIMETRE_CONSULTATION', ?, ?, ? FROM comptes_consultation WHERE id = ?`)
       .bind(crypto.randomUUID(), acteur.id, resultat.data.motif, JSON.stringify({ ancien_perimetre: compte.perimetre, nouveau_perimetre: resultat.data.perimetre, provinces: resultat.data.provinces }), c.get("requestId"), id),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action: "MODIFICATION_PERIMETRE_CONSULTATION", entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c),
-      donneesAvant: JSON.stringify({ perimetre: compte.perimetre }), donneesApres: JSON.stringify({ perimetre: resultat.data.perimetre, provinces: resultat.data.provinces }) }),
+      donneesAvant: JSON.stringify({ perimetre: compte.perimetre }), donneesApres: JSON.stringify({ perimetre: resultat.data.perimetre, provinces: resultat.data.provinces }),
+      motif: resultat.data.motif }),
   ];
   try { await c.env.DB.batch(commandes); }
   catch { return c.json({ erreur: "Le nouveau périmètre n’est pas cohérent." }, 409); }
@@ -981,17 +1162,27 @@ async function changerStatutConsultation(c: Context<EnvironnementApplication>, s
   const compte = await c.env.DB.prepare("SELECT id, utilisateur_id, statut FROM comptes_consultation WHERE id = ?")
     .bind(id).first<{ id: string; utilisateur_id: string; statut: string }>();
   if (!compte) return c.json({ erreur: "Le compte de consultation est introuvable." }, 404);
+  if (compte.statut === statut) return c.json({ message: "Le compte possède déjà ce statut." });
+  const erreurTransition = verifierTransitionCompte({ ancienEtat: compte.statut as EtatCompte, nouvelEtat: statut,
+    roleActeur: acteur.role, roleCible: "CONSULTATION_INSTITUTIONNELLE", motif: resultat.data.motif });
+  if (erreurTransition) return c.json({ erreur: `Transition de compte refusée (${erreurTransition}).` }, erreurTransition === "MOTIF_REQUIS" ? 400 : 409);
   const action = statut === "SUSPENDU" ? "SUSPENSION_COMPTE_CONSULTATION" : "REACTIVATION_COMPTE_CONSULTATION";
+  const transition = c.env.DB.prepare(`INSERT INTO transitions_etat_compte
+    (id, utilisateur_id, ancien_etat, nouvel_etat, acteur_id, acteur_role, motif, request_id)
+    SELECT ?, utilisateur_id, ?, ?, ?, ?, ?, ? FROM comptes_consultation WHERE id = ? AND statut = ?`)
+    .bind(crypto.randomUUID(), compte.statut, statut, acteur.id, acteur.role, resultat.data.motif, c.get("requestId"), id, compte.statut);
+  const miseAJour = c.env.DB.prepare("UPDATE comptes_consultation SET statut = ?, modifie_le = datetime('now') WHERE id = ? AND statut = ?")
+    .bind(statut, id, compte.statut);
   const commandes: D1PreparedStatement[] = [
-    c.env.DB.prepare("UPDATE comptes_consultation SET statut = ?, modifie_le = datetime('now') WHERE id = ?")
-      .bind(statut, id),
-    ...(statut === "SUSPENDU" ? [c.env.DB.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").bind(compte.utilisateur_id)] : []),
+    transition,
+    miseAJour,
     c.env.DB.prepare("INSERT INTO decisions_comptes (id, acteur_id, utilisateur_cible_id, action, motif, request_id) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(crypto.randomUUID(), acteur.id, compte.utilisateur_id, action, resultat.data.motif, c.get("requestId")),
     creerInstructionAudit(c.env.DB, { utilisateur: acteur, action, entiteType: "COMPTE_CONSULTATION", entiteId: id, adresseIp: ipRequete(c),
-      donneesAvant: JSON.stringify({ statut: compte.statut }), donneesApres: JSON.stringify({ statut }) }),
+      donneesAvant: JSON.stringify({ statut: compte.statut }), donneesApres: JSON.stringify({ statut }), motif: resultat.data.motif }),
   ];
-  await c.env.DB.batch(commandes);
+  const executions = await c.env.DB.batch(commandes);
+  if ((executions[1]?.meta.changes ?? 0) < 1) return c.json({ erreur: "Le compte a changé simultanément; rechargez son état." }, 409);
   return c.json({ message: statut === "SUSPENDU" ? "Le compte a été suspendu et ses sessions révoquées." : "Le compte a été réactivé." });
 }
 

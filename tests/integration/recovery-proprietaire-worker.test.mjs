@@ -80,6 +80,12 @@ function verifierIdentifiantCorrelation(reponse) {
   return identifiant;
 }
 
+function verifierRequestId(reponse) {
+  const identifiant = reponse.headers.get("X-Request-ID");
+  assert.match(identifiant ?? "", /^[0-9a-f-]{36}$/u, "Chaque requête possède un request_id journalisable.");
+  return identifiant;
+}
+
 async function creerPreuve(operation, motif = motifStandard) {
   if (!clePriveeJson) throw new Error("La clé de signature éphémère des tests n’est pas configurée.");
   const clePrivee = await webcrypto.subtle.importKey(
@@ -198,20 +204,26 @@ test("Récupération propriétaire limitée, atomique, à usage unique et révoc
   assert.ok(verifierIdentifiantCorrelation(refusSignature.reponse));
 
   const rollback = ouvrirD1();
+  const auditsRecuperationAvant = rollback.prepare(
+    "SELECT COUNT(*) AS n FROM evenements_audit WHERE source_table = 'preuves_operateur_recuperation'",
+  ).get().n;
   rollback.exec(
-    `CREATE TRIGGER test_refus_emission_recuperation BEFORE UPDATE ON utilisateurs
-     WHEN NEW.id = 'usr-proprietaire' AND NEW.code_activation_recuperation_id IS NOT NULL
-     BEGIN SELECT RAISE(ABORT, 'TEST_RECUPERATION_ROLLBACK'); END`,
+    `CREATE TRIGGER test_refus_audit_recuperation BEFORE INSERT ON evenements_audit
+     WHEN NEW.action = 'EMETTRE_ACTIVATION_INITIALE'
+     BEGIN SELECT RAISE(ABORT, 'TEST_AUDIT_RECUPERATION'); END`,
   );
   rollback.close();
   const refusEcritureAudit = await demanderEmission();
-  assert.equal(refusEcritureAudit.reponse.status, 409, "Un échec tardif de la transaction échoue sans délivrer de code.");
+  assert.equal(refusEcritureAudit.reponse.status, 409, "Un échec d’écriture de l’audit bloque la récupération et ne délivre aucun code.");
   assert.ok(verifierIdentifiantCorrelation(refusEcritureAudit.reponse));
   const controleRollback = ouvrirD1();
   try {
-    controleRollback.exec("DROP TRIGGER test_refus_emission_recuperation");
+    controleRollback.exec("DROP TRIGGER test_refus_audit_recuperation");
     assert.equal(controleRollback.prepare("SELECT COUNT(*) AS n FROM preuves_operateur_recuperation").get().n, preuveAvant,
       "L’échec tardif ne conserve aucune preuve ni opération partielle.");
+    assert.equal(controleRollback.prepare(
+      "SELECT COUNT(*) AS n FROM evenements_audit WHERE source_table = 'preuves_operateur_recuperation'",
+    ).get().n, auditsRecuperationAvant, "Aucun audit partiel ne subsiste après l’échec de la transaction.");
     assert.equal(controleRollback.prepare("SELECT COUNT(*) AS n FROM recuperations_acces_proprietaire").get().n, recuperationsAvant,
       "L’échec tardif n’ajoute aucun dossier de récupération.");
     assert.deepEqual(controleRollback.prepare(
@@ -245,8 +257,23 @@ test("Récupération propriétaire limitée, atomique, à usage unique et révoc
   assert.ok(preuveEmissionGagnante);
   const codeRevoque = Reflect.get(emissionGagnante.donnees, "code_activation");
   assert.equal(typeof codeRevoque, "string");
+  const requestIdEmission = verifierRequestId(emissionGagnante.reponse);
   const dossierEmission = ouvrirD1();
   try {
+    const auditEmission = dossierEmission.prepare(`SELECT acteur_id, acteur_identite, acteur_role, action,
+        cible_type, cible_id, request_id, motif, apres
+      FROM evenements_audit WHERE request_id = ? AND source_table = 'preuves_operateur_recuperation'`)
+      .get(requestIdEmission);
+    assert.ok(auditEmission, "L’émission acceptée doit produire un événement d’audit unifié.");
+    assert.equal(auditEmission.acteur_id, null);
+    assert.equal(auditEmission.acteur_role, "OPERATEUR_EXTERNE");
+    assert.equal(auditEmission.action, "EMETTRE_ACTIVATION_INITIALE");
+    assert.equal(auditEmission.cible_type, "UTILISATEUR");
+    assert.equal(auditEmission.cible_id, "usr-proprietaire");
+    assert.equal(auditEmission.request_id, requestIdEmission);
+    assert.equal(auditEmission.motif, motifStandard);
+    assert.equal(JSON.stringify(auditEmission).includes(codeRevoque), false,
+      "Le code d’activation retourné n’est jamais présent dans l’audit.");
     assert.equal(dossierEmission.prepare(
       "SELECT COUNT(*) AS total FROM recuperations_acces_proprietaire WHERE terminee_le IS NULL AND revoquee_le IS NULL",
     ).get().total, 1, "Une seule récupération propriétaire reste ouverte après deux émissions concurrentes avec des preuves distinctes.");
@@ -280,8 +307,17 @@ test("Récupération propriétaire limitée, atomique, à usage unique et révoc
     preuve: await creerPreuve("REVOQUER_ACTIVATION_INITIALE", "Révocation locale avant toute activation."),
   });
   assert.equal(resultatRevocation.reponse.status, 200);
+  const requestIdRevocation = verifierRequestId(resultatRevocation.reponse);
   const verificationRestauration = ouvrirD1();
   try {
+    const auditRevocation = verificationRestauration.prepare(`SELECT acteur_role, action, request_id, cible_id
+      FROM evenements_audit WHERE request_id = ? AND source_table = 'preuves_operateur_recuperation'`)
+      .get(requestIdRevocation);
+    assert.ok(auditRevocation, "La révocation acceptée doit produire un événement d’audit unifié.");
+    assert.equal(auditRevocation.acteur_role, "OPERATEUR_EXTERNE");
+    assert.equal(auditRevocation.action, "REVOQUER_ACTIVATION_INITIALE");
+    assert.equal(auditRevocation.request_id, requestIdRevocation);
+    assert.equal(auditRevocation.cible_id, "usr-proprietaire");
     const etatApresRevocation = verificationRestauration.prepare(
       `SELECT code_activation_hash, code_activation_expire_le, code_activation_recuperation_id,
               mot_de_passe_hash, doit_changer_mot_de_passe, double_facteur_actif,

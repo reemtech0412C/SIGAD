@@ -7,3 +7,10 @@ Exit code: 0; verify evidence: verify-20261026T222712010Z.txt
 Assertions: one canonical unified event for consultation-account creation; event includes actor, role, scope, timestamp and request_id with no unnecessary PII; audit insertion failure rolls back account suspension and session revocation.
 Note: an earlier run passed both integration files but its overall verify guard detected the terminal log being appended inside the repository. The successful rerun redirected terminal output outside the repository; file-mutation check reported zero changes.
 Environment: Wrangler local Worker and isolated D1 only; no remote bindings.
+
+## B2.4 coverage follow-up (2026-10-27)
+Migration 0041 expands the unified audit source set to `evenements_connexion` and `preuves_operateur_recuperation`.
+`verifier-schema-local.mjs` inserts a synthetic audit row before 0041 and confirms every prior field survives the table expansion.
+The adapter integration test now covers all seven sources, including `request_id`, actor attribution rules, result, and redaction. Failed login attempts are not attributed to the unverified account; attempted identifiers and user agents are not copied into the unified event. Owner recovery records the signed external operator identity, action, target, reason, IP, and request ID without the proof nonce or activation code. A forced unified-audit insert failure aborts the recovery transaction; no proof or partial state remains.
+Existing account creation and suspension flow evidence remains above; B2.5 integration adds account-state and device-revocation audit assertions. Geographic and central-operation specialized journals continue through their existing adapters. Production flag activation, sensitive-permission assignment, nominative export, and mass device revocation have no corresponding implemented action in this batch and remain acceptance criteria for the batches that add them.
+Final full verification: `verify-20261026T234701261Z.txt`, exit code 0; all 1,512 historical role×route observations retained, zero project files changed by the verifier. No remote database, deployment, or push was used.

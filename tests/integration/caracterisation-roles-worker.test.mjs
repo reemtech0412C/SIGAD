@@ -36,13 +36,17 @@ function ouvrirD1Locale() {
 
 function routesDeLaMatrice() {
   const contenu = readFileSync(resolve(racine, "docs/matrice-securite-api-phase9.md"), "utf8");
-  const routes = [...contenu.matchAll(/^\| (GET|POST|PUT|PATCH|DELETE) \| `([^`]+)` \| ([^|]+) \|/gmu)]
+  const matrice = [...contenu.matchAll(/^\| (GET|POST|PUT|PATCH|DELETE) \| `([^`]+)` \| ([^|]+) \|/gmu)]
     .map((correspondance) => ({
       methode: correspondance[1],
       chemin: correspondance[2],
       politique: correspondance[3]?.trim() ?? "",
     }));
-  assert.equal(routes.length, 216, "La caractérisation exige les 216 routes de la matrice versionnée.");
+  const baseline = JSON.parse(readFileSync(join(dossierSnapshots, "PROPRIETAIRE.json"), "utf8"));
+  assert.equal(baseline.length, 216, "La baseline B1.1 doit conserver ses 216 routes historiques.");
+  const routesBaseline = new Set(baseline.map(({ methode, chemin }) => `${methode} ${chemin}`));
+  const routes = matrice.filter(({ methode, chemin }) => routesBaseline.has(`${methode} ${chemin}`));
+  assert.equal(routes.length, 216, "La matrice courante doit conserver les 216 routes de la baseline B1.1.");
   return routes;
 }
 

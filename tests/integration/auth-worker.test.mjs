@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, webcrypto } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
@@ -336,7 +336,7 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
 
   const mutationSansCsrf = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
     methode: "PATCH",
-    corps: { statut: "SUSPENDU" },
+    corps: { statut: "SUSPENDU", motif: "Suspension de test après contrôle de sécurité." },
     csrf: false,
   });
   assert.equal(mutationSansCsrf.reponse.status, 403, "Une mutation sans jeton CSRF doit être refusée.");
@@ -1516,9 +1516,18 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   const sessionSilaActive = new ClientLocal();
   const reconnexionSila = await sessionSilaActive.connexion("sila", motDePasseSila);
   assert.equal(reconnexionSila.reponse.status, 200);
+  const appareilSilaTest = ouvrirD1Locale();
+  appareilSilaTest.prepare(`INSERT INTO appareils
+    (id, utilisateur_id, plateforme, nom, empreinte_cle, cle_publique_jwk, statut, autorise_par, autorise_le)
+    VALUES ('appareil-test-sila', 'usr-sila', 'ANDROID', 'Fixture synthétique', ?, '{"kty":"EC","crv":"P-256","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","y":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}', 'AUTORISE', 'usr-central', datetime('now'))`)
+    .run("a".repeat(64));
+  appareilSilaTest.prepare(`UPDATE sessions SET appareil_id = 'appareil-test-sila', type = 'MOBILE'
+    WHERE utilisateur_id = 'usr-sila' AND revoquee = 0 AND expire_le > datetime('now')`).run();
+  assert.ok(appareilSilaTest.prepare("SELECT 1 FROM sessions WHERE utilisateur_id = 'usr-sila' AND appareil_id = 'appareil-test-sila' AND type = 'MOBILE'").get());
+  appareilSilaTest.close();
   const suspensionSansCsrf = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
     methode: "PATCH",
-    corps: { statut: "SUSPENDU" },
+    corps: { statut: "SUSPENDU", motif: "Suspension de test après contrôle de sécurité." },
     csrf: false,
   });
   assert.equal(suspensionSansCsrf.reponse.status, 403);
@@ -1528,7 +1537,7 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     BEGIN SELECT RAISE(ABORT, 'TEST_AUDIT_ECHEC'); END;`);
   const suspensionEchecAudit = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
     methode: "PATCH",
-    corps: { statut: "SUSPENDU" },
+    corps: { statut: "SUSPENDU", motif: "Suspension de test après contrôle de sécurité." },
   });
   assert.equal(suspensionEchecAudit.reponse.status, 500,
     "Une suspension sans écriture du journal d’audit ne doit pas être confirmée.");
@@ -1537,14 +1546,23 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     FROM utilisateurs u WHERE u.id = 'usr-sila'`).get();
   assert.equal(etatApresEchecAudit.statut, "ACTIF", "L’échec d’audit annule la transition de compte.");
   assert.ok(etatApresEchecAudit.sessions_actives > 0, "L’échec d’audit annule aussi la révocation des sessions.");
+  assert.equal(panneAuditDb.prepare("SELECT statut FROM appareils WHERE id = 'appareil-test-sila'").get().statut, "AUTORISE",
+    "L’échec d’audit annule également l’invalidation des appareils.");
+  assert.equal(panneAuditDb.prepare("SELECT COUNT(*) AS total FROM transitions_etat_compte WHERE utilisateur_id = 'usr-sila'").get().total, 0,
+    "L’échec d’audit annule aussi l’historique de transition.");
   panneAuditDb.exec("DROP TRIGGER test_echec_audit_suspendre;");
   panneAuditDb.close();
 
-  const suspensionSila = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
-    methode: "PATCH",
-    corps: { statut: "SUSPENDU" },
-  });
-  assert.equal(suspensionSila.reponse.status, 200);
+  const [lecturePendantSuspension, suspensionSila] = await Promise.all([
+    sessionSilaActive.requete("/api/auth/session"),
+    proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
+      methode: "PATCH",
+      corps: { statut: "SUSPENDU", motif: "Suspension de test après contrôle de sécurité." },
+    }),
+  ]);
+  assert.ok([200, 401].includes(lecturePendantSuspension.reponse.status),
+    "Une lecture concurrente peut terminer avant ou après la validation de suspension, sans élargir le périmètre.");
+  assert.equal(suspensionSila.reponse.status, 200, JSON.stringify(suspensionSila.donnees));
   const sessionApresSuspension = await sessionSilaActive.requete("/api/auth/session");
   assert.equal(sessionApresSuspension.reponse.status, 401, "La suspension doit invalider immédiatement toutes les sessions.");
   const connexionCompteSuspendu = await new ClientLocal().connexion("sila", motDePasseSila);
@@ -1556,6 +1574,17 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
       "SELECT COUNT(*) AS total FROM sessions WHERE utilisateur_id = 'usr-sila' AND revoquee = 0",
     ).get();
     assert.equal(Reflect.get(sessionsNonRevoquees, "total"), 0, "Les sessions du compte suspendu doivent être révoquées en base.");
+    assert.equal(baseLocale.prepare(`SELECT COUNT(*) AS total FROM sessions
+      WHERE utilisateur_id = 'usr-sila' AND revoquee = 1 AND motif_revocation = 'COMPTE_NON_ACTIF'`).get().total > 0, true,
+    "La révocation de session conserve son motif machine lisible.");
+    assert.equal(baseLocale.prepare("SELECT statut FROM appareils WHERE id = 'appareil-test-sila'").get().statut, "REVOQUE",
+      "La sortie du statut ACTIF révoque aussi immédiatement les appareils autorisés.");
+    const transitionSila = baseLocale.prepare(`SELECT ancien_etat, nouvel_etat, motif, request_id
+      FROM transitions_etat_compte WHERE utilisateur_id = 'usr-sila' ORDER BY cree_le DESC LIMIT 1`).get();
+    assert.equal(transitionSila.ancien_etat, "ACTIF");
+    assert.equal(transitionSila.nouvel_etat, "SUSPENDU");
+    assert.equal(transitionSila.motif, "Suspension de test après contrôle de sécurité.");
+    assert.equal(transitionSila.request_id, suspensionSila.reponse.headers.get("X-Request-ID"));
     const auditSuspension = baseLocale.prepare(
       "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'SUSPENSION_COMPTE' AND entite_id = 'usr-sila'",
     ).get();
@@ -1563,13 +1592,14 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     const requestIdSuspension = suspensionSila.reponse.headers.get("X-Request-ID");
     assert.match(requestIdSuspension ?? "", /^[0-9a-f-]{36}$/iu, "La réponse et les événements doivent partager un identifiant de requête.");
     const auditUnifieSuspension = baseLocale.prepare(
-      "SELECT action, source_table, request_id, acteur_id, acteur_role, portee_gid, cree_le, avant, apres FROM evenements_audit WHERE request_id = ? AND cible_type = 'UTILISATEUR' AND cible_id = 'usr-sila'",
+      "SELECT action, source_table, request_id, acteur_id, acteur_role, portee_gid, cree_le, avant, apres, motif FROM evenements_audit WHERE request_id = ? AND cible_type = 'UTILISATEUR' AND cible_id = 'usr-sila'",
     ).all(requestIdSuspension);
     assert.equal(auditUnifieSuspension.length, 1, "La suspension du compte doit produire un seul événement unifié.");
     assert.equal(auditUnifieSuspension[0]?.action, "SUSPENSION_COMPTE");
     assert.equal(auditUnifieSuspension[0]?.source_table, "journaux_audit");
     assert.equal(auditUnifieSuspension[0]?.request_id, requestIdSuspension,
       "L’événement unifié doit être corrélé à la requête HTTP.");
+    assert.equal(auditUnifieSuspension[0]?.motif, "Suspension de test après contrôle de sécurité.");
     assert.equal(auditUnifieSuspension[0]?.acteur_id, "usr-proprietaire");
     assert.equal(auditUnifieSuspension[0]?.acteur_role, "PROPRIETAIRE");
     assert.equal(auditUnifieSuspension[0]?.portee_gid, null);
@@ -1741,7 +1771,7 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   const invitationConsultation = await dernierCourrielPour(ligneConsultation.courriel);
   const codeActivationConsultation = invitationConsultation?.text?.match(/Code d’activation\s*:\s*([^\s]+)/iu)?.[1];
   assert.ok(codeActivationConsultation);
-  const clientConsultation = new ClientLocal();
+  let clientConsultation = new ClientLocal();
   const connexionInvitation = await clientConsultation.connexion(identifiantConsultation, codeActivationConsultation);
   assert.equal(connexionInvitation.reponse.status, 200);
   assert.equal(Reflect.get(connexionInvitation.donnees.utilisateur, "doit_changer_mot_de_passe"), true);
@@ -1753,6 +1783,17 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(sessionConsultation.donnees.utilisateur.role, "CONSULTATION_INSTITUTIONNELLE");
   assert.equal(sessionConsultation.donnees.utilisateur.perimetre_consultation, "PROVINCIAL");
   assert.deepEqual(sessionConsultation.donnees.utilisateur.provinces_autorisees, ["prov-sila"]);
+  const mutationPortee = await administrateurCentral.requete(`/api/administration/comptes/consultation/${ligneConsultation.compte_id}/perimetre`, {
+    methode: "PATCH", corps: { perimetre: "PROVINCIAL", provinces: ["prov-sila"], motif: "Confirmation du périmètre provincial de test." },
+  });
+  assert.equal(mutationPortee.reponse.status, 200);
+  assert.equal((await clientConsultation.requete("/api/auth/session")).reponse.status, 401,
+    "La modification du périmètre révoque la session avant toute requête métier suivante.");
+  const sessionConsultationApresPortee = new ClientLocal();
+  const connexionConsultationApresPortee = await sessionConsultationApresPortee.connexion(identifiantConsultation, motDePasseConsultation);
+  await terminerConnexionMfaTest(sessionConsultationApresPortee, identifiantConsultation, connexionConsultationApresPortee);
+  assert.equal((await sessionConsultationApresPortee.requete("/api/auth/session")).reponse.status, 200);
+  clientConsultation = sessionConsultationApresPortee;
   const profilConsultation = await clientConsultation.requete("/api/compte");
   assert.equal(profilConsultation.reponse.status, 200);
   const tentativeEscaladeProfil = await clientConsultation.requete("/api/compte", {
@@ -1882,8 +1923,127 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(changementCentralObligatoire.reponse.status, 200,
     "Le seul chemin d’administration autorisé durant cette obligation est le changement de mot de passe.");
 
-  const deconnexionProprietaire = await proprietaire.requete("/api/auth/deconnexion", { methode: "POST" });
-  assert.equal(deconnexionProprietaire.reponse.status, 200);
-  const sessionProprietaireTerminee = await proprietaire.requete("/api/auth/session");
-  assert.equal(sessionProprietaireTerminee.reponse.status, 401);
+  const sessionProprietaireSupplementaire = new ClientLocal();
+  const connexionProprietaireSupplementaire = await sessionProprietaireSupplementaire.connexion("proprietaire", motDePasseProprietaire);
+  await terminerConnexionMfaTest(sessionProprietaireSupplementaire, "proprietaire", connexionProprietaireSupplementaire);
+  assert.equal((await sessionProprietaireSupplementaire.requete("/api/auth/session")).reponse.status, 200);
+  const revocationAutres = await proprietaire.requete("/api/compte/sessions/revoquer-autres", { methode: "POST" });
+  assert.equal(revocationAutres.reponse.status, 200);
+  assert.ok(revocationAutres.donnees.sessions_revoquees >= 1);
+  assert.equal((await sessionProprietaireSupplementaire.requete("/api/auth/session")).reponse.status, 401,
+    "La révocation des autres sessions s’applique au prochain appel.");
+
+  const sessionProprietaireUnitaire = new ClientLocal();
+  const connexionProprietaireUnitaire = await sessionProprietaireUnitaire.connexion("proprietaire", motDePasseProprietaire);
+  await terminerConnexionMfaTest(sessionProprietaireUnitaire, "proprietaire", connexionProprietaireUnitaire);
+  const listeSessionsProprietaire = await proprietaire.requete("/api/compte/sessions");
+  const autreSession = listeSessionsProprietaire.donnees.elements.find((element) => element.session_courante === 0);
+  assert.ok(autreSession, "Le compte doit exposer sa nouvelle session dans sa liste privée.");
+  const revocationUnitaire = await proprietaire.requete(`/api/compte/sessions/${encodeURIComponent(autreSession.id)}/revoquer`, { methode: "POST" });
+  assert.equal(revocationUnitaire.reponse.status, 200);
+  assert.equal((await sessionProprietaireUnitaire.requete("/api/auth/session")).reponse.status, 401,
+    "La révocation unitaire invalide la session ciblée.");
+
+  const suspensionProprietaireSoiMeme = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-proprietaire/statut", {
+    methode: "PATCH", corps: { statut: "SUSPENDU", motif: "Tentative de suspension du compte propriétaire." },
+  });
+  assert.equal(suspensionProprietaireSoiMeme.reponse.status, 409, "Le propriétaire ne peut pas suspendre son propre compte administratif.");
+  const revocationProprietaireSoiMeme = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-proprietaire/revoquer", {
+    methode: "POST", corps: { motif: "Tentative de révocation du compte propriétaire." },
+  });
+  assert.equal(revocationProprietaireSoiMeme.reponse.status, 409, "Le propriétaire ne peut pas révoquer son propre compte.");
+
+  const revocationCompte = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-guera/revoquer", {
+    methode: "POST", corps: { motif: "Clôture administrative du compte de test Guéra." },
+  });
+  assert.equal(revocationCompte.reponse.status, 200);
+  const compteGueraRevoque = ouvrirD1Locale();
+  assert.equal(compteGueraRevoque.prepare("SELECT statut FROM utilisateurs WHERE id = 'usr-guera'").get().statut, "SUSPENDU",
+    "Le statut historique reste dans les valeurs supportées tandis que la transition REVOQUE reste terminale.");
+  assert.equal(compteGueraRevoque.prepare("SELECT nouvel_etat, motif FROM transitions_etat_compte WHERE utilisateur_id = 'usr-guera' ORDER BY cree_le DESC LIMIT 1").get().nouvel_etat, "REVOQUE");
+  compteGueraRevoque.close();
+  const reactivationInterdite = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-guera/statut", {
+    methode: "PATCH", corps: { statut: "ACTIF" },
+  });
+  assert.equal(reactivationInterdite.reponse.status, 409, "Une révocation terminale ne peut pas être annulée par une activation héritée.");
+
+  const paireCleAppareil = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const clePubliqueAppareil = await webcrypto.subtle.exportKey("jwk", paireCleAppareil.publicKey);
+  const defiAppareil = await proprietaire.requete("/api/compte/appareils/defis", {
+    methode: "POST", corps: { cle_publique_jwk: clePubliqueAppareil },
+  });
+  assert.equal(defiAppareil.reponse.status, 200);
+  const messageDefi = new TextEncoder().encode(`SIGAD-DEVICE-REGISTER:${connexionProprietaire.donnees.utilisateur.id}:${defiAppareil.donnees.id}:${defiAppareil.donnees.defi}`);
+  const signatureInvalide = await proprietaire.requete("/api/compte/appareils", {
+    methode: "POST", corps: { defi_id: defiAppareil.donnees.id, plateforme: "ANDROID", nom: "Android synthétique", signature: randomBytes(64).toString("base64url") },
+  });
+  assert.equal(signatureInvalide.reponse.status, 403, "Un identifiant ou un défi sans signature valide ne suffit pas à enregistrer un appareil.");
+  const signatureDefi = Buffer.from(await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, paireCleAppareil.privateKey, messageDefi)).toString("base64url");
+  const inscriptionAppareil = await proprietaire.requete("/api/compte/appareils", {
+    methode: "POST", corps: { defi_id: defiAppareil.donnees.id, plateforme: "ANDROID", nom: "Android synthétique", signature: signatureDefi },
+  });
+  assert.equal(inscriptionAppareil.reponse.status, 201, JSON.stringify(inscriptionAppareil.donnees));
+  assert.equal(inscriptionAppareil.donnees.statut, "EN_ATTENTE", "L’inscription ne s’autorise pas elle-même.");
+  assert.equal(Object.hasOwn(inscriptionAppareil.donnees, "appareil_id_client"), false);
+  const rejeuDefi = await proprietaire.requete("/api/compte/appareils", {
+    methode: "POST", corps: { defi_id: defiAppareil.donnees.id, plateforme: "ANDROID", nom: "Android synthétique", signature: signatureDefi },
+  });
+  assert.equal(rejeuDefi.reponse.status, 409, "Un défi consommé ne peut pas créer d’appareil supplémentaire.");
+  const appareilsProprietaire = await proprietaire.requete("/api/proprietaire/appareils");
+  assert.equal(appareilsProprietaire.reponse.status, 200);
+  assert.equal(JSON.stringify(appareilsProprietaire.donnees).includes("cle_publique_jwk"), false, "Les listes d’administration ne retournent pas les clés publiques stockées.");
+  const appareilCree = appareilsProprietaire.donnees.elements.find((element) => element.id === inscriptionAppareil.donnees.id);
+  assert.ok(appareilCree);
+  assert.equal(appareilCree.statut, "EN_ATTENTE");
+  const appareilsCentral = await administrateurCentral.requete("/api/administration/comptes/appareils");
+  assert.equal(appareilsCentral.reponse.status, 200);
+  assert.ok(appareilsCentral.donnees.elements.some((element) => element.id === inscriptionAppareil.donnees.id));
+
+  const appareilAutreCompteDb = ouvrirD1Locale();
+  appareilAutreCompteDb.prepare(`INSERT INTO appareils
+    (id, utilisateur_id, plateforme, nom, empreinte_cle, cle_publique_jwk, statut, autorise_par, autorise_le)
+    VALUES ('appareil-autre-compte-sila', 'usr-sila', 'ANDROID', 'Appareil de test Sila', ?,
+      '{"kty":"EC","crv":"P-256","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","y":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}',
+      'AUTORISE', 'usr-central', datetime('now'))`).run("c".repeat(64));
+  appareilAutreCompteDb.close();
+  const revocationAppareilAutreCompte = await proprietaire.requete("/api/compte/appareils/appareil-autre-compte-sila/revoquer", {
+    methode: "POST",
+  });
+  assert.equal(revocationAppareilAutreCompte.reponse.status, 404,
+    "Un utilisateur ne peut pas révoquer l’appareil d’un autre compte en devinant son identifiant.");
+  const appareilAutreCompteControle = ouvrirD1Locale();
+  assert.equal(appareilAutreCompteControle.prepare("SELECT statut FROM appareils WHERE id = 'appareil-autre-compte-sila'").get().statut, "AUTORISE");
+  appareilAutreCompteControle.close();
+
+  const sessionProprietaireCourante = listeSessionsProprietaire.donnees.elements.find((element) => element.session_courante === 1);
+  assert.ok(sessionProprietaireCourante);
+  const baseAppareil = ouvrirD1Locale();
+  baseAppareil.prepare(`UPDATE appareils SET statut = 'AUTORISE', autorise_par = 'usr-central', autorise_le = datetime('now') WHERE id = ?`)
+    .run(inscriptionAppareil.donnees.id);
+  baseAppareil.prepare(`UPDATE sessions SET appareil_id = ?, type = 'MOBILE' WHERE id = ? AND utilisateur_id = 'usr-proprietaire'`)
+    .run(inscriptionAppareil.donnees.id, sessionProprietaireCourante.id);
+  baseAppareil.close();
+  const revocationAppareil = await administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/revoquer`, {
+    methode: "POST", corps: { motif: "Révocation contrôlée de l’appareil synthétique." },
+  });
+  assert.equal(revocationAppareil.reponse.status, 200);
+  assert.equal((await proprietaire.requete("/api/auth/session")).reponse.status, 401, "La révocation de l’appareil coupe la session mobile associée.");
+  const auditAppareil = ouvrirD1Locale();
+  const journalAppareil = auditAppareil.prepare(`SELECT action, acteur_id, acteur_role, request_id, cible_type, cible_id, motif
+    FROM evenements_audit WHERE request_id = ?`).get(revocationAppareil.reponse.headers.get("X-Request-ID"));
+  assert.equal(journalAppareil.action, "REVOCATION_APPAREIL");
+  assert.equal(journalAppareil.acteur_id, "usr-central");
+  assert.equal(journalAppareil.acteur_role, "ADMIN_CENTRAL");
+  assert.equal(journalAppareil.cible_type, "APPAREIL");
+  assert.equal(journalAppareil.cible_id, inscriptionAppareil.donnees.id);
+  assert.equal(journalAppareil.motif, "Révocation contrôlée de l’appareil synthétique.");
+  assert.equal(auditAppareil.prepare("SELECT statut FROM appareils WHERE id = ?").get(inscriptionAppareil.donnees.id).statut, "REVOQUE");
+  assert.equal(auditAppareil.prepare("SELECT revoquee, motif_revocation FROM sessions WHERE id = ?").get(sessionProprietaireCourante.id).motif_revocation, "APPAREIL_REVOQUE");
+  auditAppareil.close();
+
+  const revocationToutesSessions = await administrateurCentral.requete("/api/compte/sessions/revoquer-toutes", { methode: "POST" });
+  assert.equal(revocationToutesSessions.reponse.status, 200);
+  assert.ok(revocationToutesSessions.donnees.sessions_revoquees >= 1);
+  assert.equal((await administrateurCentral.requete("/api/auth/session")).reponse.status, 401,
+    "La révocation globale des sessions inclut et invalide la session de son initiateur.");
 });

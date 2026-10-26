@@ -11,8 +11,8 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 39 || !fichiers.at(-1)?.startsWith("0039_")) {
-  throw new Error(`Les trente-neuf migrations versionnées, dont le correctif d’audit B2.4 0039, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 41 || !fichiers.at(-1)?.startsWith("0041_")) {
+  throw new Error(`Les quarante et une migrations versionnées, dont l’extension des sources d’audit 0041, sont requises; ${fichiers.length} trouvées.`);
 }
 
 const tablesGeoB23 = [
@@ -166,11 +166,11 @@ async function verifierBaseD1Locale() {
     const nombreTables = baseD1.prepare(
       "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')",
     ).get().total;
-    if (nombreTables !== 101) {
+    if (nombreTables !== 104) {
       const nomsTables = baseD1.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA') ORDER BY name",
       ).all().map((ligne) => ligne.name);
-      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 101 après B2.4: ${nomsTables.join(", ")}.`);
+      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 104 après B2.5: ${nomsTables.join(", ")}.`);
     }
     if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'evenements_audit'").get()) {
       throw new Error("D1 local ne contient pas le journal d’audit unifié B2.4.");
@@ -186,7 +186,8 @@ async function verifierBaseD1Locale() {
     for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa", "preuves_operateur_recuperation", "recuperations_acces_proprietaire",
       "inscriptions_delegues", "journaux_inscriptions", "verifications_courriel", "limites_inscription_publique", "decisions_comptes",
       "comptes_consultation", "perimetres_provinciaux_consultation", "demandes_reclassification_donnees", "audits_suppression_donnees_test", "file_reconciliation_r2_orphelins",
-      "profils_operationnels_terrain", "correspondances_fusions_territoriales", "audits_territoire"]) {
+      "profils_operationnels_terrain", "correspondances_fusions_territoriales", "audits_territoire",
+      "appareils", "defis_appareils", "transitions_etat_compte"]) {
       if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
         throw new Error(`D1 local ne contient pas la table technique ${table}.`);
       }
@@ -238,7 +239,7 @@ async function verifierBaseD1Locale() {
       throw new Error("D1 local: le nombre d’éléments du seed est incohérent.");
     }
     if (nombreMigrations !== fichiers.length) throw new Error(`D1 local enregistre ${nombreMigrations} migrations au lieu de ${fichiers.length}.`);
-    if (nombreIndexesD1 !== 150) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 150 index versionnés après B2.4.`);
+    if (nombreIndexesD1 !== 154) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 154 index versionnés après B2.5.`);
     if (nombreDeclencheursD1 !== 72) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des 72 déclencheurs de validation versionnés.`);
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
@@ -290,21 +291,32 @@ const colonnesAttenduesD1 = new Map([...tablesSpecification].map(([nom, champs])
 const colonnesTechniquesAttendues = new Map([
   ["defis_mfa", []],
   ["recuperations_acces_proprietaire", []],
+  ["preuves_operateur_recuperation", []],
+  ["evenements_connexion", []],
   ["operations_centrales_distribution", []],
   ["journaux_audit", []],
   ["audits_territoire", []],
   ["historique_decoupages", []],
   ["decisions_comptes", []],
   ["historique_operations_centrales", []],
+  ["appareils", ["id", "utilisateur_id", "plateforme", "nom", "empreinte_cle", "cle_publique_jwk", "statut", "autorise_par", "autorise_le", "derniere_activite", "revoque_le", "motif_revocation", "cree_le"]],
+  ["defis_appareils", ["id", "utilisateur_id", "empreinte_cle", "cle_publique_jwk", "valeur_defi", "expire_le", "consomme_le", "appareil_cree_id", "cree_le"]],
+  ["transitions_etat_compte", ["id", "utilisateur_id", "ancien_etat", "nouvel_etat", "acteur_id", "acteur_role", "motif", "request_id", "cree_le"]],
 ]);
 const colonnesTechniquesRequises = new Map([
   ["defis_mfa", ["activation_initiale", "recuperation_id"]],
+  ["preuves_operateur_recuperation", ["request_id", "adresse_ip"]],
+  ["evenements_connexion", ["request_id"]],
   ["recuperations_acces_proprietaire", []],
-  ["journaux_audit", ["request_id"]],
+  ["journaux_audit", ["request_id", "motif"]],
   ["audits_territoire", ["request_id"]],
   ["historique_decoupages", ["request_id"]],
   ["decisions_comptes", ["request_id"]],
   ["historique_operations_centrales", ["request_id"]],
+  ["sessions", ["appareil_id", "type", "motif_revocation"]],
+  ["appareils", ["id", "utilisateur_id", "plateforme", "nom", "empreinte_cle", "cle_publique_jwk", "statut", "autorise_par", "autorise_le", "derniere_activite", "revoque_le", "motif_revocation", "cree_le"]],
+  ["defis_appareils", ["id", "utilisateur_id", "empreinte_cle", "cle_publique_jwk", "valeur_defi", "expire_le", "consomme_le", "appareil_cree_id", "cree_le"]],
+  ["transitions_etat_compte", ["id", "utilisateur_id", "ancien_etat", "nouvel_etat", "acteur_id", "acteur_role", "motif", "request_id", "cree_le"]],
 ]);
 for (const correspondance of sqlMigrationsSchema.matchAll(/ALTER\s+TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ADD\s+COLUMN\s+([a-zA-Z_][a-zA-Z0-9_]*)/giu)) {
   const nomTable = correspondance[1];
@@ -332,7 +344,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 151) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 151 index attendus après B2.4.`);
+if (indexesMigrations.size !== 155) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 155 index attendus après B2.5.`);
 for (const [nom, definition] of [
   ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
   ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
@@ -409,7 +421,33 @@ const requireContenuCsvProvinces = await readFile(resolve(racine, "sources/refer
 const base = new DatabaseSync(":memory:");
 try {
   base.exec("PRAGMA foreign_keys = ON;");
-  for (const fichier of fichiers) base.exec(await readFile(resolve(dossierMigrations, fichier), "utf8"));
+  let auditAvantMigration0041 = null;
+  for (const fichier of fichiers) {
+    if (fichier.startsWith("0041_")) {
+      base.prepare(`INSERT INTO journaux_audit
+        (id, utilisateur_id, role_utilisateur, action, entite_type, entite_id, request_id)
+        VALUES ('preservation-audit-0041', 'usr-central', 'ADMIN_CENTRAL', 'TEST_PRESERVATION',
+          'TEST', 'cible-preservation-0041', 'request-preservation-0041')`).run();
+      auditAvantMigration0041 = base.prepare(`SELECT id, source_table, source_id, request_id, acteur_id,
+          acteur_role, portee_gid, appareil_id, action, cible_type, cible_id, avant, apres, motif,
+          adresse_ip, resultat, cree_le
+        FROM evenements_audit WHERE request_id = 'request-preservation-0041'`).get();
+      if (!auditAvantMigration0041) throw new Error("Le témoin d’audit pré-0041 n’a pas été créé.");
+    }
+    base.exec(await readFile(resolve(dossierMigrations, fichier), "utf8"));
+    if (fichier.startsWith("0041_")) {
+      const auditApresMigration0041 = base.prepare(`SELECT id, source_table, source_id, request_id, acteur_id,
+          acteur_identite, acteur_role, portee_gid, appareil_id, action, cible_type, cible_id, avant, apres,
+          motif, adresse_ip, resultat, cree_le
+        FROM evenements_audit WHERE request_id = 'request-preservation-0041'`).get();
+      const champsPreserves = Object.entries(auditAvantMigration0041);
+      if (!auditApresMigration0041 || auditApresMigration0041.acteur_identite !== null
+        || champsPreserves.some(([champ, valeur]) => auditApresMigration0041[champ] !== valeur)) {
+        throw new Error("La migration 0041 n’a pas conservé intégralement le témoin d’audit préexistant.");
+      }
+    }
+  }
+  if (!auditAvantMigration0041) throw new Error("La validation de conservation de l’audit 0041 n’a pas été exécutée.");
 
   const nombreTables = base.prepare(
     "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
@@ -437,7 +475,7 @@ try {
   ).get().total;
   const erreursClesEtrangeres = base.prepare("PRAGMA foreign_key_check").all();
 
-  if (nombreTables !== 101) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 101 après B2.4.`);
+  if (nombreTables !== 104) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 104 après B2.5.`);
   if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'evenements_audit'").get()) {
     throw new Error("La migration B2.4 n’a pas créé le journal d’audit unifié evenements_audit.");
   }
@@ -491,7 +529,7 @@ try {
   }
   if (nombreCategories !== 5) throw new Error(`Le référentiel contient ${nombreCategories} catégories d’aide au lieu de 5.`);
   if (nombreUnites !== 6) throw new Error(`Le référentiel contient ${nombreUnites} unités de mesure au lieu de 6.`);
-  if (nombreIndexes !== 150) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 150 index définis après B2.4.`);
+  if (nombreIndexes !== 154) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 154 index définis après B2.5.`);
   if (nombreDeclencheurs !== 72) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de 72.`);
   if (erreursClesEtrangeres.length > 0) throw new Error("La vérification des clés étrangères a détecté une incohérence.");
   verifierContraintes(base, "SQLite vierge");
@@ -502,7 +540,7 @@ try {
   const divergencesOmbre = verifierEgaliteRolesPorteesOmbre(base, "SQLite vierge");
   verifierCorrespondanceProvinces(base, "SQLite vierge");
   verifierPlansIndexation(base, "SQLite vierge");
-  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations appliquées jusqu’à ${fichiers.at(-1)?.slice(0, 4)}; ${nombreTables} tables SIGAD; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; ombre rôles/portées: ${nombreUtilisateurs - divergencesOmbre}/${nombreUtilisateurs}, zéro divergence; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations appliquées jusqu’à ${fichiers.at(-1)?.slice(0, 4)}; journal d’audit pré-0041 conservé intégralement; ${nombreTables} tables SIGAD; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; ombre rôles/portées: ${nombreUtilisateurs - divergencesOmbre}/${nombreUtilisateurs}, zéro divergence; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   if (process.argv.includes("--d1-local")) await verifierBaseD1Locale();
 } finally {
   base.close();

@@ -112,8 +112,8 @@ async function enregistrerEchecConnexion(
 ): Promise<void> {
   const evenement = c.env.DB.prepare(
     `INSERT INTO evenements_connexion
-     (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur)
-     VALUES (?, ?, ?, 0, ?, ?, ?)`,
+     (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur, request_id)
+     VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
   ).bind(
     crypto.randomUUID(),
     identifiant,
@@ -121,6 +121,7 @@ async function enregistrerEchecConnexion(
     motif,
     adresseIp(c.req.raw),
     c.req.header("User-Agent") ?? null,
+    c.get("requestId"),
   );
 
   if (!utilisateur || utilisateur.statut === "SUSPENDU") {
@@ -235,8 +236,8 @@ routesAuth.post("/recuperation-proprietaire", middlewareDiagnosticRecuperation, 
   const instructions = [
     c.env.DB.prepare(
       `INSERT INTO preuves_operateur_recuperation
-         (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le)
-       SELECT ?, ?, ?, ?, 'EMETTRE_ACTIVATION_INITIALE', ?, ?
+         (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le, request_id, adresse_ip)
+       SELECT ?, ?, ?, ?, 'EMETTRE_ACTIVATION_INITIALE', ?, ?, ?, ?
        WHERE EXISTS (
          SELECT 1 FROM utilisateurs u WHERE u.id = ? AND u.identifiant = 'proprietaire'
            AND u.role = 'PROPRIETAIRE' AND u.statut = 'ACTIF'
@@ -244,7 +245,8 @@ routesAuth.post("/recuperation-proprietaire", middlewareDiagnosticRecuperation, 
            AND NOT EXISTS (SELECT 1 FROM recuperations_acces_proprietaire r
              WHERE r.utilisateur_id = u.id AND r.terminee_le IS NULL AND r.revoquee_le IS NULL)
        )`,
-    ).bind(idPreuve, cible.id, demande.identite, demande.preuve.empreinteNonce, demande.motif, demande.preuve.expireLe, cible.id),
+    ).bind(idPreuve, cible.id, demande.identite, demande.preuve.empreinteNonce, demande.motif,
+      demande.preuve.expireLe, c.get("requestId"), adresseIp(c.req.raw), cible.id),
     c.env.DB.prepare(
       `INSERT INTO recuperations_acces_proprietaire
          (id, utilisateur_id, preuve_emission_id, activation_expire_le,
@@ -297,8 +299,8 @@ routesAuth.post("/recuperation-proprietaire", middlewareDiagnosticRecuperation, 
   definirEtapeDiagnosticRecuperation(c, "TRANSACTION_D1");
   try {
     const resultats = await c.env.DB.batch(instructions);
-    if (resultats[0]?.meta.changes !== 1 || resultats[1]?.meta.changes !== 1
-      || resultats[2]?.meta.changes !== 1 || resultats[5]?.meta.changes !== 1) {
+    if ((resultats[0]?.meta.changes ?? 0) < 1 || (resultats[1]?.meta.changes ?? 0) < 1
+      || (resultats[2]?.meta.changes ?? 0) < 1 || (resultats[5]?.meta.changes ?? 0) < 1) {
       journaliserEchecRecuperation(
         c.get("diagnosticRecuperation"),
         "RECUPERATION_NOMBRE_LIGNES_INATTENDU",
@@ -348,14 +350,15 @@ routesAuth.post("/recuperation-proprietaire/revoquer", middlewareDiagnosticRecup
     const resultats = await c.env.DB.batch([
       c.env.DB.prepare(
         `INSERT INTO preuves_operateur_recuperation
-           (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le)
-         SELECT ?, ?, ?, ?, 'REVOQUER_ACTIVATION_INITIALE', ?, ?
+           (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le, request_id, adresse_ip)
+         SELECT ?, ?, ?, ?, 'REVOQUER_ACTIVATION_INITIALE', ?, ?, ?, ?
          WHERE EXISTS (
            SELECT 1 FROM recuperations_acces_proprietaire
            WHERE id = ? AND utilisateur_id = ? AND terminee_le IS NULL AND revoquee_le IS NULL
              AND etat_activation_precedent_capture_le IS NOT NULL AND emission_confirmee_le IS NOT NULL
          )`,
-      ).bind(idPreuve, cible.id, demande.identite, demande.preuve.empreinteNonce, demande.motif, demande.preuve.expireLe, recuperation.id, cible.id),
+      ).bind(idPreuve, cible.id, demande.identite, demande.preuve.empreinteNonce, demande.motif,
+        demande.preuve.expireLe, c.get("requestId"), adresseIp(c.req.raw), recuperation.id, cible.id),
       c.env.DB.prepare(
         `UPDATE recuperations_acces_proprietaire
          SET revoquee_le = datetime('now'), preuve_revocation_id = ?
@@ -418,9 +421,9 @@ routesAuth.post("/recuperation-proprietaire/revoquer", middlewareDiagnosticRecup
          WHERE id = ? AND utilisateur_id = ? AND revocation_confirmee_le IS NOT NULL`,
       ).bind(recuperation.id, cible.id),
     ]);
-    if (resultats[0]?.meta.changes !== 1 || resultats[1]?.meta.changes !== 1
-      || resultats[2]?.meta.changes !== 1 || resultats[5]?.meta.changes !== 1
-      || resultats[6]?.meta.changes !== 1) {
+    if ((resultats[0]?.meta.changes ?? 0) < 1 || (resultats[1]?.meta.changes ?? 0) < 1
+      || (resultats[2]?.meta.changes ?? 0) < 1 || (resultats[5]?.meta.changes ?? 0) < 1
+      || (resultats[6]?.meta.changes ?? 0) < 1) {
       return c.json({ erreur: "L’activation n’a pas pu être révoquée; elle a peut-être déjà été traitée." }, 409);
     }
   } catch {
@@ -587,9 +590,10 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
          AND EXISTS (SELECT 1 FROM sessions WHERE id = ? AND recuperation_id = recuperations_acces_proprietaire.id)`,
     ).bind(idSessionActivation, utilisateur.code_activation_recuperation_id, utilisateur.id, idSessionActivation);
     const evenementActivation = c.env.DB.prepare(
-      `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur)
-       SELECT ?, ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
-    ).bind(crypto.randomUUID(), identifiant, utilisateur.id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null, idSessionActivation);
+      `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur, request_id)
+       SELECT ?, ?, ?, 1, ?, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
+    ).bind(crypto.randomUUID(), identifiant, utilisateur.id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null,
+      c.get("requestId"), idSessionActivation);
     const auditActivation = c.env.DB.prepare(
       `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, request_id)
        SELECT ?, ?, ?, ?, 'ACTIVATION_INITIALE_DEBUTEE', 'UTILISATEUR', ?, ?, ?
@@ -641,9 +645,10 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
   ).bind(utilisateur.id);
   const evenement = c.env.DB.prepare(
     `INSERT INTO evenements_connexion
-     (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur)
-     VALUES (?, ?, ?, 1, ?, ?)`,
-  ).bind(crypto.randomUUID(), identifiant, utilisateur.id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null);
+     (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur, request_id)
+     VALUES (?, ?, ?, 1, ?, ?, ?)`,
+  ).bind(crypto.randomUUID(), identifiant, utilisateur.id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null,
+    c.get("requestId"));
   const journal = creerInstructionAudit(c.env.DB, {
     utilisateur: {
       id: utilisateur.id,
@@ -1031,9 +1036,10 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
        WHERE id = ? AND EXISTS (SELECT 1 FROM sessions WHERE id = ?)`,
     ).bind(defi.utilisateur_id, idSession));
     instructions.push(c.env.DB.prepare(
-      `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur)
-       SELECT ?, ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ?)`,
-    ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null, idSession));
+      `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur, request_id)
+       SELECT ?, ?, ?, 1, ?, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ?)`,
+    ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null,
+      c.get("requestId"), idSession));
     instructions.push(c.env.DB.prepare(
       `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip, request_id)
        SELECT ?, ?, ?, ?, 'CONNEXION_MFA_REUSSIE', 'AUTHENTIFICATION_MFA', ?, ?, ?
@@ -1045,9 +1051,10 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
       await c.env.DB.batch([
         c.env.DB.prepare("UPDATE defis_mfa SET tentatives = tentatives + 1 WHERE id = ? AND consomme = 0 AND tentatives < 5").bind(defi.id),
         c.env.DB.prepare(
-          `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur)
-           VALUES (?, ?, ?, 0, 'MFA_INVALIDE_OU_REUTILISE', ?, ?)`
-        ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null),
+          `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur, request_id)
+           VALUES (?, ?, ?, 0, 'MFA_INVALIDE_OU_REUTILISE', ?, ?, ?)`
+        ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null,
+          c.get("requestId")),
       ]);
       return c.json({ erreur: "Le code MFA est invalide, expiré ou déjà utilisé." }, 401);
     }
@@ -1055,9 +1062,10 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
     await c.env.DB.batch([
       c.env.DB.prepare("UPDATE defis_mfa SET tentatives = tentatives + 1 WHERE id = ? AND consomme = 0 AND tentatives < 5").bind(defi.id),
       c.env.DB.prepare(
-        `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur)
-         VALUES (?, ?, ?, 0, 'MFA_INVALIDE_OU_REUTILISE', ?, ?)`
-      ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null),
+        `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, motif_echec, adresse_ip, agent_utilisateur, request_id)
+         VALUES (?, ?, ?, 0, 'MFA_INVALIDE_OU_REUTILISE', ?, ?, ?)`
+      ).bind(crypto.randomUUID(), defi.identifiant, defi.utilisateur_id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null,
+        c.get("requestId")),
     ]);
     return c.json({ erreur: "Le code MFA est invalide, expiré ou déjà utilisé." }, 401);
   }

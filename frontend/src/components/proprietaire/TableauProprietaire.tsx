@@ -109,11 +109,15 @@ export function TableauProprietaire({ jetonCsrf }: TableauProprietaireProps) {
 
   async function modifierStatut(utilisateur: UtilisateurAdmin): Promise<void> {
     const statut = utilisateur.statut === "SUSPENDU" ? "ACTIF" : "SUSPENDU";
+    const motif = statut === "SUSPENDU"
+      ? window.prompt("Motif obligatoire (10 à 500 caractères) pour suspendre ce compte.")?.trim()
+      : undefined;
+    if (statut === "SUSPENDU" && (!motif || motif.length < 10 || motif.length > 500)) return;
     try {
       await requeteApi<{ message: string }>(`/api/proprietaire/utilisateurs/${encodeURIComponent(utilisateur.id)}/statut`, {
         methode: "PATCH",
         jetonCsrf,
-        corps: { statut },
+        corps: { statut, ...(motif ? { motif } : {}) },
       });
       await chargerDonnees();
     } catch (cause) {

@@ -60,9 +60,14 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
             pot.entrepot_id AS entrepot_id_effectif
      FROM sessions AS s
      INNER JOIN utilisateurs AS u ON u.id = s.utilisateur_id
+     LEFT JOIN appareils a ON a.id = s.appareil_id AND a.utilisateur_id = s.utilisateur_id
      LEFT JOIN comptes_consultation cc ON cc.utilisateur_id = u.id
      LEFT JOIN profils_operationnels_terrain pot ON pot.utilisateur_id = u.id AND pot.statut = 'ACTIF'
-     WHERE s.jeton_hash = ? AND s.revoquee = 0 AND s.expire_le > datetime('now')`,
+     WHERE s.jeton_hash = ? AND s.revoquee = 0 AND s.expire_le > datetime('now')
+       AND (s.type = 'WEB' OR (s.type = 'MOBILE' AND a.statut = 'AUTORISE'))
+       AND (s.appareil_id IS NULL OR a.statut = 'AUTORISE')
+       AND NOT EXISTS (SELECT 1 FROM transitions_etat_compte tec
+         WHERE tec.utilisateur_id = u.id AND tec.nouvel_etat IN ('REVOQUE', 'ARCHIVE'))`,
   )
     .bind(empreinte)
     .first<{

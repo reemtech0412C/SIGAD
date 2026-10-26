@@ -17,4 +17,5 @@ export const schemaChangementMotDePasseInitial = z.object({
 
 export const schemaStatutUtilisateur = z.object({
   statut: z.enum(["ACTIF", "SUSPENDU"]),
+  motif: z.string().trim().min(10, "Le motif doit comporter au moins 10 caractères.").max(500, "Le motif est trop long.").optional(),
 });
