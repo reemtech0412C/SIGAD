@@ -1,12 +1,58 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { copyFileSync } from "node:fs";
 
-const DB_SOURCE = "tests/fixtures/pre-recette-staging-run.sqlite";
-const DB_TEST = "tests/fixtures/test-recherche-500.sqlite";
-copyFileSync(DB_SOURCE, DB_TEST);
+const dbSync = new DatabaseSync(":memory:");
+dbSync.exec(`
+  CREATE TABLE provinces (id TEXT PRIMARY KEY, nom TEXT NOT NULL, code TEXT, actif INTEGER NOT NULL, chef_lieu TEXT);
+  CREATE TABLE departements (id TEXT PRIMARY KEY, nom TEXT NOT NULL, code TEXT, province_id TEXT NOT NULL, statut_validation TEXT, source_officielle TEXT, chef_lieu TEXT);
+  CREATE TABLE sous_prefectures (id TEXT PRIMARY KEY, nom TEXT NOT NULL, code TEXT, departement_id TEXT NOT NULL);
+  CREATE TABLE communes (id TEXT PRIMARY KEY, nom TEXT NOT NULL, code TEXT, province_id TEXT NOT NULL, statut_validation TEXT, source_officielle TEXT);
+  CREATE TABLE cantons (id TEXT PRIMARY KEY, nom TEXT NOT NULL, departement_id TEXT, sous_prefecture_id TEXT, statut_validation TEXT);
+  CREATE TABLE localites (id TEXT PRIMARY KEY, nom TEXT NOT NULL, type_localite TEXT, province_id TEXT NOT NULL, departement_id TEXT, sous_prefecture_id TEXT, statut_validation TEXT, source_documentation TEXT);
+  CREATE TABLE arrondissements (id TEXT PRIMARY KEY, nom TEXT NOT NULL, code TEXT, localite_id TEXT NOT NULL, statut_validation TEXT);
+  CREATE TABLE quartiers (id TEXT PRIMARY KEY, nom TEXT NOT NULL, localite_id TEXT NOT NULL, arrondissement_id TEXT, statut_validation TEXT);
+  CREATE TABLE carres (id TEXT PRIMARY KEY, type_subdivision TEXT, code_ou_nom TEXT, quartier_id TEXT, statut_validation TEXT);
+  CREATE TABLE sites_humanitaires (id TEXT PRIMARY KEY, nom TEXT NOT NULL, code_site TEXT, province_id TEXT NOT NULL, departement_id TEXT, sous_prefecture_id TEXT, statut_validation TEXT);
+`);
 
-const dbSync = new DatabaseSync(DB_TEST);
+const insererProvince = dbSync.prepare("INSERT INTO provinces (id, nom, code, actif, chef_lieu) VALUES (?, ?, ?, ?, ?)");
+insererProvince.run("prov-ndjamena", "A Ndjamena K", "KPROV-NDJ", 1, "Ndjamena");
+insererProvince.run("prov-sila", "Z Sila", "KPROV-SI", 1, "Goz Beida");
+
+const insererDepartement = dbSync.prepare(`
+  INSERT INTO departements (id, nom, code, province_id, statut_validation, source_officielle, chef_lieu)
+  VALUES (?, ?, ?, ?, 'VALIDE', 'Fixture de recherche synthétique', ?)
+`);
+for (let index = 1; index <= 112; index += 1) {
+  const numero = String(index).padStart(3, "0");
+  const nom = index === 1 ? "Barh Ker 001" : `Departement Kero ${numero}`;
+  insererDepartement.run(`dep-test-${numero}`, nom, `KDEP-${numero}`, "prov-ndjamena", `Kero ${numero}`);
+}
+
+const insererCommune = dbSync.prepare(`
+  INSERT INTO communes (id, nom, code, province_id, statut_validation, source_officielle)
+  VALUES (?, ?, ?, 'prov-ndjamena', 'PROPOSE', 'Fixture de recherche synthétique')
+`);
+for (let index = 1; index <= 500; index += 1) {
+  const numero = String(index).padStart(3, "0");
+  insererCommune.run(`com-test-${numero}`, `Commune Ker ${numero}`, `KCOM-${numero}`);
+}
+
+dbSync.exec(`
+  INSERT INTO sous_prefectures (id, nom, code, departement_id) VALUES ('sp-test-1', 'A Sous-prefecture K', 'KSP-1', 'dep-test-001');
+  INSERT INTO localites (id, nom, type_localite, province_id, departement_id, sous_prefecture_id, statut_validation, source_documentation)
+    VALUES ('loc-test-1', 'A Localite K', 'VILLE', 'prov-ndjamena', 'dep-test-001', 'sp-test-1', 'VALIDE', 'Fixture synthétique');
+  INSERT INTO arrondissements (id, nom, code, localite_id, statut_validation)
+    VALUES ('arr-test-1', 'A Arrondissement K', 'KARR-1', 'loc-test-1', 'VALIDE');
+  INSERT INTO quartiers (id, nom, localite_id, arrondissement_id, statut_validation)
+    VALUES ('qrt-test-1', 'A Quartier K', 'loc-test-1', 'arr-test-1', 'VALIDE');
+  INSERT INTO carres (id, type_subdivision, code_ou_nom, quartier_id, statut_validation)
+    VALUES ('car-test-1', 'CARRE', 'KCAR-1', 'qrt-test-1', 'VALIDE');
+  INSERT INTO cantons (id, nom, departement_id, sous_prefecture_id, statut_validation)
+    VALUES ('can-test-1', 'A Canton K', 'dep-test-001', 'sp-test-1', 'VALIDE');
+  INSERT INTO sites_humanitaires (id, nom, code_site, province_id, departement_id, sous_prefecture_id, statut_validation)
+    VALUES ('site-test-1', 'A Site K', 'KSITE-1', 'prov-ndjamena', 'dep-test-001', 'sp-test-1', 'VALIDE');
+`);
 
 function wrapD1(syncDb) {
   return {
@@ -43,6 +89,8 @@ function wrapD1(syncDb) {
 
 const db = wrapD1(dbSync);
 const { rechercherUnitesTerritoriales } = await import("../../backend/src/services/administration-territoriale.service.ts");
+
+afterAll(() => dbSync.close());
 
 describe("SIGAD — Correction HTTP 500 Recherche Territoriale", () => {
   // Les 4 requêtes en échec lors de l'incident
