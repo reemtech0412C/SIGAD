@@ -40,7 +40,7 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
               WHEN pot.statut = 'REVOQUE' THEN 'SUSPENDU'
               ELSE u.statut
             END AS statut_effectif,
-            COALESCE(u.province_id, pot.province_id) AS province_id_effectif,
+            CASE WHEN pot.id IS NOT NULL THEN pot.province_id ELSE u.province_id END AS province_id_effectif,
             pot.entrepot_id AS entrepot_id_effectif
      FROM sessions AS s
      INNER JOIN utilisateurs AS u ON u.id = s.utilisateur_id

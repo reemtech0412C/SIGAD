@@ -5,7 +5,9 @@ import { join } from "node:path";
 import {
   creerUniteTerritorialeDynamique,
   ErreurCreationTerritorialeDynamique,
+  construireFiltreSQLPorteeLocalite,
   listerPage,
+  resoudrePorteeTerritoriale,
 } from "../../backend/src/services/territoire.service.ts";
 import {
   obtenirTableauDeBordTerritorial,
@@ -15,6 +17,42 @@ import {
 import { Hono } from "hono";
 import { isolationProvinciale } from "../../backend/src/middlewares/rbac.middleware.ts";
 import { routesTerritoire } from "../../backend/src/routes/territoire.routes.ts";
+
+describe("portée territoriale des rôles provinciaux", () => {
+  it.each(["RESPONSABLE_STOCK", "SUPERVISEUR_TERRAIN", "AGENT_DISTRIBUTION", "DELEGUE_PROVINCIAL"])(
+    "%s est limité à sa province et refusé sans portée valide",
+    (role) => {
+      const utilisateur = { role, province_id: "prov-sila" };
+      expect(resoudrePorteeTerritoriale(utilisateur)).toEqual({ autorisee: true, province_id: "prov-sila" });
+      expect(resoudrePorteeTerritoriale(utilisateur, "prov-ndjamena")).toEqual({ autorisee: false, province_id: null });
+      expect(resoudrePorteeTerritoriale({ role, province_id: null })).toEqual({ autorisee: false, province_id: null });
+      expect(resoudrePorteeTerritoriale({ role, province_id: "" })).toEqual({ autorisee: false, province_id: null });
+    },
+  );
+
+  it("préserve la portée nationale centrale", () => {
+    expect(resoudrePorteeTerritoriale({ role: "ADMIN_CENTRAL", province_id: null })).toEqual({
+      autorisee: true,
+      province_id: null,
+    });
+  });
+
+  it("refuse un responsable de stock sans entrepôt géographiquement affecté", () => {
+    const utilisateur = { role: "RESPONSABLE_STOCK", province_id: "prov-sila" };
+    expect(construireFiltreSQLPorteeLocalite(utilisateur, "arrondissements.localite_id").autorisee).toBe(false);
+    expect(construireFiltreSQLPorteeLocalite(
+      { ...utilisateur, entrepot_id: "ent-sila" },
+      "arrondissements.localite_id",
+    )).toMatchObject({
+      autorisee: true,
+      valeurs: ["ent-sila", "prov-sila"],
+    });
+    expect(construireFiltreSQLPorteeLocalite(
+      { ...utilisateur, entrepot_id: "ent-sila" },
+      "arrondissements.localite_id",
+    ).clause).toContain("e.localite_id = arrondissements.localite_id");
+  });
+});
 
 function wrapD1(syncDb) {
   return {

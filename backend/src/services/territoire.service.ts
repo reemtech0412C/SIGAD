@@ -1,4 +1,5 @@
 import type { UtilisateurSession } from "../bindings";
+import { ROLES_TERRAIN } from "../../../shared/constantes/roles";
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
 import type { ReponseAjoutDynamiqueTerritoire } from "../../../shared/types/territoire";
 import type { DonneesAjoutDynamiqueUniteTerritoriale } from "../../../shared/validations/territoire";
@@ -30,6 +31,12 @@ export type TypeRessourceTerritoriale =
 export interface PorteeTerritoriale {
   autorisee: boolean;
   province_id: string | null;
+}
+
+export interface FiltreSQLPorteeLocalite {
+  autorisee: boolean;
+  clause: string;
+  valeurs: readonly string[];
 }
 
 export class ErreurCreationTerritorialeDynamique extends Error {
@@ -70,13 +77,41 @@ export function resoudrePorteeTerritoriale(
   utilisateur: UtilisateurSession,
   provinceDemandee?: string,
 ): PorteeTerritoriale {
-  if (utilisateur.role === "DELEGUE_PROVINCIAL") {
+  if (utilisateur.role === "DELEGUE_PROVINCIAL" || (ROLES_TERRAIN as readonly string[]).includes(utilisateur.role)) {
     if (!utilisateur.province_id || (provinceDemandee && provinceDemandee !== utilisateur.province_id)) {
       return { autorisee: false, province_id: null };
     }
     return { autorisee: true, province_id: utilisateur.province_id };
   }
   return { autorisee: true, province_id: provinceDemandee ?? null };
+}
+
+export function construireFiltreSQLPorteeLocalite(
+  utilisateur: UtilisateurSession,
+  expressionLocalite: string,
+): FiltreSQLPorteeLocalite {
+  const portee = resoudrePorteeTerritoriale(utilisateur);
+  if (!portee.autorisee) return { autorisee: false, clause: "", valeurs: [] };
+
+  if (utilisateur.role === "RESPONSABLE_STOCK") {
+    if (!utilisateur.entrepot_id || !portee.province_id) return { autorisee: false, clause: "", valeurs: [] };
+    return {
+      autorisee: true,
+      clause: `AND EXISTS (
+        SELECT 1 FROM entrepots e
+        WHERE e.id = ? AND e.localite_id = ${expressionLocalite}
+          AND e.province_id = ? AND e.niveau = 'PROVINCIAL' AND e.actif = 1
+      )`,
+      valeurs: [utilisateur.entrepot_id, portee.province_id],
+    };
+  }
+
+  if (!portee.province_id) return { autorisee: true, clause: "", valeurs: [] };
+  return {
+    autorisee: true,
+    clause: `AND EXISTS (SELECT 1 FROM localites l WHERE l.id = ${expressionLocalite} AND l.province_id = ?)`,
+    valeurs: [portee.province_id],
+  };
 }
 
 export async function lireProvinceRessource(
@@ -118,8 +153,26 @@ export async function verifierPorteeRessource(
 ): Promise<boolean> {
   const provinceId = await lireProvinceRessource(db, type, identifiant);
   if (!provinceId) return false;
-  if (utilisateur.role !== "DELEGUE_PROVINCIAL") return true;
-  return utilisateur.province_id !== null && utilisateur.province_id === provinceId;
+  if (!resoudrePorteeTerritoriale(utilisateur, provinceId).autorisee) return false;
+  if (utilisateur.role !== "RESPONSABLE_STOCK") return true;
+  if (!utilisateur.entrepot_id) return false;
+
+  const requetesLocalite: Partial<Record<TypeRessourceTerritoriale, string>> = {
+    localite: "SELECT id AS localite_id FROM localites WHERE id = ?",
+    arrondissement: "SELECT localite_id FROM arrondissements WHERE id = ?",
+    quartier: "SELECT localite_id FROM quartiers WHERE id = ?",
+    carre: `SELECT q.localite_id FROM carres ca
+      INNER JOIN quartiers q ON q.id = ca.quartier_id WHERE ca.id = ?`,
+  };
+  const requeteLocalite = requetesLocalite[type];
+  if (!requeteLocalite) return false;
+  const ligneLocalite = await db.prepare(requeteLocalite).bind(identifiant).first<{ localite_id: string }>();
+  if (!ligneLocalite?.localite_id) return false;
+  const entrepot = await db.prepare(
+    `SELECT 1 AS autorise FROM entrepots
+     WHERE id = ? AND localite_id = ? AND province_id = ? AND niveau = 'PROVINCIAL' AND actif = 1`,
+  ).bind(utilisateur.entrepot_id, ligneLocalite.localite_id, provinceId).first<{ autorise: number }>();
+  return Boolean(entrepot);
 }
 
 export async function lireLocalitePourSelection(
@@ -137,15 +190,13 @@ export async function lireLocalitePourSelection(
   mode_decoupage_urbain: string;
   statut_validation: string;
 } | null> {
-  const portee = resoudrePorteeTerritoriale(utilisateur);
-  if (!portee.autorisee) return null;
-  const provinceFilter = portee.province_id ? "AND province_id = ?" : "";
-  const valeurs = portee.province_id ? [identifiant, portee.province_id] : [identifiant];
+  const filtrePortee = construireFiltreSQLPorteeLocalite(utilisateur, "localites.id");
+  if (!filtrePortee.autorisee) return null;
   return db.prepare(
     `SELECT id, province_id, departement_id, sous_prefecture_id, commune_id,
             nom, type_localite, mode_decoupage_urbain, statut_validation
-     FROM localites WHERE id = ? ${provinceFilter}`,
-  ).bind(...valeurs).first();
+     FROM localites WHERE id = ? ${filtrePortee.clause}`,
+  ).bind(identifiant, ...filtrePortee.valeurs).first();
 }
 
 export async function creerUniteTerritorialeDynamique(

@@ -319,10 +319,44 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
 
     const provincesARestaurer = [];
     const resultatsSondesValides = [];
+    const resultatsPorteeAutorisee = [];
+    const resultatsAffectationEntrepot = [];
+    const lecturesCentrales = [];
     const idCarreProbe = "b21-carre-probe-ndjamena";
+    const idLocaliteProbe = "b21-localite-probe-sila";
+    const idLocaliteHorsEntrepotProbe = "b21-localite-hors-entrepot-sila";
+    const idArrondissementProbe = "b21-arrondissement-probe-sila";
+    const idArrondissementProbe2 = "b21-arrondissement-probe-sila-2";
+    const idArrondissementHorsEntrepotProbe = "b21-arrondissement-hors-entrepot-sila";
+    const idQuartierProbe = "b21-quartier-probe-sila";
+    const idQuartierProbe2 = "b21-quartier-probe-sila-2";
+    const idQuartierHorsEntrepotProbe = "b21-quartier-hors-entrepot-sila";
+    const idEntrepotProbe = "b21-entrepot-probe-sila";
+    const idCarreHorsEntrepotProbe = "b21-carre-hors-entrepot-sila";
     try {
+      base.prepare(`INSERT INTO localites
+        (id, province_id, departement_id, nom, type_localite, mode_decoupage_urbain, statut_validation, provenance, source_documentation)
+        VALUES (?, 'prov-sila', 'dep-sila-kimiti', 'Ville temporaire B2.1', 'VILLE', 'AVEC_ARRONDISSEMENTS', 'VALIDE', 'AJOUT_DYNAMIQUE', 'fixture integration'),
+               (?, 'prov-sila', 'dep-sila-kimiti', 'Ville temporaire hors entrepôt B2.1', 'VILLE', 'AVEC_ARRONDISSEMENTS', 'VALIDE', 'AJOUT_DYNAMIQUE', 'fixture integration')`)
+        .run(idLocaliteProbe, idLocaliteHorsEntrepotProbe);
+      base.prepare(`INSERT INTO arrondissements (id, localite_id, nom, statut_validation)
+        VALUES (?, ?, 'Arrondissement temporaire 1', 'VALIDE'), (?, ?, 'Arrondissement temporaire 2', 'VALIDE'),
+               (?, ?, 'Arrondissement temporaire hors entrepôt', 'VALIDE')`)
+        .run(idArrondissementProbe, idLocaliteProbe, idArrondissementProbe2, idLocaliteProbe,
+          idArrondissementHorsEntrepotProbe, idLocaliteHorsEntrepotProbe);
+      base.prepare(`INSERT INTO quartiers (id, localite_id, arrondissement_id, nom, possede_carres, statut_validation)
+        VALUES (?, ?, ?, 'Quartier temporaire 1', 0, 'VALIDE'), (?, ?, ?, 'Quartier temporaire 2', 0, 'VALIDE'),
+               (?, ?, ?, 'Quartier temporaire hors entrepôt', 0, 'VALIDE')`)
+        .run(idQuartierProbe, idLocaliteProbe, idArrondissementProbe, idQuartierProbe2, idLocaliteProbe, idArrondissementProbe,
+          idQuartierHorsEntrepotProbe, idLocaliteHorsEntrepotProbe, idArrondissementHorsEntrepotProbe);
+      base.prepare(`INSERT INTO entrepots (id, code_entrepot, nom, niveau, province_id, localite_id, actif)
+        VALUES (?, 'B21-ENT-SILA-PROBE', 'Entrepôt temporaire B2.1', 'PROVINCIAL', 'prov-sila', ?, 1)`)
+        .run(idEntrepotProbe, idLocaliteProbe);
       base.prepare(`INSERT INTO carres (id, quartier_id, code_ou_nom, statut_validation)
         VALUES (?, 'qrt-ndj-1-farcha', 'Sonde temporaire B2.1', 'VALIDE')`).run(idCarreProbe);
+      base.prepare(`INSERT INTO carres (id, quartier_id, code_ou_nom, statut_validation)
+        VALUES (?, ?, 'Carré temporaire hors entrepôt', 'VALIDE')`)
+        .run(idCarreHorsEntrepotProbe, idQuartierHorsEntrepotProbe);
       assert.ok(base.prepare(`SELECT c.id FROM carres c INNER JOIN quartiers q ON q.id = c.quartier_id
         INNER JOIN localites l ON l.id = q.localite_id
         WHERE c.id = ? AND c.statut_validation = 'VALIDE' AND l.province_id = 'prov-ndjamena'`).get(idCarreProbe),
@@ -331,20 +365,104 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
         const compte = comptes.find((element) => element.roleCaractérisation === role);
         assert.ok(compte, `Le compte de test de ${role} est requis pour les sondes géographiques.`);
         const utilisateur = base.prepare("SELECT province_id FROM utilisateurs WHERE id = ?").get(compte.id);
-        const profil = base.prepare(`SELECT id, province_id FROM profils_operationnels_terrain
+        const profil = base.prepare(`SELECT id, province_id, entrepot_id FROM profils_operationnels_terrain
           WHERE utilisateur_id = ? AND role_terrain = ? AND statut = 'ACTIF'`).get(compte.id, role);
         assert.ok(utilisateur && profil, `Le compte et le profil ${role} doivent exister dans la D1 temporaire.`);
-        provincesARestaurer.push({ utilisateurId: compte.id, provinceUtilisateur: utilisateur.province_id, profilId: profil.id, provinceProfil: profil.province_id });
-        if (utilisateur.province_id === "prov-ndjamena" || profil.province_id === "prov-ndjamena") {
-          base.prepare("UPDATE utilisateurs SET province_id = 'prov-sila' WHERE id = ?").run(compte.id);
-          base.prepare("UPDATE profils_operationnels_terrain SET province_id = 'prov-sila' WHERE id = ?").run(profil.id);
-        }
+        provincesARestaurer.push({ profileId: profil.id, provinceProfil: profil.province_id, entrepotProfil: profil.entrepot_id });
+        base.prepare(`UPDATE profils_operationnels_terrain SET province_id = 'prov-sila',
+          entrepot_id = CASE WHEN role_terrain = 'RESPONSABLE_STOCK' THEN ? ELSE entrepot_id END
+          WHERE id = ?`).run(idEntrepotProbe, profil.id);
       }
+      assert.ok(comptes.some((compte) => rolesTerrain.has(compte.roleCaractérisation) && compte.province_id !== "prov-sila"),
+        "Les fixtures doivent conserver au moins un écart entre province du compte et province du profil attribué.");
 
-      for (const role of [...rolesTerrain, "CONSULTATION_INSTITUTIONNELLE"]) {
+      for (const role of [...rolesTerrain, "CONSULTATION_INSTITUTIONNELLE", "DELEGUE_PROVINCIAL", "ADMIN_CENTRAL"]) {
         const client = clients.get(role);
         await client.connecter(client.identifiantConnexion, client.motDePasseConnexion);
       }
+
+      for (const role of rolesTerrain) {
+        const client = clients.get(role);
+        const arrondissementsLocaux = await client.requete(
+          `/api/territoire/arrondissements?localite_id=${idLocaliteProbe}&limite=1`,
+        );
+        assert.equal(arrondissementsLocaux.reponse.status, 200, `${role} doit lire son arrondissement autorisé.`);
+        assert.equal(arrondissementsLocaux.donnees?.total, 2, `${role} ne doit compter que les arrondissements autorisés.`);
+        assert.equal(arrondissementsLocaux.donnees?.elements?.length, 1, `${role} doit respecter la pagination des arrondissements.`);
+
+        const quartiersLocaux = await client.requete(
+          `/api/territoire/quartiers?localite_id=${idLocaliteProbe}&arrondissement_id=${idArrondissementProbe}&limite=1`,
+        );
+        assert.equal(quartiersLocaux.reponse.status, 200, `${role} doit lire son quartier autorisé.`);
+        assert.equal(quartiersLocaux.donnees?.total, 2, `${role} ne doit compter que les quartiers autorisés.`);
+        assert.equal(quartiersLocaux.donnees?.elements?.length, 1, `${role} doit respecter la pagination des quartiers.`);
+        resultatsPorteeAutorisee.push({
+          role,
+          arrondissements: { statut: arrondissementsLocaux.reponse.status, total: arrondissementsLocaux.donnees.total, page: arrondissementsLocaux.donnees.elements.length },
+          quartiers: { statut: quartiersLocaux.reponse.status, total: quartiersLocaux.donnees.total, page: quartiersLocaux.donnees.elements.length },
+        });
+
+        const localiteHorsEntrepot = await client.requete(
+          `/api/territoire/arrondissements?localite_id=${idLocaliteHorsEntrepotProbe}&limite=1`,
+        );
+        if (role === "RESPONSABLE_STOCK") {
+          assert.equal(localiteHorsEntrepot.reponse.status, 404, "Le responsable de stock doit rester limité à la localité de son entrepôt.");
+          assert.equal(localiteHorsEntrepot.donnees?.total, undefined);
+          const quartierHorsEntrepot = await client.requete(
+            `/api/territoire/carres?quartier_id=${idQuartierHorsEntrepotProbe}&limite=1`,
+          );
+          assert.equal(quartierHorsEntrepot.reponse.status, 404, "Un identifiant de quartier d’une autre localité ne doit pas contourner l’affectation du stock.");
+          assert.equal(quartierHorsEntrepot.donnees?.total, undefined);
+          resultatsAffectationEntrepot.push({
+            lectureLocaliteAffectee: { statut: arrondissementsLocaux.reponse.status, total: arrondissementsLocaux.donnees.total },
+            lectureAutreLocalite: { statut: localiteHorsEntrepot.reponse.status, total: localiteHorsEntrepot.donnees?.total ?? null },
+            lectureQuartierParIdExterne: { statut: quartierHorsEntrepot.reponse.status, total: quartierHorsEntrepot.donnees?.total ?? null },
+          });
+        } else {
+          assert.equal(localiteHorsEntrepot.reponse.status, 200, `${role} conserve sa portée provinciale explicite.`);
+          assert.equal(localiteHorsEntrepot.donnees?.total, 1);
+        }
+
+        const provinceForcee = await client.requete(
+          `/api/territoire/arrondissements?localite_id=${idLocaliteProbe}&province_id=prov-ndjamena`,
+        );
+        assert.equal(provinceForcee.reponse.status, 403, `${role} ne doit pas élargir sa portée via province_id.`);
+
+        const arrondissementForge = await client.requete(
+          `/api/territoire/quartiers?localite_id=${idLocaliteProbe}&arrondissement_id=arr-ndj-1`,
+        );
+        assert.equal(arrondissementForge.reponse.status, 400, `${role} ne doit pas utiliser l’identifiant d’un arrondissement extérieur.`);
+        assert.equal(arrondissementForge.donnees?.total, undefined, "Le rejet d'un identifiant extérieur ne doit révéler aucun total.");
+      }
+
+      const delegue = clients.get("DELEGUE_PROVINCIAL");
+      const delegueLocal = await delegue.requete(
+        `/api/territoire/arrondissements?localite_id=${idLocaliteProbe}&limite=1`,
+      );
+      assert.equal(delegueLocal.reponse.status, 200, "Le délégué Sila conserve la lecture dans sa province.");
+      assert.equal(delegueLocal.donnees?.total, 2);
+      const delegueExterieur = await delegue.requete(
+        "/api/territoire/arrondissements?localite_id=loc-ndjamena-ville&limite=1",
+      );
+      assert.equal(delegueExterieur.reponse.status, 404, "Le délégué Sila reste isolé de N’Djamena.");
+      assert.equal(delegueExterieur.donnees?.total, undefined);
+
+      const central = clients.get("ADMIN_CENTRAL");
+      for (const localiteId of [idLocaliteProbe, "loc-ndjamena-ville"]) {
+        const lectureCentrale = await central.requete(
+          `/api/territoire/arrondissements?localite_id=${localiteId}&limite=1`,
+        );
+        assert.equal(lectureCentrale.reponse.status, 200, "L’administration centrale conserve son accès national.");
+        assert.ok(lectureCentrale.donnees?.total >= 1);
+        lecturesCentrales.push({ localite: localiteId, statut: lectureCentrale.reponse.status, total: lectureCentrale.donnees.total });
+      }
+      console.log(`ISOLEMENT_GEO_B2_1 ${JSON.stringify({
+        porteeProfilPrioritaire: true,
+        lecturesTerrainAutorisees: resultatsPorteeAutorisee,
+        delegationSila: { statutLocal: delegueLocal.reponse.status, totalLocal: delegueLocal.donnees?.total, statutHorsPortee: delegueExterieur.reponse.status },
+        administrationCentrale: lecturesCentrales,
+        affectationEntrepot: resultatsAffectationEntrepot,
+      })}`);
 
       const sondesTerritoriales = [
         ["arrondissements", "/api/territoire/arrondissements?localite_id=loc-ndjamena-ville"],
@@ -361,8 +479,13 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
             statut: resultat.reponse.status,
             erreur: resultat.donnees?.erreur ?? null,
             lignes: Array.isArray(resultat.donnees?.elements) ? resultat.donnees.elements.length : null,
-            resultatAttendu: nom === "carres" ? "REFUS_INTERPROVINCIAL_404" : "REFUS_INTERPROVINCIAL",
+            resultatAttendu: "REFUS_INTERPROVINCIAL_404",
           });
+          if (["arrondissements", "quartiers", "carres"].includes(nom)) {
+            assert.equal(resultat.donnees?.total, undefined, `${role}/${nom}: le refus hors province ne doit pas révéler de total.`);
+            assert.ok(!Array.isArray(resultat.donnees?.elements) || resultat.donnees.elements.length === 0,
+              `${role}/${nom}: le refus hors province ne doit pas révéler de ressources.`);
+          }
         }
         const referentiel = await client.requete("/api/distributions/referentiels?type=articles");
         resultatsSondesValides.push({ role, sonde: "referentiels-distribution", statut: referentiel.reponse.status, resultatAttendu: "REFUS_ROLE" });
@@ -395,12 +518,12 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
       const refusInattendus = resultatsSondesValides.filter((sonde) => {
         if (sonde.sonde === "export-rapport-non-sensible") return sonde.statut !== 200;
         if (sonde.sonde === "export-rapport-sensible") return sonde.statut !== 403;
-        if (sonde.sonde === "carres") return sonde.statut !== 404;
+        if (["carres", "arrondissements", "quartiers"].includes(sonde.sonde)) return sonde.statut !== 404;
         return sonde.statut !== 403;
       });
       assert.deepEqual(refusInattendus, [],
         "Les requêtes valides doivent respecter les refus de rôle et de province caractérisés; examiner toute réponse différente avant de modifier la matrice.");
-      for (const role of [...rolesTerrain, "CONSULTATION_INSTITUTIONNELLE"]) {
+      for (const role of [...rolesTerrain, "CONSULTATION_INSTITUTIONNELLE", "DELEGUE_PROVINCIAL", "ADMIN_CENTRAL"]) {
         const client = clients.get(role);
         const deconnexion = await client.requete("/api/auth/deconnexion", {
           methode: "POST", corps: {}, cleIdempotence: `b21-role-probe-logout-${role}-0001`,
@@ -409,10 +532,15 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
       }
     } finally {
       base.prepare("DELETE FROM carres WHERE id = ?").run(idCarreProbe);
+      base.prepare("DELETE FROM carres WHERE id = ?").run(idCarreHorsEntrepotProbe);
       for (const valeur of provincesARestaurer) {
-        base.prepare("UPDATE profils_operationnels_terrain SET province_id = ? WHERE id = ?").run(valeur.provinceProfil, valeur.profilId);
-        base.prepare("UPDATE utilisateurs SET province_id = ? WHERE id = ?").run(valeur.provinceUtilisateur, valeur.utilisateurId);
+        base.prepare("UPDATE profils_operationnels_terrain SET province_id = ?, entrepot_id = ? WHERE id = ?")
+          .run(valeur.provinceProfil, valeur.entrepotProfil, valeur.profileId);
       }
+      base.prepare("DELETE FROM entrepots WHERE id = ?").run(idEntrepotProbe);
+      base.prepare("DELETE FROM quartiers WHERE id IN (?, ?, ?)").run(idQuartierProbe, idQuartierProbe2, idQuartierHorsEntrepotProbe);
+      base.prepare("DELETE FROM arrondissements WHERE id IN (?, ?, ?)").run(idArrondissementProbe, idArrondissementProbe2, idArrondissementHorsEntrepotProbe);
+      base.prepare("DELETE FROM localites WHERE id IN (?, ?)").run(idLocaliteProbe, idLocaliteHorsEntrepotProbe);
     }
   } finally {
     for (const id of profilsAjoutes) await base.prepare("DELETE FROM profils_operationnels_terrain WHERE id = ?").run(id);

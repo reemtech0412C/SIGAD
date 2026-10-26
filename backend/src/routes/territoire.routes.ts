@@ -4,6 +4,7 @@ import { creerInstructionAudit } from "../middlewares/audit.middleware";
 import { ROLES_PROPOSITION_MODIFICATION_TERRITORIALE } from "../../../shared/constantes/roles";
 import {
   creerUniteTerritorialeDynamique,
+  construireFiltreSQLPorteeLocalite,
   ErreurCreationTerritorialeDynamique,
   listerPage,
   lireLocalitePourSelection,
@@ -299,21 +300,20 @@ routesTerritoire.get("/localites/:id", async (c) => {
 routesTerritoire.get("/arrondissements", async (c) => {
   const filtres = lireFiltres(c);
   if (!filtres || !filtres.localite_id) return reponsePaginationInvalide(c);
+  const filtrePortee = construireFiltreSQLPorteeLocalite(c.get("utilisateur"), "arrondissements.localite_id");
+  if (!filtrePortee.autorisee) return reponseRessourceIntrouvable(c);
   const localite = await lireLocalitePourSelection(c.env.DB, c.get("utilisateur"), filtres.localite_id);
   if (!localite || localite.statut_validation !== "VALIDE") return reponseRessourceIntrouvable(c);
   if (localite.type_localite !== "VILLE" || localite.mode_decoupage_urbain !== "AVEC_ARRONDISSEMENTS") {
     return c.json({ erreur: "Cette ville ne possède pas de découpage en arrondissements." }, 409);
   }
-  const provinceDelegate = c.get("utilisateur").role === "DELEGUE_PROVINCIAL" ? c.get("utilisateur").province_id : null;
-  const filtreProvince = provinceDelegate ? "AND EXISTS (SELECT 1 FROM localites l WHERE l.id = arrondissements.localite_id AND l.province_id = ?)" : "";
-  const valeurs: (string | number | null)[] = [filtres.localite_id];
-  if (provinceDelegate) valeurs.push(provinceDelegate);
+  const valeurs: (string | number | null)[] = [filtres.localite_id, ...filtrePortee.valeurs];
   return c.json(await listerPage<ArrondissementTerritorial>(
     c.env.DB,
     `SELECT id, localite_id, commune_id, code, nom FROM arrondissements
-     WHERE localite_id = ? AND statut_validation = 'VALIDE' ${filtreProvince} ORDER BY nom, id LIMIT ? OFFSET ?`,
+     WHERE localite_id = ? AND statut_validation = 'VALIDE' ${filtrePortee.clause} ORDER BY nom, id LIMIT ? OFFSET ?`,
     `SELECT COUNT(*) AS total FROM arrondissements
-     WHERE localite_id = ? AND statut_validation = 'VALIDE' ${filtreProvince}`,
+     WHERE localite_id = ? AND statut_validation = 'VALIDE' ${filtrePortee.clause}`,
     valeurs,
     filtres,
   ));
@@ -322,6 +322,8 @@ routesTerritoire.get("/arrondissements", async (c) => {
 routesTerritoire.get("/quartiers", async (c) => {
   const filtres = lireFiltres(c);
   if (!filtres || !filtres.localite_id) return reponsePaginationInvalide(c);
+  const filtrePortee = construireFiltreSQLPorteeLocalite(c.get("utilisateur"), "quartiers.localite_id");
+  if (!filtrePortee.autorisee) return reponseRessourceIntrouvable(c);
   const localite = await lireLocalitePourSelection(c.env.DB, c.get("utilisateur"), filtres.localite_id);
   if (!localite || localite.statut_validation !== "VALIDE") return reponseRessourceIntrouvable(c);
   if (localite.type_localite !== "VILLE" || !["AVEC_ARRONDISSEMENTS", "SANS_ARRONDISSEMENT"].includes(localite.mode_decoupage_urbain)) {
@@ -340,12 +342,8 @@ routesTerritoire.get("/quartiers", async (c) => {
     if (!arrondissement) return c.json({ erreur: "L’arrondissement ne relève pas de la ville sélectionnée." }, 400);
   }
   const conditions = ["localite_id = ?", "statut_validation = 'VALIDE'"];
-  const valeurs: (string | number | null)[] = [localite.id];
-  const provinceDelegate = c.get("utilisateur").role === "DELEGUE_PROVINCIAL" ? c.get("utilisateur").province_id : null;
-  if (provinceDelegate) {
-    conditions.push("EXISTS (SELECT 1 FROM localites l WHERE l.id = quartiers.localite_id AND l.province_id = ?)");
-    valeurs.push(provinceDelegate);
-  }
+  const valeurs: (string | number | null)[] = [localite.id, ...filtrePortee.valeurs];
+  if (filtrePortee.clause) conditions.push(filtrePortee.clause.replace(/^AND\s+/u, ""));
   ajouterFiltre(conditions, valeurs, "arrondissement_id = ?", filtres.arrondissement_id);
   if (localite.mode_decoupage_urbain === "SANS_ARRONDISSEMENT") conditions.push("arrondissement_id IS NULL");
   const where = conditions.join(" AND ");
