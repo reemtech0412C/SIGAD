@@ -11,8 +11,8 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 38 || !fichiers.at(-1)?.startsWith("0038_")) {
-  throw new Error(`Les trente-huit migrations versionnées, dont le journal d’audit unifié 0038, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 39 || !fichiers.at(-1)?.startsWith("0039_")) {
+  throw new Error(`Les trente-neuf migrations versionnées, dont le correctif d’audit B2.4 0039, sont requises; ${fichiers.length} trouvées.`);
 }
 
 const tablesGeoB23 = [

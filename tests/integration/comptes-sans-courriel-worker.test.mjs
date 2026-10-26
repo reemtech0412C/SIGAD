@@ -266,6 +266,8 @@ test("Inscription, approbation et activation de consultation sans fournisseur d�
   const codeInitial = creationConsultation.donnees.code_activation;
   const identifiantConsultation = creationConsultation.donnees.identifiant;
   assert.equal(Object.hasOwn(creationConsultation.donnees, "mot_de_passe"), false);
+  const requestIdCreationConsultation = creationConsultation.reponse.headers.get("X-Request-ID");
+  assert.match(requestIdCreationConsultation ?? "", /^[0-9a-f-]{36}$/iu);
 
   const compteConsultationDb = ouvrirD1Locale();
   const ligneConsultation = compteConsultationDb.prepare(`SELECT u.id, u.courriel_verifie_le, u.mot_de_passe_hash, u.code_activation_hash,
@@ -277,6 +279,19 @@ test("Inscription, approbation et activation de consultation sans fournisseur d�
   assert.equal(ligneConsultation.doit_changer_mot_de_passe, 1);
   assert.equal(ligneConsultation.mot_de_passe_hash, ligneConsultation.code_activation_hash);
   assert.equal(await verifierMotDePasse(codeInitial, ligneConsultation.code_activation_hash), true);
+  const auditCreationConsultation = compteConsultationDb.prepare(`SELECT action, source_table, acteur_id, acteur_role,
+      cible_type, cible_id, request_id, avant, apres
+    FROM evenements_audit WHERE request_id = ?`).all(requestIdCreationConsultation);
+  assert.equal(auditCreationConsultation.length, 1, "La création du compte doit produire un seul événement malgré ses deux sources d’audit.");
+  assert.equal(auditCreationConsultation[0]?.action, "CREATION_COMPTE_CONSULTATION");
+  assert.equal(auditCreationConsultation[0]?.source_table, "decisions_comptes");
+  assert.equal(auditCreationConsultation[0]?.acteur_id, "usr-central");
+  assert.equal(auditCreationConsultation[0]?.acteur_role, "ADMIN_CENTRAL");
+  assert.equal(auditCreationConsultation[0]?.cible_type, "COMPTE_CONSULTATION");
+  assert.equal(auditCreationConsultation[0]?.cible_id, ligneConsultation.compte_id);
+  assert.equal(auditCreationConsultation[0]?.request_id, requestIdCreationConsultation);
+  assert.doesNotMatch(JSON.stringify(auditCreationConsultation[0]), /Responsable institutionnel|@example\.|235\s*66/iu,
+    "Les instantanés d’audit n’exposent ni nom, ni courriel, ni téléphone.");
   compteConsultationDb.close();
 
   const reemission = await administration.requete(`/api/administration/comptes/consultation/${ligneConsultation.compte_id}/renvoyer-invitation`, {

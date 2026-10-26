@@ -1,0 +1,9 @@
+SIGAD — B2.4 targeted verification (initial run)
+Global status: FAIL (integration-only)
+Start: 2026-10-26T22:24:26.437Z; end: 2026-10-26T22:26:24.085Z; duration: 117.6 s
+Branch/revision: codex/b2-5-identity-lifecycle / 5551e77
+Command: npm run test:integration
+Selection: auth-worker.test.mjs, comptes-sans-courriel-worker.test.mjs
+Worker integration command exit: 0; both selected suites completed successfully.
+Pipeline file-mutation guard exit: 1 because the shell was appending its own detailed output log inside the repository during verification. This was a harness invocation artifact; no application file changed. Rerun redirected terminal output outside the repository and passed with zero project-file mutations. See verify-20261026T222712010Z.txt.
+Environment: Wrangler local Worker + isolated temporary D1/R2/service; no remote resources.

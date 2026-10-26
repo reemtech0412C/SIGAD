@@ -1522,6 +1522,24 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     csrf: false,
   });
   assert.equal(suspensionSansCsrf.reponse.status, 403);
+  const panneAuditDb = ouvrirD1Locale();
+  panneAuditDb.exec(`CREATE TRIGGER test_echec_audit_suspendre
+    BEFORE INSERT ON evenements_audit WHEN NEW.action = 'SUSPENSION_COMPTE'
+    BEGIN SELECT RAISE(ABORT, 'TEST_AUDIT_ECHEC'); END;`);
+  const suspensionEchecAudit = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
+    methode: "PATCH",
+    corps: { statut: "SUSPENDU" },
+  });
+  assert.equal(suspensionEchecAudit.reponse.status, 500,
+    "Une suspension sans écriture du journal d’audit ne doit pas être confirmée.");
+  const etatApresEchecAudit = panneAuditDb.prepare(`SELECT u.statut,
+      (SELECT COUNT(*) FROM sessions s WHERE s.utilisateur_id = u.id AND s.revoquee = 0) AS sessions_actives
+    FROM utilisateurs u WHERE u.id = 'usr-sila'`).get();
+  assert.equal(etatApresEchecAudit.statut, "ACTIF", "L’échec d’audit annule la transition de compte.");
+  assert.ok(etatApresEchecAudit.sessions_actives > 0, "L’échec d’audit annule aussi la révocation des sessions.");
+  panneAuditDb.exec("DROP TRIGGER test_echec_audit_suspendre;");
+  panneAuditDb.close();
+
   const suspensionSila = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
     methode: "PATCH",
     corps: { statut: "SUSPENDU" },
@@ -1545,13 +1563,19 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     const requestIdSuspension = suspensionSila.reponse.headers.get("X-Request-ID");
     assert.match(requestIdSuspension ?? "", /^[0-9a-f-]{36}$/iu, "La réponse et les événements doivent partager un identifiant de requête.");
     const auditUnifieSuspension = baseLocale.prepare(
-      "SELECT action, source_table, request_id FROM evenements_audit WHERE request_id = ? AND cible_type = 'UTILISATEUR' AND cible_id = 'usr-sila'",
+      "SELECT action, source_table, request_id, acteur_id, acteur_role, portee_gid, cree_le, avant, apres FROM evenements_audit WHERE request_id = ? AND cible_type = 'UTILISATEUR' AND cible_id = 'usr-sila'",
     ).all(requestIdSuspension);
     assert.equal(auditUnifieSuspension.length, 1, "La suspension du compte doit produire un seul événement unifié.");
     assert.equal(auditUnifieSuspension[0]?.action, "SUSPENSION_COMPTE");
     assert.equal(auditUnifieSuspension[0]?.source_table, "journaux_audit");
     assert.equal(auditUnifieSuspension[0]?.request_id, requestIdSuspension,
       "L’événement unifié doit être corrélé à la requête HTTP.");
+    assert.equal(auditUnifieSuspension[0]?.acteur_id, "usr-proprietaire");
+    assert.equal(auditUnifieSuspension[0]?.acteur_role, "PROPRIETAIRE");
+    assert.equal(auditUnifieSuspension[0]?.portee_gid, null);
+    assert.ok(Number.isFinite(Date.parse(`${auditUnifieSuspension[0]?.cree_le}Z`)), "L’événement porte un horodatage valide.");
+    assert.doesNotMatch(JSON.stringify(auditUnifieSuspension[0]), /Sigad-|@example\.|Bearer|mot_de_passe|telephone/iu,
+      "L’événement ne contient ni secret ni PII superflue.");
 
     const delegueOuaddai = new ClientLocal();
     const connexionOuaddai = await delegueOuaddai.connexion("ouaddai", motDePasseOuaddaiPhase3);

@@ -1,0 +1,9 @@
+B2.4 targeted closure verification
+Date (UTC): 2026-10-26
+Branch/base: codex/b2-5-identity-lifecycle / 5551e77
+Successful command: npm run test:integration
+Selection: auth-worker.test.mjs, comptes-sans-courriel-worker.test.mjs
+Exit code: 0; verify evidence: verify-20261026T222712010Z.txt
+Assertions: one canonical unified event for consultation-account creation; event includes actor, role, scope, timestamp and request_id with no unnecessary PII; audit insertion failure rolls back account suspension and session revocation.
+Note: an earlier run passed both integration files but its overall verify guard detected the terminal log being appended inside the repository. The successful rerun redirected terminal output outside the repository; file-mutation check reported zero changes.
+Environment: Wrangler local Worker and isolated D1 only; no remote bindings.
