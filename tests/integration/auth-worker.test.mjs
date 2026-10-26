@@ -1146,34 +1146,76 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     methode: "POST", corps: { decision: "VALIDER", observations: "Tentative de validation provinciale" },
   });
   assert.equal(validationParDelegue.reponse.status, 403, "La validation individuelle est réservée à l’administration centrale.");
-  const etatAvantRefusMenage = (() => {
-    const base = ouvrirD1Locale();
-    try {
-      return base.prepare("SELECT id, code_menage, statut, statut_validation FROM menages WHERE id = ?").get(idMenageAValider);
-    } finally { base.close(); }
-  })();
-  const nombreMenagesAvantRefus = (() => {
-    const base = ouvrirD1Locale();
-    try { return base.prepare("SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila'").get().total; }
-    finally { base.close(); }
-  })();
-  const refusMenageReproducteur = await administrateurCentral.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
-    methode: "POST", corps: { decision: "REFUSER", observations: "Motif synthétique de refus pour reproduire la contrainte." },
+  const importMenageSourceRefus = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST",
+    corps: { menages: [{ ...corpsDoublons("+235 66 00 40 19"), nom_chef_menage: "Ménage source B1.2" }] },
+    cleIdempotence: nouvelleCleImport(),
   });
-  assert.equal(refusMenageReproducteur.reponse.status, 500,
-    "REFUSER reproduit le conflit entre l’API (REFUSE) et la contrainte SQLite (REJETE).");
-  const etatApresRefusMenage = (() => {
+  assert.equal(importMenageSourceRefus.reponse.status, 201);
+  const importMenageJumeauRefus = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST",
+    corps: { menages: [{ ...corpsDoublons("+235 66 00 40 19"), nom_chef_menage: "Ménage jumeau B1.2" }] },
+    cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(importMenageJumeauRefus.reponse.status, 201);
+  const signalementMenageRefus = (() => {
     const base = ouvrirD1Locale();
     try {
-      const etat = base.prepare("SELECT id, code_menage, statut, statut_validation FROM menages WHERE id = ?").get(idMenageAValider);
-      const nombre = base.prepare("SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila'").get().total;
-      return { etat, nombre };
+      return base.prepare(`SELECT id FROM signalements_doublons
+        WHERE province_id = 'prov-sila' AND statut_traitement = 'EN_ATTENTE'
+          AND (menage_source_id IN (SELECT id FROM menages WHERE telephone = '23566004019')
+            OR menage_suspect_id IN (SELECT id FROM menages WHERE telephone = '23566004019'))
+        ORDER BY id LIMIT 1`).get();
     } finally { base.close(); }
   })();
-  assert.deepEqual(etatApresRefusMenage.etat, etatAvantRefusMenage,
-    "L’échec de REFUSER doit préserver l’identifiant, le code et l’état du ménage.");
-  assert.equal(etatApresRefusMenage.nombre, nombreMenagesAvantRefus,
-    "L’échec de REFUSER ne doit modifier ni supprimer aucun ménage.");
+  assert.ok(signalementMenageRefus?.id, "Les ménages synthétiques créent une revue de doublon isolée.");
+  const decisionDistincteAvantRefus = await administrateurCentral.requete(
+    `/api/gestion/signalements-doublons/${signalementMenageRefus.id}/decision`,
+    { methode: "POST", corps: { decision: "CONFIRME_DISTINCT", observations: "Dossiers synthétiques distincts pour B1.2." } },
+  );
+  assert.equal(decisionDistincteAvantRefus.reponse.status, 200);
+  const idMenageARefuser = (() => {
+    const base = ouvrirD1Locale();
+    try {
+      const menages = base.prepare(`SELECT id FROM menages
+        WHERE telephone = '23566004019' AND statut = 'INACTIF' AND statut_validation = 'A_VERIFIER'
+        ORDER BY id`).all();
+      assert.equal(menages.length, 2, "La revue clôturée laisse deux ménages synthétiques en attente individuelle.");
+      return menages[0].id;
+    } finally { base.close(); }
+  })();
+  const etatsMenagesAvantRefus = (() => {
+    const base = ouvrirD1Locale();
+    try {
+      return base.prepare("SELECT id, code_menage, statut, statut_validation FROM menages ORDER BY id")
+        .all().map((menage) => [menage.id, menage.code_menage, menage.statut, menage.statut_validation]);
+    } finally { base.close(); }
+  })();
+  const etatCibleAvantRefus = etatsMenagesAvantRefus.find((menage) => menage[0] === idMenageARefuser);
+  assert.ok(etatCibleAvantRefus, "L’état initial du ménage refusé est capturé.");
+  assert.equal(etatCibleAvantRefus[2], "INACTIF");
+  assert.equal(etatCibleAvantRefus[3], "A_VERIFIER");
+  const refusMenageReproducteur = await administrateurCentral.requete(`/api/gestion/menages/${idMenageARefuser}/validation`, {
+    methode: "POST", corps: { decision: "REFUSER", observations: "Motif synthétique de refus B1.2." },
+  });
+  assert.equal(refusMenageReproducteur.reponse.status, 200, "L’entrée de compatibilité REFUSER est acceptée.");
+  assert.equal(Reflect.get(refusMenageReproducteur.donnees, "statut"), "INACTIF");
+  assert.equal(Reflect.get(refusMenageReproducteur.donnees, "statut_validation"), "REJETE",
+    "L’API convertit REFUSER vers l’état interne canonique REJETE.");
+  const etatsMenagesApresRefus = (() => {
+    const base = ouvrirD1Locale();
+    try {
+      return base.prepare("SELECT id, code_menage, statut, statut_validation FROM menages ORDER BY id")
+        .all().map((menage) => [menage.id, menage.code_menage, menage.statut, menage.statut_validation]);
+    } finally { base.close(); }
+  })();
+  const etatsAttendusApresRefus = etatsMenagesAvantRefus.map((menage) => menage[0] === idMenageARefuser
+    ? [menage[0], menage[1], menage[2], "REJETE"]
+    : menage);
+  assert.deepEqual(etatsMenagesApresRefus, etatsAttendusApresRefus,
+    "Le refus ne modifie que statut_validation du ménage ciblé; identifiants, codes et autres ménages restent inchangés.");
+  assert.equal(etatsMenagesApresRefus.length, etatsMenagesAvantRefus.length,
+    "Le refus ne crée ni ne supprime aucun ménage.");
   const validationParProprietaire = await proprietaire.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
     methode: "POST", corps: { decision: "VALIDER", observations: "Tentative du compte technique" },
   });

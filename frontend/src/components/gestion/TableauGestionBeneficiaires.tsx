@@ -31,7 +31,7 @@ interface MenageApi {
   telephone: string | null;
   categorie_population: string;
   statut: "ACTIF" | "INACTIF" | "DOUBLON_SUSPECTE" | "ARCHIVE";
-  statut_validation: "A_VERIFIER" | "VALIDE" | "REFUSE";
+  statut_validation: "A_VERIFIER" | "VALIDE" | "REJETE";
   date_enregistrement: string;
 }
 
@@ -450,7 +450,7 @@ export function TableauGestionBeneficiaires({ utilisateur, jetonCsrf }: TableauG
           <div className="titre-section"><div><h2 id="titre-menages">Registre des ménages</h2><p>Les résultats sont limités au périmètre autorisé par votre session.</p></div><span className="compteur">{total} ménages</span></div>
           <SIGADFilterBar ariaLabel="Filtres des ménages" fieldsClassName="barre-filtres-stock">
             <label className="champ-territorial">Recherche<input aria-label="Recherche des ménages" maxLength={120} value={rechercheFiltre} onChange={(e) => { definirDecalage(0); definirRechercheFiltre(e.currentTarget.value); }} placeholder="Code ou nom du chef de ménage" /></label>
-            <label className="champ-territorial filtre-validation-menages">État de validation<select id="filtre-validation-menages" value={filtreValidation} onChange={(e) => { definirDecalage(0); definirFiltreValidation(e.currentTarget.value); }}><option value="">Tous les états</option><option value="A_VERIFIER">À vérifier</option><option value="VALIDE">Validés</option><option value="REFUSE">Refusés</option></select></label>
+            <label className="champ-territorial filtre-validation-menages">État de validation<select id="filtre-validation-menages" value={filtreValidation} onChange={(e) => { definirDecalage(0); definirFiltreValidation(e.currentTarget.value); }}><option value="">Tous les états</option><option value="A_VERIFIER">À vérifier</option><option value="VALIDE">Validés</option><option value="REJETE">Refusés</option></select></label>
           </SIGADFilterBar>
           <div className="tableau-defilement"><table>
             <thead><tr><th>Référence</th><th>Chef de ménage</th><th>Province</th><th>Personnes</th><th>Téléphone</th><th>Catégorie</th><th>Statut</th><th>Validation</th><th>Date d’enregistrement</th>{utilisateur.role === "ADMIN_CENTRAL" && <th>Décision centrale</th>}</tr></thead>

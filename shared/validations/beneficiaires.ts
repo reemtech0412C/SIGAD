@@ -55,7 +55,7 @@ export const schemaFiltresMenages = schemaPaginationGestion.extend({
   localite_id: identifiant.optional(),
   categorie_population_id: identifiant.optional(),
   statut: z.enum(["ACTIF", "INACTIF", "DOUBLON_SUSPECTE", "ARCHIVE"]).optional(),
-  statut_validation: z.enum(["A_VERIFIER", "VALIDE", "REFUSE"]).optional(),
+  statut_validation: z.enum(["A_VERIFIER", "VALIDE", "REJETE"]).optional(),
   recherche: z.string().trim().max(120).optional(),
 });
 

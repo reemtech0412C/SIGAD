@@ -89,7 +89,7 @@ interface MenageListe {
   categorie_population_id: string;
   categorie_population: string;
   statut: string;
-  statut_validation: "A_VERIFIER" | "VALIDE" | "REFUSE";
+  statut_validation: "A_VERIFIER" | "VALIDE" | "REJETE";
   date_enregistrement: string;
 }
 
@@ -168,7 +168,7 @@ interface ImportMenagePrepare {
   donnees: MenageSaisi;
   telephone: string | null;
   statut: "ACTIF" | "INACTIF" | "DOUBLON_SUSPECTE";
-  statutValidation: "A_VERIFIER" | "VALIDE" | "REFUSE";
+  statutValidation: "A_VERIFIER" | "VALIDE" | "REJETE";
   menageDoublonId: string | null;
   ouvrirSignalement: boolean;
   empreintesPreuve: string[];
@@ -1411,7 +1411,7 @@ routesGestion.post("/menages/:menageId/validation", async (c) => {
   if (revueOuverte) return c.json({ erreur: "Le ménage reste lié à une revue de doublon ouverte." }, 409);
 
   const statut = resultat.valeur.decision === "VALIDER" ? "ACTIF" : "INACTIF";
-  const statutValidation = resultat.valeur.decision === "VALIDER" ? "VALIDE" : "REFUSE";
+  const statutValidation = resultat.valeur.decision === "VALIDER" ? "VALIDE" : "REJETE";
   const lot = await c.env.DB.batch([
     c.env.DB.prepare(
       `UPDATE menages SET statut = ?, statut_validation = ?
