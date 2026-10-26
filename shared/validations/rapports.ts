@@ -74,6 +74,5 @@ export const schemaReconciliationArchives = z.strictObject({
 });
 
 export type TypeRapport = (typeof TYPES_RAPPORT)[number];
-export type FormatRapport = (typeof FORMATS_RAPPORT)[number];
 export type FiltresRapport = z.infer<typeof schemaFiltresTableauRapports>;
 export type FiltresRapportPagine = z.infer<typeof schemaFiltresRapport>;

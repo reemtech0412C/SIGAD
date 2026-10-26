@@ -8,11 +8,13 @@ export interface UtilisateurAuthentifie {
   province_id: string | null;
   doit_changer_mot_de_passe: boolean;
   double_facteur_actif: boolean;
-}
-
-export interface SessionAuthentifiee {
-  utilisateur: UtilisateurAuthentifie;
-  expire_le: string;
+  courriel?: string | null;
+  telephone?: string | null;
+  statut?: StatutUtilisateur;
+  institution?: string | null;
+  fonction?: string | null;
+  perimetre_consultation?: "NATIONAL" | "PROVINCIAL" | "MULTI_PROVINCIAL" | null;
+  provinces_autorisees?: string[];
 }
 
 export interface UtilisateurAdmin {

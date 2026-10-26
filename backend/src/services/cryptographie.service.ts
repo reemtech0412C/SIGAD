@@ -1,6 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
+import { pbkdf2, timingSafeEqual } from "node:crypto";
 
-const COUT_PBKDF2 = 310_000;
+// Cloudflare Workers production rejects PBKDF2 requests above 100,000 iterations.
+const COUT_PBKDF2 = 100_000;
+const COUT_PBKDF2_MAXIMUM = 100_000;
 const LONGUEUR_SEL_OCTETS = 16;
 const LONGUEUR_DERIVEE_OCTETS = 32;
 
@@ -17,13 +19,20 @@ function decoderBase64Url(valeur: string): Uint8Array {
 }
 
 async function deriveurPbkdf2(motDePasse: string, sel: Uint8Array, iterations: number): Promise<Uint8Array> {
-  const cle = await crypto.subtle.importKey("raw", new TextEncoder().encode(motDePasse), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: new Uint8Array(sel), iterations, hash: "SHA-256" },
-    cle,
-    LONGUEUR_DERIVEE_OCTETS * 8,
-  );
-  return new Uint8Array(bits);
+  const derivee = await new Promise<Buffer>((resoudre, rejeter) => {
+    pbkdf2(
+      motDePasse,
+      Buffer.from(sel),
+      iterations,
+      LONGUEUR_DERIVEE_OCTETS,
+      "sha256",
+      (erreur, resultat) => {
+        if (erreur) rejeter(erreur);
+        else resoudre(resultat);
+      },
+    );
+  });
+  return new Uint8Array(derivee);
 }
 
 export async function hacherMotDePasse(motDePasse: string): Promise<string> {
@@ -39,7 +48,7 @@ export async function verifierMotDePasse(motDePasse: string, empreinte: string):
     algorithme !== "pbkdf2-sha256" ||
     !Number.isSafeInteger(iterations) ||
     iterations < 100_000 ||
-    iterations > 1_000_000 ||
+    iterations > COUT_PBKDF2_MAXIMUM ||
     !selEncode ||
     !deriveEncode
   ) {

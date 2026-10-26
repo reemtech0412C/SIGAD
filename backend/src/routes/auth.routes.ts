@@ -6,6 +6,20 @@ import { authMiddleware, cookieSession as lireJetonSession } from "../middleware
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
 import { csrfPreAuthMiddleware, csrfSessionMiddleware, definirCookieCsrf, effacerCookieCsrf } from "../middlewares/csrf.middleware";
 import { genererJetonAleatoire, hacherJeton, hacherMotDePasse, verifierMotDePasse } from "../services/cryptographie.service";
+import { environnementExigeTransportSecurise } from "../services/securite-http.service";
+import {
+  definirEtapeDiagnosticRecuperation,
+  journaliserEchecRecuperation,
+  middlewareDiagnosticRecuperation,
+} from "../services/diagnostic-recuperation.service";
+import {
+  creerJetonActivationProprietaire,
+  estEnvironnementAutoriseRecuperation,
+  expirationJetonActivationProprietaire,
+  expirationSessionActivation,
+  type OperationPreuveOperateur,
+  verifierPreuveOperateur,
+} from "../services/recuperation-proprietaire.service";
 import {
   chiffrerSecretTotp,
   creerCodeOperation,
@@ -21,9 +35,12 @@ interface LigneConnexion {
   id: string;
   identifiant: string;
   nom_complet: string;
-  role: "PROPRIETAIRE" | "ADMIN_CENTRAL" | "DELEGUE_PROVINCIAL";
+  role: "PROPRIETAIRE" | "ADMIN_CENTRAL" | "DELEGUE_PROVINCIAL" | "CONSULTATION_INSTITUTIONNELLE";
   province_id: string | null;
   mot_de_passe_hash: string;
+  code_activation_hash: string | null;
+  code_activation_expire_le: string | null;
+  code_activation_recuperation_id: string | null;
   doit_changer_mot_de_passe: number;
   statut: "ACTIF" | "SUSPENDU" | "VERROUILLE";
   verrouille_jusqua: string | null;
@@ -33,24 +50,23 @@ interface LigneConnexion {
 
 const routesAuth = new Hono<EnvironnementApplication>();
 
-function cookieSession(jeton: string, environnement: string): string {
-  const securise = environnement === "production" ? "; Secure" : "";
-  const dureeSecondes = DELAI_SESSION_HEURES * 60 * 60;
+function cookieSession(jeton: string, environnement: string, dureeSecondes = DELAI_SESSION_HEURES * 60 * 60): string {
+  const securise = environnementExigeTransportSecurise(environnement) ? "; Secure" : "";
   return `sigad_session=${encodeURIComponent(jeton)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${dureeSecondes}${securise}`;
 }
 
 function effacerCookieSession(environnement: string): string {
-  const securise = environnement === "production" ? "; Secure" : "";
+  const securise = environnementExigeTransportSecurise(environnement) ? "; Secure" : "";
   return `sigad_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${securise}`;
 }
 
 function cookieDefiMfa(jeton: string, environnement: string): string {
-  const securise = environnement === "production" ? "; Secure" : "";
+  const securise = environnementExigeTransportSecurise(environnement) ? "; Secure" : "";
   return `sigad_mfa_challenge=${encodeURIComponent(jeton)}; Path=/api/auth/mfa; HttpOnly; SameSite=Strict; Max-Age=300${securise}`;
 }
 
 function effacerCookieDefiMfa(environnement: string): string {
-  const securise = environnement === "production" ? "; Secure" : "";
+  const securise = environnementExigeTransportSecurise(environnement) ? "; Secure" : "";
   return `sigad_mfa_challenge=; Path=/api/auth/mfa; HttpOnly; SameSite=Strict; Max-Age=0${securise}`;
 }
 
@@ -68,6 +84,24 @@ function lireCookie(requete: Request, nom: string): string | null {
 
 function adresseIp(requete: Request): string | null {
   return requete.headers.get("CF-Connecting-IP") ?? requete.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ?? null;
+}
+
+function dateSqlite(date: Date): string {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function expirationValide(expiration: string | null): boolean {
+  if (!expiration) return false;
+  const valeur = Date.parse(`${expiration.replace(" ", "T")}Z`);
+  return Number.isFinite(valeur) && valeur > Date.now();
+}
+
+function activationInitialeValide(utilisateur: LigneConnexion | null): boolean {
+  if (!utilisateur || utilisateur.doit_changer_mot_de_passe !== 1) return true;
+  if (utilisateur.code_activation_recuperation_id !== null) {
+    return expirationValide(utilisateur.code_activation_expire_le);
+  }
+  return utilisateur.code_activation_expire_le === null || expirationValide(utilisateur.code_activation_expire_le);
 }
 
 async function enregistrerEchecConnexion(
@@ -121,6 +155,280 @@ routesAuth.get("/csrf", (c) => {
   return c.json({ jeton_csrf: jeton });
 });
 
+async function verifierDemandeRecuperation(
+  c: Context<EnvironnementApplication>,
+  operation: OperationPreuveOperateur,
+): Promise<{ motif: string; identite: string; preuve: Awaited<ReturnType<typeof verifierPreuveOperateur>> } | Response> {
+  definirEtapeDiagnosticRecuperation(c, "CONFIGURATION_ENVIRONNEMENT");
+  if (!estEnvironnementAutoriseRecuperation(c.env.ENVIRONMENT, c.env.SIGAD_RECUPERATION_PROPRIETAIRE_ACTIVE)) {
+    return c.json({ erreur: "La récupération exceptionnelle n’est pas activée pour cet environnement." }, 404);
+  }
+  const identiteAutorisee = c.env.SIGAD_RECUPERATION_OPERATEUR_IDENTITE?.trim().toLowerCase();
+  const clePublique = c.env.SIGAD_RECUPERATION_OPERATEUR_CLE_PUBLIQUE;
+  if (!identiteAutorisee || !clePublique) {
+    return c.json({ erreur: "La récupération exceptionnelle n’est pas configurée." }, 503);
+  }
+
+  definirEtapeDiagnosticRecuperation(c, "LECTURE_CORPS");
+  let corps: unknown;
+  try {
+    corps = await c.req.json();
+  } catch {
+    return c.json({ erreur: "Le corps de la requête est invalide." }, 400);
+  }
+  if (typeof corps !== "object" || corps === null || !("motif" in corps)
+    || typeof Reflect.get(corps, "motif") !== "string") {
+    return c.json({ erreur: "Le motif de récupération est obligatoire." }, 400);
+  }
+  const valeurMotif = Reflect.get(corps, "motif");
+  if (typeof valeurMotif !== "string") return c.json({ erreur: "Le motif de récupération est obligatoire." }, 400);
+  const motif = valeurMotif.trim();
+  if (motif.length < 10 || motif.length > 300) {
+    return c.json({ erreur: "Le motif doit comporter de 10 à 300 caractères." }, 400);
+  }
+  const jetonPreuve = c.req.header("X-SIGAD-Preuve-Operateur");
+  if (!jetonPreuve) return c.json({ erreur: "La preuve d’autorisation opérateur est absente ou invalide." }, 401);
+
+  definirEtapeDiagnosticRecuperation(c, "VERIFICATION_PREUVE_OPERATEUR");
+  let preuve: Awaited<ReturnType<typeof verifierPreuveOperateur>>;
+  try {
+    preuve = await verifierPreuveOperateur(jetonPreuve, identiteAutorisee, clePublique, operation, motif);
+  } catch {
+    return c.json({ erreur: "La preuve d’autorisation opérateur est absente ou invalide." }, 401);
+  }
+
+  return { motif, identite: preuve.identite, preuve };
+}
+
+routesAuth.post("/recuperation-proprietaire", middlewareDiagnosticRecuperation, csrfPreAuthMiddleware, async (c) => {
+  const demande = await verifierDemandeRecuperation(c, "EMETTRE_ACTIVATION_INITIALE");
+  if (demande instanceof Response) return demande;
+
+  definirEtapeDiagnosticRecuperation(c, "LECTURE_COMPTE_CIBLE");
+  const cible = await c.env.DB.prepare(
+    `SELECT id, statut, role, double_facteur_actif, code_activation_recuperation_id,
+            doit_changer_mot_de_passe
+     FROM utilisateurs WHERE id = 'usr-proprietaire' AND identifiant = 'proprietaire'`,
+  ).first<{
+    id: string;
+    statut: "ACTIF" | "SUSPENDU" | "VERROUILLE";
+    role: string;
+    double_facteur_actif: number;
+    code_activation_recuperation_id: string | null;
+    doit_changer_mot_de_passe: number;
+  }>();
+  if (!cible || cible.role !== "PROPRIETAIRE" || cible.statut !== "ACTIF"
+    || cible.doit_changer_mot_de_passe !== 1 || cible.code_activation_recuperation_id !== null) {
+    return c.json({ erreur: "Le compte propriétaire n’est pas disponible pour cette récupération." }, 409);
+  }
+
+  definirEtapeDiagnosticRecuperation(c, "GENERATION_JETON");
+  const idRecuperation = crypto.randomUUID();
+  const idPreuve = crypto.randomUUID();
+  const codeActivation = creerJetonActivationProprietaire();
+
+  definirEtapeDiagnosticRecuperation(c, "HACHAGE_JETON");
+  const empreinteCode = await hacherMotDePasse(codeActivation);
+  const expirationActivation = expirationJetonActivationProprietaire();
+
+  definirEtapeDiagnosticRecuperation(c, "PREPARATION_D1");
+  const instructions = [
+    c.env.DB.prepare(
+      `INSERT INTO preuves_operateur_recuperation
+         (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le)
+       SELECT ?, ?, ?, ?, 'EMETTRE_ACTIVATION_INITIALE', ?, ?
+       WHERE EXISTS (
+         SELECT 1 FROM utilisateurs u WHERE u.id = ? AND u.identifiant = 'proprietaire'
+           AND u.role = 'PROPRIETAIRE' AND u.statut = 'ACTIF'
+           AND u.doit_changer_mot_de_passe = 1 AND u.code_activation_recuperation_id IS NULL
+           AND NOT EXISTS (SELECT 1 FROM recuperations_acces_proprietaire r
+             WHERE r.utilisateur_id = u.id AND r.terminee_le IS NULL AND r.revoquee_le IS NULL)
+       )`,
+    ).bind(idPreuve, cible.id, demande.identite, demande.preuve.empreinteNonce, demande.motif, demande.preuve.expireLe, cible.id),
+    c.env.DB.prepare(
+      `INSERT INTO recuperations_acces_proprietaire
+         (id, utilisateur_id, preuve_emission_id, activation_expire_le,
+          etat_activation_precedent_capture_le, empreinte_activation_precedente,
+          expiration_activation_precedente, empreinte_mot_de_passe_precedente,
+          secret_mfa_temporaire_precedent, changement_mot_de_passe_precedent,
+          mfa_actif_precedent)
+       SELECT ?, u.id, ?, ?, datetime('now'), u.code_activation_hash,
+              u.code_activation_expire_le, u.mot_de_passe_hash,
+              u.double_facteur_secret_temporaire, u.doit_changer_mot_de_passe,
+              u.double_facteur_actif
+       FROM utilisateurs u
+       WHERE u.id = ? AND u.identifiant = 'proprietaire'
+         AND EXISTS (SELECT 1 FROM preuves_operateur_recuperation p
+           WHERE p.id = ? AND p.operation = 'EMETTRE_ACTIVATION_INITIALE')`,
+    ).bind(idRecuperation, idPreuve, expirationActivation, cible.id, idPreuve),
+    c.env.DB.prepare(
+      `UPDATE utilisateurs
+       SET code_activation_hash = ?, code_activation_expire_le = ?, code_activation_recuperation_id = ?,
+           modifie_le = datetime('now')
+       WHERE id = ? AND identifiant = 'proprietaire' AND role = 'PROPRIETAIRE' AND statut = 'ACTIF'
+         AND doit_changer_mot_de_passe = 1 AND code_activation_recuperation_id IS NULL
+         AND EXISTS (
+           SELECT 1 FROM recuperations_acces_proprietaire r
+           WHERE r.id = ? AND r.utilisateur_id = utilisateurs.id
+             AND r.etat_activation_precedent_capture_le IS NOT NULL
+             AND r.empreinte_activation_precedente IS code_activation_hash
+             AND r.expiration_activation_precedente IS code_activation_expire_le
+             AND r.empreinte_mot_de_passe_precedente IS mot_de_passe_hash
+             AND r.secret_mfa_temporaire_precedent IS double_facteur_secret_temporaire
+             AND r.changement_mot_de_passe_precedent = doit_changer_mot_de_passe
+             AND r.mfa_actif_precedent = double_facteur_actif
+         )`,
+    ).bind(empreinteCode, expirationActivation, idRecuperation, cible.id, idRecuperation),
+    c.env.DB.prepare(
+      `UPDATE sessions SET revoquee = 1
+       WHERE utilisateur_id = ? AND revoquee = 0
+         AND EXISTS (SELECT 1 FROM recuperations_acces_proprietaire WHERE id = ?)`,
+    ).bind(cible.id, idRecuperation),
+    c.env.DB.prepare(
+      `UPDATE defis_mfa SET consomme = 1
+       WHERE utilisateur_id = ? AND consomme = 0
+         AND EXISTS (SELECT 1 FROM recuperations_acces_proprietaire WHERE id = ?)`,
+       ).bind(cible.id, idRecuperation),
+    c.env.DB.prepare(
+      `UPDATE recuperations_acces_proprietaire SET emission_confirmee_le = datetime('now')
+       WHERE id = ? AND utilisateur_id = ? AND emission_confirmee_le IS NULL`,
+    ).bind(idRecuperation, cible.id),
+  ];
+  definirEtapeDiagnosticRecuperation(c, "TRANSACTION_D1");
+  try {
+    const resultats = await c.env.DB.batch(instructions);
+    if (resultats[0]?.meta.changes !== 1 || resultats[1]?.meta.changes !== 1
+      || resultats[2]?.meta.changes !== 1 || resultats[5]?.meta.changes !== 1) {
+      journaliserEchecRecuperation(
+        c.get("diagnosticRecuperation"),
+        "RECUPERATION_NOMBRE_LIGNES_INATTENDU",
+      );
+      return c.json({ erreur: "La récupération n’a pas pu être appliquée au compte propriétaire." }, 409);
+    }
+  } catch (erreur) {
+    journaliserEchecRecuperation(
+      c.get("diagnosticRecuperation"),
+      "RECUPERATION_TRANSACTION_D1_ECHOUEE",
+      erreur,
+    );
+    return c.json({ erreur: "La preuve a déjà été utilisée ou la récupération n’a pas pu être appliquée." }, 409);
+  }
+
+  definirEtapeDiagnosticRecuperation(c, "PREPARATION_REPONSE");
+  return c.json({
+    compte: "proprietaire",
+    code_activation: codeActivation,
+    expire_le: expirationActivation,
+    usage_unique: true,
+  }, 201);
+});
+
+routesAuth.post("/recuperation-proprietaire/revoquer", middlewareDiagnosticRecuperation, csrfPreAuthMiddleware, async (c) => {
+  const demande = await verifierDemandeRecuperation(c, "REVOQUER_ACTIVATION_INITIALE");
+  if (demande instanceof Response) return demande;
+
+  const cible = await c.env.DB.prepare(
+    `SELECT id FROM utilisateurs WHERE id = 'usr-proprietaire' AND identifiant = 'proprietaire'
+       AND role = 'PROPRIETAIRE' AND statut = 'ACTIF'`,
+  ).first<{ id: string }>();
+  if (!cible) return c.json({ erreur: "Le compte propriétaire n’est pas disponible pour cette récupération." }, 409);
+  const recuperation = await c.env.DB.prepare(
+    `SELECT id, etat_activation_precedent_capture_le, emission_confirmee_le
+     FROM recuperations_acces_proprietaire
+     WHERE utilisateur_id = ? AND terminee_le IS NULL AND revoquee_le IS NULL
+     ORDER BY cree_le DESC LIMIT 1`,
+  ).bind(cible.id).first<{ id: string; etat_activation_precedent_capture_le: string | null; emission_confirmee_le: string | null }>();
+  if (!recuperation) return c.json({ erreur: "Aucune activation initiale en attente ne peut être révoquée." }, 409);
+  if (!recuperation.etat_activation_precedent_capture_le || !recuperation.emission_confirmee_le) {
+    return c.json({ erreur: "L’état initial de cette activation ne peut pas être restauré de manière sûre." }, 409);
+  }
+
+  const idPreuve = crypto.randomUUID();
+  try {
+    const resultats = await c.env.DB.batch([
+      c.env.DB.prepare(
+        `INSERT INTO preuves_operateur_recuperation
+           (id, utilisateur_id, acteur_identite, nonce_hash, operation, motif, preuve_expire_le)
+         SELECT ?, ?, ?, ?, 'REVOQUER_ACTIVATION_INITIALE', ?, ?
+         WHERE EXISTS (
+           SELECT 1 FROM recuperations_acces_proprietaire
+           WHERE id = ? AND utilisateur_id = ? AND terminee_le IS NULL AND revoquee_le IS NULL
+             AND etat_activation_precedent_capture_le IS NOT NULL AND emission_confirmee_le IS NOT NULL
+         )`,
+      ).bind(idPreuve, cible.id, demande.identite, demande.preuve.empreinteNonce, demande.motif, demande.preuve.expireLe, recuperation.id, cible.id),
+      c.env.DB.prepare(
+        `UPDATE recuperations_acces_proprietaire
+         SET revoquee_le = datetime('now'), preuve_revocation_id = ?
+         WHERE id = ? AND utilisateur_id = ? AND terminee_le IS NULL AND revoquee_le IS NULL
+           AND EXISTS (SELECT 1 FROM preuves_operateur_recuperation WHERE id = ? AND operation = 'REVOQUER_ACTIVATION_INITIALE')`,
+      ).bind(idPreuve, recuperation.id, cible.id, idPreuve),
+      c.env.DB.prepare(
+        `UPDATE utilisateurs SET
+           code_activation_hash = (
+             SELECT CASE
+               WHEN r.empreinte_activation_precedente IS NOT NULL
+                 AND (r.expiration_activation_precedente IS NULL
+                   OR datetime(r.expiration_activation_precedente) > datetime('now'))
+               THEN r.empreinte_activation_precedente ELSE NULL END
+             FROM recuperations_acces_proprietaire r WHERE r.id = ?
+           ),
+           code_activation_expire_le = (
+             SELECT CASE
+               WHEN r.empreinte_activation_precedente IS NOT NULL
+                 AND (r.expiration_activation_precedente IS NULL
+                   OR datetime(r.expiration_activation_precedente) > datetime('now'))
+               THEN r.expiration_activation_precedente ELSE NULL END
+             FROM recuperations_acces_proprietaire r WHERE r.id = ?
+           ),
+           code_activation_recuperation_id = NULL,
+           mot_de_passe_hash = (SELECT r.empreinte_mot_de_passe_precedente FROM recuperations_acces_proprietaire r WHERE r.id = ?),
+           doit_changer_mot_de_passe = (SELECT r.changement_mot_de_passe_precedent FROM recuperations_acces_proprietaire r WHERE r.id = ?),
+           double_facteur_secret_temporaire = (SELECT r.secret_mfa_temporaire_precedent FROM recuperations_acces_proprietaire r WHERE r.id = ?),
+           modifie_le = datetime('now')
+         WHERE id = ? AND statut = 'ACTIF' AND role = 'PROPRIETAIRE'
+           AND double_facteur_actif = (SELECT r.mfa_actif_precedent FROM recuperations_acces_proprietaire r WHERE r.id = ?)
+           AND EXISTS (
+             SELECT 1 FROM recuperations_acces_proprietaire r
+             WHERE r.id = ? AND r.utilisateur_id = utilisateurs.id AND r.revoquee_le IS NOT NULL
+               AND r.etat_activation_precedent_capture_le IS NOT NULL
+               AND (utilisateurs.code_activation_recuperation_id = r.id
+                 OR (r.jeton_consomme_le IS NOT NULL AND utilisateurs.code_activation_recuperation_id IS NULL))
+           )`,
+      ).bind(recuperation.id, recuperation.id, recuperation.id, recuperation.id, recuperation.id,
+        cible.id, recuperation.id, recuperation.id),
+      c.env.DB.prepare(
+        `UPDATE sessions SET revoquee = 1
+         WHERE recuperation_id = ? AND revoquee = 0
+           AND EXISTS (SELECT 1 FROM recuperations_acces_proprietaire WHERE id = ? AND revoquee_le IS NOT NULL)`,
+      ).bind(recuperation.id, recuperation.id),
+      c.env.DB.prepare(
+        `UPDATE defis_mfa SET consomme = 1
+         WHERE recuperation_id = ? AND consomme = 0
+           AND EXISTS (SELECT 1 FROM recuperations_acces_proprietaire WHERE id = ? AND revoquee_le IS NOT NULL)`,
+       ).bind(recuperation.id, recuperation.id),
+      c.env.DB.prepare(
+        `UPDATE recuperations_acces_proprietaire SET revocation_confirmee_le = datetime('now')
+         WHERE id = ? AND utilisateur_id = ? AND revoquee_le IS NOT NULL AND revocation_confirmee_le IS NULL`,
+      ).bind(recuperation.id, cible.id),
+      c.env.DB.prepare(
+        `UPDATE recuperations_acces_proprietaire
+         SET empreinte_activation_precedente = NULL,
+             empreinte_mot_de_passe_precedente = NULL,
+             secret_mfa_temporaire_precedent = NULL
+         WHERE id = ? AND utilisateur_id = ? AND revocation_confirmee_le IS NOT NULL`,
+      ).bind(recuperation.id, cible.id),
+    ]);
+    if (resultats[0]?.meta.changes !== 1 || resultats[1]?.meta.changes !== 1
+      || resultats[2]?.meta.changes !== 1 || resultats[5]?.meta.changes !== 1
+      || resultats[6]?.meta.changes !== 1) {
+      return c.json({ erreur: "L’activation n’a pas pu être révoquée; elle a peut-être déjà été traitée." }, 409);
+    }
+  } catch {
+    return c.json({ erreur: "La preuve a déjà été utilisée ou la révocation n’a pas pu être appliquée." }, 409);
+  }
+  return c.json({ revoquee: true });
+});
+
 routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
   let corps: unknown;
   try {
@@ -135,20 +443,30 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
 
   const { identifiant, mot_de_passe } = resultat.data;
   const utilisateur = await c.env.DB.prepare(
-    `SELECT id, identifiant, nom_complet, role, province_id, mot_de_passe_hash,
-            doit_changer_mot_de_passe, statut, verrouille_jusqua,
-            double_facteur_secret, double_facteur_actif
-     FROM utilisateurs WHERE identifiant = ?`,
+    `SELECT u.id, u.identifiant, u.nom_complet,
+            CASE WHEN cc.id IS NOT NULL THEN 'CONSULTATION_INSTITUTIONNELLE' ELSE u.role END AS role,
+            u.province_id, u.mot_de_passe_hash,
+            u.code_activation_hash, u.code_activation_expire_le, u.code_activation_recuperation_id,
+            u.doit_changer_mot_de_passe, u.statut, u.verrouille_jusqua,
+            u.double_facteur_secret, u.double_facteur_actif
+     FROM utilisateurs u LEFT JOIN comptes_consultation cc ON cc.utilisateur_id = u.id
+     WHERE (u.identifiant = ? OR lower(trim(u.courriel)) = lower(?))
+       AND (cc.id IS NULL OR cc.statut <> 'SUSPENDU') LIMIT 1`,
   )
-    .bind(identifiant)
+    .bind(identifiant, identifiant)
     .first<LigneConnexion>();
 
   const verrouActif = utilisateur?.statut === "VERROUILLE" && (
     utilisateur.verrouille_jusqua === null ||
     Date.parse(`${utilisateur.verrouille_jusqua.replace(" ", "T")}Z`) > Date.now()
   );
-  const motDePasseValide = utilisateur ? await verifierMotDePasse(mot_de_passe, utilisateur.mot_de_passe_hash) : false;
-  if (!utilisateur || utilisateur.statut === "SUSPENDU" || verrouActif || !motDePasseValide) {
+  const activationInitiale = utilisateur?.doit_changer_mot_de_passe === 1;
+  const empreinteAttendue = activationInitiale ? utilisateur?.code_activation_hash : utilisateur?.mot_de_passe_hash;
+  const motDePasseValide = utilisateur && empreinteAttendue
+    ? await verifierMotDePasse(mot_de_passe, empreinteAttendue)
+    : false;
+  const activationNonExpiree = !activationInitiale || activationInitialeValide(utilisateur ?? null);
+  if (!utilisateur || utilisateur.statut === "SUSPENDU" || verrouActif || !motDePasseValide || !activationNonExpiree) {
     const motif = !utilisateur ? "IDENTIFIANT_INCONNU" : verrouActif ? "COMPTE_VERROUILLE" : utilisateur.statut === "SUSPENDU" ? "COMPTE_SUSPENDU" : "MOT_DE_PASSE_INVALIDE";
     await enregistrerEchecConnexion(c, utilisateur, identifiant, motif);
     return c.json({ erreur: "Identifiant ou mot de passe incorrect, ou compte temporairement indisponible." }, 401);
@@ -158,7 +476,8 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
   const empreinteJeton = await hacherJeton(jetonSession);
   const jetonCsrf = c.req.header("X-CSRF-Token");
   if (!jetonCsrf) return c.json({ erreur: "La vérification de sécurité a échoué." }, 403);
-  const authentificationMfaObligatoire = utilisateur.role === "PROPRIETAIRE" || utilisateur.role === "ADMIN_CENTRAL";
+  const authentificationMfaObligatoire = utilisateur.role === "PROPRIETAIRE"
+    || utilisateur.role === "ADMIN_CENTRAL" || utilisateur.role === "CONSULTATION_INSTITUTIONNELLE";
   if (authentificationMfaObligatoire && utilisateur.double_facteur_actif === 1) {
     if (!utilisateur.double_facteur_secret || !c.env.CLE_CHIFFREMENT_MFA) {
       return c.json({ erreur: "La vérification multifacteur n’est pas disponible pour ce compte." }, 503);
@@ -166,9 +485,7 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
     const jetonDefi = genererJetonAleatoire();
     const expirationDefi = new Date(Date.now() + 5 * 60 * 1000).toISOString().replace("T", " ").replace(/\.\d{3}Z$/u, "");
     const idDefi = crypto.randomUUID();
-    const instructionDefi = c.env.DB.prepare(
-      `INSERT INTO defis_mfa (id, utilisateur_id, jeton_hash, expire_le) VALUES (?, ?, ?, ?)`,
-    ).bind(idDefi, utilisateur.id, await hacherJeton(jetonDefi), expirationDefi);
+    const empreinteDefi = await hacherJeton(jetonDefi);
     const journalDefi = creerInstructionAudit(c.env.DB, {
       utilisateur: {
         id: utilisateur.id,
@@ -184,10 +501,129 @@ routesAuth.post("/connexion", csrfPreAuthMiddleware, async (c) => {
       entiteId: idDefi,
       adresseIp: adresseIp(c.req.raw),
     });
-    await c.env.DB.batch([instructionDefi, journalDefi]);
+    if (activationInitiale) {
+      const empreinteActivation = utilisateur.code_activation_hash;
+      if (!empreinteActivation) return c.json({ erreur: "Le code d’activation est invalide ou expiré." }, 401);
+      const instructionsDefi = [
+        c.env.DB.prepare(
+          `INSERT INTO defis_mfa (id, utilisateur_id, jeton_hash, expire_le, activation_initiale, recuperation_id)
+           SELECT ?, id, ?, ?, 1, code_activation_recuperation_id
+           FROM utilisateurs
+           WHERE id = ? AND statut = 'ACTIF' AND double_facteur_actif = 1
+             AND code_activation_hash = ?
+             AND (code_activation_expire_le > datetime('now')
+               OR (code_activation_expire_le IS NULL AND code_activation_recuperation_id IS NULL))`,
+        ).bind(idDefi, empreinteDefi, expirationDefi, utilisateur.id, empreinteActivation),
+        c.env.DB.prepare(
+          `UPDATE utilisateurs SET code_activation_hash = NULL, code_activation_expire_le = NULL,
+               code_activation_recuperation_id = NULL, tentatives_echouees = 0, verrouille_jusqua = NULL,
+               derniere_connexion = datetime('now'), modifie_le = datetime('now')
+            WHERE id = ? AND code_activation_hash = ?
+              AND (code_activation_expire_le > datetime('now')
+                OR (code_activation_expire_le IS NULL AND code_activation_recuperation_id IS NULL))
+             AND EXISTS (SELECT 1 FROM defis_mfa WHERE id = ? AND activation_initiale = 1)`,
+        ).bind(utilisateur.id, empreinteActivation, idDefi),
+        c.env.DB.prepare(
+          `UPDATE recuperations_acces_proprietaire
+           SET jeton_consomme_le = datetime('now'), defi_mfa_id = ?
+           WHERE id = ? AND utilisateur_id = ? AND jeton_consomme_le IS NULL
+             AND EXISTS (SELECT 1 FROM defis_mfa WHERE id = ? AND recuperation_id = recuperations_acces_proprietaire.id)`,
+        ).bind(idDefi, utilisateur.code_activation_recuperation_id, utilisateur.id, idDefi),
+        c.env.DB.prepare(
+          `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip)
+           SELECT ?, ?, ?, ?, 'DEFI_MFA_CREE', 'AUTHENTIFICATION_MFA', ?, ?
+           WHERE EXISTS (SELECT 1 FROM defis_mfa WHERE id = ?)`
+        ).bind(crypto.randomUUID(), utilisateur.id, utilisateur.role, utilisateur.province_id, idDefi, adresseIp(c.req.raw), idDefi),
+      ];
+      try {
+        const resultats = await c.env.DB.batch(instructionsDefi);
+        if (resultats[0]?.meta.changes !== 1 || resultats[1]?.meta.changes !== 1) {
+          return c.json({ erreur: "Le code d’activation a déjà été utilisé ou a expiré." }, 401);
+        }
+      } catch {
+        return c.json({ erreur: "Le code d’activation a déjà été utilisé ou a expiré." }, 401);
+      }
+    } else {
+      const instructionDefi = c.env.DB.prepare(
+        `INSERT INTO defis_mfa (id, utilisateur_id, jeton_hash, expire_le) VALUES (?, ?, ?, ?)`,
+      ).bind(idDefi, utilisateur.id, empreinteDefi, expirationDefi);
+      await c.env.DB.batch([instructionDefi, journalDefi]);
+    }
     c.header("Set-Cookie", cookieDefiMfa(jetonDefi, c.env.ENVIRONMENT));
     c.header("Set-Cookie", definirCookieCsrf(jetonCsrf, c.env.ENVIRONMENT), { append: true });
     return c.json({ mfa_requis: true, expire_dans_secondes: 300 });
+  }
+  if (activationInitiale) {
+    const empreinteActivation = utilisateur.code_activation_hash;
+    if (!empreinteActivation) return c.json({ erreur: "Le code d’activation est invalide ou expiré." }, 401);
+    const idSessionActivation = crypto.randomUUID();
+    const expirationSqlite = expirationSessionActivation();
+    const expirationIso = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const sessionActivation = c.env.DB.prepare(
+      `INSERT INTO sessions
+         (id, utilisateur_id, jeton_hash, jeton_csrf, adresse_ip, agent_utilisateur, expire_le, mfa_verifiee, activation_initiale, recuperation_id)
+       SELECT ?, u.id, ?, ?, ?, ?, ?, ?, 1, u.code_activation_recuperation_id
+       FROM utilisateurs u
+       WHERE u.id = ? AND u.statut = 'ACTIF' AND u.doit_changer_mot_de_passe = 1
+          AND u.code_activation_hash = ?
+          AND (u.code_activation_expire_le > datetime('now')
+            OR (u.code_activation_expire_le IS NULL AND u.code_activation_recuperation_id IS NULL))`,
+    ).bind(idSessionActivation, empreinteJeton, jetonCsrf, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null,
+      expirationSqlite, authentificationMfaObligatoire ? 0 : 1, utilisateur.id, empreinteActivation);
+    const consommerActivation = c.env.DB.prepare(
+      `UPDATE utilisateurs SET code_activation_hash = NULL, code_activation_expire_le = NULL,
+           code_activation_recuperation_id = NULL, tentatives_echouees = 0, verrouille_jusqua = NULL,
+           derniere_connexion = datetime('now'), modifie_le = datetime('now')
+        WHERE id = ? AND code_activation_hash = ?
+          AND (code_activation_expire_le > datetime('now')
+            OR (code_activation_expire_le IS NULL AND code_activation_recuperation_id IS NULL))
+         AND EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
+    ).bind(utilisateur.id, empreinteActivation, idSessionActivation);
+    const lierRecuperation = c.env.DB.prepare(
+      `UPDATE recuperations_acces_proprietaire
+       SET jeton_consomme_le = datetime('now'), session_id = ?
+       WHERE id = ? AND utilisateur_id = ? AND jeton_consomme_le IS NULL
+         AND EXISTS (SELECT 1 FROM sessions WHERE id = ? AND recuperation_id = recuperations_acces_proprietaire.id)`,
+    ).bind(idSessionActivation, utilisateur.code_activation_recuperation_id, utilisateur.id, idSessionActivation);
+    const evenementActivation = c.env.DB.prepare(
+      `INSERT INTO evenements_connexion (id, identifiant_tente, utilisateur_id, succes, adresse_ip, agent_utilisateur)
+       SELECT ?, ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
+    ).bind(crypto.randomUUID(), identifiant, utilisateur.id, adresseIp(c.req.raw), c.req.header("User-Agent") ?? null, idSessionActivation);
+    const auditActivation = c.env.DB.prepare(
+      `INSERT INTO journaux_audit (id, utilisateur_id, role_utilisateur, province_id, action, entite_type, entite_id, adresse_ip)
+       SELECT ?, ?, ?, ?, 'ACTIVATION_INITIALE_DEBUTEE', 'UTILISATEUR', ?, ?
+       WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 1)`,
+    ).bind(crypto.randomUUID(), utilisateur.id, utilisateur.role, utilisateur.province_id, utilisateur.id, adresseIp(c.req.raw), idSessionActivation);
+    try {
+      const resultats = await c.env.DB.batch([
+        sessionActivation,
+        consommerActivation,
+        lierRecuperation,
+        evenementActivation,
+        auditActivation,
+      ]);
+      if (resultats[0]?.meta.changes !== 1 || resultats[1]?.meta.changes !== 1) {
+        return c.json({ erreur: "Le code d’activation a déjà été utilisé ou a expiré." }, 401);
+      }
+    } catch {
+      return c.json({ erreur: "Le code d’activation a déjà été utilisé ou a expiré." }, 401);
+    }
+    c.header("Set-Cookie", cookieSession(jetonSession, c.env.ENVIRONMENT, 15 * 60), { append: true });
+    c.header("Set-Cookie", definirCookieCsrf(jetonCsrf, c.env.ENVIRONMENT), { append: true });
+    return c.json({
+      utilisateur: {
+        id: utilisateur.id,
+        identifiant: utilisateur.identifiant,
+        nom_complet: utilisateur.nom_complet,
+        role: utilisateur.role,
+        province_id: utilisateur.province_id,
+        doit_changer_mot_de_passe: true,
+        double_facteur_actif: utilisateur.double_facteur_actif === 1,
+        mfa_setup_requis: authentificationMfaObligatoire && utilisateur.double_facteur_actif !== 1,
+        activation_initiale: true,
+      },
+      expire_le: expirationIso,
+    });
   }
   const idSession = crypto.randomUUID();
   const expireLe = new Date(Date.now() + DELAI_SESSION_HEURES * 60 * 60 * 1000).toISOString();
@@ -248,10 +684,17 @@ routesAuth.get("/session", authMiddleware, (c) => {
       id: utilisateur.id,
       identifiant: utilisateur.identifiant,
       nom_complet: utilisateur.nom_complet,
+      courriel: utilisateur.courriel ?? null,
+      telephone: utilisateur.telephone ?? null,
       role: utilisateur.role,
       province_id: utilisateur.province_id,
       doit_changer_mot_de_passe: utilisateur.doit_changer_mot_de_passe === 1,
       double_facteur_actif: utilisateur.double_facteur_actif === 1,
+      statut: utilisateur.statut,
+      institution: utilisateur.institution ?? null,
+      fonction: utilisateur.fonction ?? null,
+      perimetre_consultation: utilisateur.perimetre_consultation ?? null,
+      provinces_autorisees: utilisateur.provinces_autorisees ?? [],
     },
     expire_le: c.get("session").expire_le,
   });
@@ -277,6 +720,7 @@ routesAuth.post("/changer-mot-de-passe-initial", authMiddleware, csrfSessionMidd
   const empreinte = await hacherMotDePasse(resultat.data.nouveau_mot_de_passe);
   const miseAJour = c.env.DB.prepare(
     `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = NULL,
+       code_activation_expire_le = NULL, code_activation_recuperation_id = NULL,
        doit_changer_mot_de_passe = 0, tentatives_echouees = 0, verrouille_jusqua = NULL,
        modifie_le = datetime('now') WHERE id = ? AND doit_changer_mot_de_passe = 1`,
   ).bind(empreinte, session.utilisateur.id);
@@ -291,7 +735,42 @@ routesAuth.post("/changer-mot-de-passe-initial", authMiddleware, csrfSessionMidd
   const invalidationAutresSessions = c.env.DB.prepare(
     `UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND id <> ? AND revoquee = 0`,
   ).bind(session.utilisateur.id, session.id);
-  await c.env.DB.batch([miseAJour, invalidationAutresSessions, reponseAudit]);
+  const terminerActivationSiSecondFacteurValide = c.env.DB.prepare(
+    `UPDATE sessions SET activation_initiale = CASE
+       WHEN EXISTS (
+         SELECT 1 FROM utilisateurs u
+         WHERE u.id = sessions.utilisateur_id
+           AND (u.role = 'DELEGUE_PROVINCIAL' OR (u.role IN ('PROPRIETAIRE', 'ADMIN_CENTRAL') AND u.double_facteur_actif = 1 AND sessions.mfa_verifiee = 1)
+             OR (EXISTS (SELECT 1 FROM comptes_consultation cc WHERE cc.utilisateur_id = u.id AND cc.statut IN ('INVITE', 'ACTIF'))
+               AND u.double_facteur_actif = 1 AND sessions.mfa_verifiee = 1))
+       ) THEN 0 ELSE activation_initiale END
+     WHERE id = ? AND utilisateur_id = ? AND revoquee = 0`,
+  ).bind(session.id, session.utilisateur.id);
+  const journalRecuperation = c.env.DB.prepare(
+    `UPDATE recuperations_acces_proprietaire
+     SET mot_de_passe_change_le = datetime('now'),
+         terminee_le = CASE
+           WHEN EXISTS (
+             SELECT 1 FROM sessions s INNER JOIN utilisateurs u ON u.id = s.utilisateur_id
+             WHERE s.id = ? AND s.mfa_verifiee = 1 AND u.double_facteur_actif = 1
+           ) THEN datetime('now') ELSE terminee_le END
+     WHERE id = ? AND utilisateur_id = ? AND session_id = ? AND revoquee_le IS NULL AND terminee_le IS NULL`,
+  ).bind(session.id, session.recuperation_id, session.utilisateur.id, session.id);
+  const nettoyerInstantaneRecuperationTerminee = c.env.DB.prepare(
+    `UPDATE recuperations_acces_proprietaire
+     SET empreinte_activation_precedente = NULL,
+         empreinte_mot_de_passe_precedente = NULL,
+         secret_mfa_temporaire_precedent = NULL
+     WHERE id = ? AND terminee_le IS NOT NULL AND emission_confirmee_le IS NOT NULL`,
+  ).bind(session.recuperation_id);
+  await c.env.DB.batch([
+    miseAJour,
+    invalidationAutresSessions,
+    terminerActivationSiSecondFacteurValide,
+    journalRecuperation,
+    nettoyerInstantaneRecuperationTerminee,
+    reponseAudit,
+  ]);
   return c.json({ message: "Votre mot de passe a été modifié avec succès." });
 });
 
@@ -399,11 +878,32 @@ routesAuth.post("/mfa/confirmer", authMiddleware, csrfSessionMiddleware, async (
      WHERE id = ? AND double_facteur_actif = 0 AND double_facteur_secret_temporaire = ?`,
   ).bind(session.utilisateur.id, secretLigne.double_facteur_secret_temporaire);
   const validerSession = c.env.DB.prepare(
-    `UPDATE sessions SET mfa_verifiee = 1
+    `UPDATE sessions SET mfa_verifiee = 1,
+       activation_initiale = CASE
+         WHEN EXISTS (SELECT 1 FROM utilisateurs WHERE id = ? AND doit_changer_mot_de_passe = 0) THEN 0
+         ELSE activation_initiale END
      WHERE id = ? AND utilisateur_id = ? AND mfa_verifiee = 0
        AND EXISTS (SELECT 1 FROM utilisateurs WHERE id = ? AND double_facteur_actif = 1
          AND double_facteur_secret = ?)`,
-  ).bind(session.id, session.utilisateur.id, session.utilisateur.id, secretLigne.double_facteur_secret_temporaire);
+  ).bind(session.utilisateur.id, session.id, session.utilisateur.id, session.utilisateur.id, secretLigne.double_facteur_secret_temporaire);
+  const activerCompteConsultation = c.env.DB.prepare(`UPDATE comptes_consultation SET statut = 'ACTIF', modifie_le = datetime('now')
+    WHERE utilisateur_id = ? AND statut = 'INVITE' AND EXISTS (
+      SELECT 1 FROM utilisateurs WHERE id = ? AND double_facteur_actif = 1 AND doit_changer_mot_de_passe = 0)`)
+    .bind(session.utilisateur.id, session.utilisateur.id);
+  const terminerRecuperation = c.env.DB.prepare(
+    `UPDATE recuperations_acces_proprietaire
+     SET terminee_le = datetime('now')
+     WHERE id = ? AND utilisateur_id = ? AND session_id = ?
+       AND mot_de_passe_change_le IS NOT NULL AND terminee_le IS NULL AND revoquee_le IS NULL
+       AND EXISTS (SELECT 1 FROM sessions WHERE id = ? AND activation_initiale = 0 AND mfa_verifiee = 1)`,
+  ).bind(session.recuperation_id, session.utilisateur.id, session.id, session.id);
+  const nettoyerInstantaneRecuperationTerminee = c.env.DB.prepare(
+    `UPDATE recuperations_acces_proprietaire
+     SET empreinte_activation_precedente = NULL,
+         empreinte_mot_de_passe_precedente = NULL,
+         secret_mfa_temporaire_precedent = NULL
+     WHERE id = ? AND terminee_le IS NOT NULL AND emission_confirmee_le IS NOT NULL`,
+  ).bind(session.recuperation_id);
   const insererRecuperation = c.env.DB.prepare(
     `INSERT INTO codes_recuperation_mfa (empreinte_code, utilisateur_id)
      SELECT json_extract(value, '$.empreinte'), ? FROM json_each(?)
@@ -418,7 +918,16 @@ routesAuth.post("/mfa/confirmer", authMiddleware, csrfSessionMiddleware, async (
     adresseIp: adresseIp(c.req.raw),
     donneesApres: JSON.stringify({ actif: true, nombre_codes_recuperation: codesRecuperation.length }),
   });
-  const resultats = await c.env.DB.batch([utiliserCompteur, activer, validerSession, insererRecuperation, audit]);
+  const resultats = await c.env.DB.batch([
+    utiliserCompteur,
+    activer,
+    validerSession,
+    activerCompteConsultation,
+    terminerRecuperation,
+    nettoyerInstantaneRecuperationTerminee,
+    insererRecuperation,
+    audit,
+  ]);
   if (resultats[1]?.meta.changes !== 1 || resultats[2]?.meta.changes !== 1) {
     return c.json({ erreur: "La configuration MFA a déjà été confirmée dans cette session." }, 409);
   }
@@ -438,14 +947,20 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
     ? (Reflect.get(corps, "code") as string).trim()
     : "";
   const defi = await c.env.DB.prepare(
-    `SELECT d.id, d.utilisateur_id, d.tentatives, u.identifiant, u.nom_complet, u.role, u.province_id,
-            u.doit_changer_mot_de_passe, u.double_facteur_secret, u.double_facteur_actif, u.statut
+    `SELECT d.id, d.utilisateur_id, d.tentatives, d.activation_initiale, d.recuperation_id,
+            u.identifiant, u.nom_complet,
+            CASE WHEN cc.id IS NOT NULL THEN 'CONSULTATION_INSTITUTIONNELLE' ELSE u.role END AS role,
+            u.province_id, u.doit_changer_mot_de_passe, u.double_facteur_secret,
+            u.double_facteur_actif, u.statut
      FROM defis_mfa d INNER JOIN utilisateurs u ON u.id = d.utilisateur_id
+     LEFT JOIN comptes_consultation cc ON cc.utilisateur_id = u.id
      WHERE d.jeton_hash = ? AND d.expire_le > datetime('now') AND d.consomme = 0
-       AND d.tentatives < 5 AND u.statut = 'ACTIF' AND u.double_facteur_actif = 1`,
+       AND d.tentatives < 5 AND u.statut = 'ACTIF' AND u.double_facteur_actif = 1
+       AND (cc.id IS NULL OR cc.statut <> 'SUSPENDU')`,
   ).bind(await hacherJeton(jetonDefi)).first<{
-    id: string; utilisateur_id: string; tentatives: number; identifiant: string; nom_complet: string;
-    role: "PROPRIETAIRE" | "ADMIN_CENTRAL"; province_id: string | null; doit_changer_mot_de_passe: number;
+    id: string; utilisateur_id: string; tentatives: number; activation_initiale: number; recuperation_id: string | null;
+    identifiant: string; nom_complet: string;
+    role: "PROPRIETAIRE" | "ADMIN_CENTRAL" | "CONSULTATION_INSTITUTIONNELLE"; province_id: string | null; doit_changer_mot_de_passe: number;
     double_facteur_secret: string | null; double_facteur_actif: number; statut: "ACTIF";
   }>();
   if (!defi || !defi.double_facteur_secret || !c.env.CLE_CHIFFREMENT_MFA) {
@@ -465,7 +980,9 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
   const idSession = crypto.randomUUID();
   const jetonSession = genererJetonAleatoire();
   const empreinteSession = await hacherJeton(jetonSession);
-  const expiration = new Date(Date.now() + DELAI_SESSION_HEURES * 60 * 60 * 1000).toISOString().replace("T", " ").replace(/\.\d{3}Z$/u, "");
+  const expiration = defi.activation_initiale === 1
+    ? expirationSessionActivation()
+    : dateSqlite(new Date(Date.now() + DELAI_SESSION_HEURES * 60 * 60 * 1000));
   const authentification = compteurTotp === null
     ? await hacherJeton(normaliserCodeRecuperation(code))
     : null;
@@ -486,8 +1003,9 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
       ).bind(operationId, defi.utilisateur_id, authentification));
     }
     instructions.push(c.env.DB.prepare(
-      `INSERT INTO sessions (id, utilisateur_id, jeton_hash, jeton_csrf, adresse_ip, agent_utilisateur, expire_le, mfa_verifiee)
-       SELECT ?, d.utilisateur_id, ?, ?, ?, ?, ?, 1 FROM defis_mfa d
+      `INSERT INTO sessions
+         (id, utilisateur_id, jeton_hash, jeton_csrf, adresse_ip, agent_utilisateur, expire_le, mfa_verifiee, activation_initiale, recuperation_id)
+       SELECT ?, d.utilisateur_id, ?, ?, ?, ?, ?, 1, d.activation_initiale, d.recuperation_id FROM defis_mfa d
        WHERE d.id = ? AND d.consomme = 0 AND d.expire_le > datetime('now') AND d.tentatives < 5
          AND EXISTS (SELECT 1 FROM utilisateurs u WHERE u.id = d.utilisateur_id AND u.statut = 'ACTIF' AND u.double_facteur_actif = 1)
          AND EXISTS (SELECT 1 FROM ${compteurTotp === null ? "codes_recuperation_mfa" : "compteurs_totp_utilises"} c
@@ -496,6 +1014,12 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
     instructions.push(c.env.DB.prepare(
       "UPDATE defis_mfa SET consomme = 1 WHERE id = ? AND consomme = 0 AND EXISTS (SELECT 1 FROM sessions WHERE id = ?)",
     ).bind(defi.id, idSession));
+    instructions.push(c.env.DB.prepare(
+      `UPDATE recuperations_acces_proprietaire
+       SET session_id = ?, defi_mfa_id = NULL, jeton_consomme_le = COALESCE(jeton_consomme_le, datetime('now'))
+       WHERE id = ? AND utilisateur_id = ? AND defi_mfa_id = ? AND terminee_le IS NULL AND revoquee_le IS NULL
+         AND EXISTS (SELECT 1 FROM sessions WHERE id = ? AND recuperation_id = recuperations_acces_proprietaire.id)`
+    ).bind(idSession, defi.recuperation_id, defi.utilisateur_id, defi.id, idSession));
     instructions.push(c.env.DB.prepare(
       `UPDATE utilisateurs SET tentatives_echouees = 0, verrouille_jusqua = NULL, derniere_connexion = datetime('now'), modifie_le = datetime('now')
        WHERE id = ? AND EXISTS (SELECT 1 FROM sessions WHERE id = ?)`,
@@ -532,8 +1056,14 @@ routesAuth.post("/mfa/verifier", csrfPreAuthMiddleware, async (c) => {
     return c.json({ erreur: "Le code MFA est invalide, expiré ou déjà utilisé." }, 401);
   }
 
-  const expireLe = new Date(Date.now() + DELAI_SESSION_HEURES * 60 * 60 * 1000).toISOString();
-  c.header("Set-Cookie", cookieSession(jetonSession, c.env.ENVIRONMENT));
+  const expireLe = defi.activation_initiale === 1
+    ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    : new Date(Date.now() + DELAI_SESSION_HEURES * 60 * 60 * 1000).toISOString();
+  c.header("Set-Cookie", cookieSession(
+    jetonSession,
+    c.env.ENVIRONMENT,
+    defi.activation_initiale === 1 ? 15 * 60 : DELAI_SESSION_HEURES * 60 * 60,
+  ));
   c.header("Set-Cookie", definirCookieCsrf(jetonCsrf, c.env.ENVIRONMENT), { append: true });
   c.header("Set-Cookie", effacerCookieDefiMfa(c.env.ENVIRONMENT), { append: true });
   return c.json({

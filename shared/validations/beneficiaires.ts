@@ -17,14 +17,6 @@ export const ROLES_PARTENAIRES = [
   "GESTIONNAIRE_SITE",
 ] as const;
 
-export const CODES_CATEGORIES_POPULATION = [
-  "AUTOCHTONE",
-  "DEPLACE_INTERNE",
-  "REFUGIE",
-  "RETOURNE",
-  "HOTE_VULNERABLE",
-] as const;
-
 export const CODES_VULNERABILITE = [
   "FEMME_CHEF_MENAGE",
   "HANDICAP",
@@ -63,6 +55,7 @@ export const schemaFiltresMenages = schemaPaginationGestion.extend({
   localite_id: identifiant.optional(),
   categorie_population_id: identifiant.optional(),
   statut: z.enum(["ACTIF", "INACTIF", "DOUBLON_SUSPECTE", "ARCHIVE"]).optional(),
+  statut_validation: z.enum(["A_VERIFIER", "VALIDE", "REFUSE"]).optional(),
   recherche: z.string().trim().max(120).optional(),
 });
 
@@ -74,9 +67,19 @@ export const schemaMembreMenage = z.strictObject({
   identifiant_individuel: z.string().trim().max(80).nullable().optional(),
 });
 
+export const MILIEUX_INTERVENTION = [
+  "URBAIN",
+  "RURAL_SEDENTAIRE",
+  "NOMADE_PASTORAL",
+  "SITE_HUMANITAIRE",
+] as const;
+
+export type MilieuIntervention = (typeof MILIEUX_INTERVENTION)[number];
+
 export const schemaMenage = z.strictObject({
   province_id: identifiant.optional(),
-  departement_id: identifiant,
+  departement_id: identifiant.nullable().optional(),
+  milieu_intervention: z.enum(MILIEUX_INTERVENTION).optional(),
   sous_prefecture_id: identifiant.nullable().optional(),
   commune_id: identifiant.nullable().optional(),
   localite_id: identifiant.nullable().optional(),
@@ -110,6 +113,17 @@ export const schemaInscriptionsBeneficiaires = z.strictObject({
 export const schemaDecisionDoublon = z.strictObject({
   decision: z.enum(["CONFIRME_DISTINCT", "CONFIRME_DOUBLON"]),
   observations: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const schemaDecisionValidationMenage = z.strictObject({
+  decision: z.enum(["VALIDER", "REFUSER"]),
+  observations: z.string().trim().min(8).max(1000),
+});
+
+export const schemaReouvertureDoublon = z.strictObject({
+  reference_preuve: z.string().trim().min(8).max(200),
+  date_preuve: dateIso,
+  observations: z.string().trim().min(8).max(1000),
 });
 
 export type CreationPartenaire = z.infer<typeof schemaCreationPartenaire>;

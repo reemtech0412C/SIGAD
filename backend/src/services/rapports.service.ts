@@ -315,6 +315,20 @@ export function appliquerPerimetreUtilisateur(
     }
     return { ...filtres, province_id: utilisateur.province_id };
   }
+  if (utilisateur.role === "CONSULTATION_INSTITUTIONNELLE") {
+    const provinces = utilisateur.provinces_autorisees ?? [];
+    if (utilisateur.perimetre_consultation === "NATIONAL") return filtres;
+    if (!provinces.length) throw new ErreurRapport("Aucun périmètre provincial actif n’est associé à ce compte.", 403);
+    if (provinces.length === 1) {
+      if (filtres.province_id && filtres.province_id !== provinces[0]) {
+        throw new ErreurRapport("Vous ne pouvez consulter que les provinces autorisées à votre compte.", 403);
+      }
+      return { ...filtres, province_id: provinces[0] };
+    }
+    if (!filtres.province_id || !provinces.includes(filtres.province_id)) {
+      throw new ErreurRapport("Sélectionnez une province comprise dans le périmètre qui vous a été attribué.", 403);
+    }
+  }
   return filtres;
 }
 
@@ -1080,6 +1094,16 @@ export async function preparerExportRapport(
 }
 
 export async function listerFiltresRapports(db: D1Database, utilisateur: UtilisateurSession) {
+  if (utilisateur.role === "CONSULTATION_INSTITUTIONNELLE") {
+    const ids = utilisateur.perimetre_consultation === "NATIONAL" ? null : utilisateur.provinces_autorisees ?? [];
+    if (ids && !ids.length) throw new ErreurRapport("Aucun périmètre provincial actif n’est associé à ce compte.", 403);
+    const provinces = ids === null
+      ? await db.prepare("SELECT id, nom FROM provinces WHERE actif = 1 ORDER BY nom COLLATE NOCASE LIMIT 23").all<{ id: string; nom: string }>()
+      : await db.prepare(`SELECT id, nom FROM provinces WHERE actif = 1 AND id IN (${ids.map(() => "?").join(",")}) ORDER BY nom COLLATE NOCASE LIMIT 23`)
+        .bind(...ids).all<{ id: string; nom: string }>();
+    return { provinces: provinces.results, partenaires: [], natures_aide: [], localites: [], distributions: [],
+      statuts: ["BROUILLON", "VALIDEE", "EN_EXPEDITION", "PARTIELLEMENT_RECEPTIONNEE", "RECEPTIONNEE", "EN_RAPPROCHEMENT", "CLOTUREE", "EN_PREPARATION", "VALIDEE_PROVINCE", "EN_EXECUTION", "TERMINEE_PROVINCE", "CLOTUREE_CENTRAL"] };
+  }
   const provinceSession = utilisateur.role === "DELEGUE_PROVINCIAL" ? utilisateur.province_id : null;
   if (utilisateur.role === "DELEGUE_PROVINCIAL" && !provinceSession) {
     throw new ErreurRapport("Le compte provincial n’a pas de province active.", 403);
@@ -1139,31 +1163,4 @@ export async function listeRapportsGeneres(
   return { elements: resultat.results.slice(0, options.limite), limite: options.limite,
     decalage: options.decalage, suite_disponible: suite, lignes_lues: resultat.meta.rows_read ?? 0,
     duree_requete_ms: resultat.meta.duration ?? 0 };
-}
-
-export async function lireRapportArchive(
-  db: D1Database,
-  utilisateur: UtilisateurSession,
-  rapportId: string,
-) {
-  const scopeProvince = utilisateur.role === "DELEGUE_PROVINCIAL" ? utilisateur.province_id : null;
-  if (utilisateur.role === "DELEGUE_PROVINCIAL" && !scopeProvince) throw new ErreurRapport("Le compte provincial n’a pas de province active.", 403);
-  const rapport = await db.prepare(`SELECT id, type_rapport, intitule, perimetre, province_id, filtres_appliques_json,
-      format_export, cle_r2_archive, genere_par, cree_le
-    FROM rapports_generes WHERE id = ? AND cle_r2_archive IS NOT NULL
-      AND (? IS NULL OR province_id = ?)`)
-    .bind(rapportId, scopeProvince, scopeProvince).first<Record<string, unknown>>();
-  if (!rapport) throw new ErreurRapport("Le rapport archivé est introuvable dans votre périmètre.", 404);
-  return rapport;
-}
-
-export async function verifierReferencesArchives(
-  db: D1Database,
-  cles: string[],
-): Promise<Set<string>> {
-  if (cles.length === 0) return new Set();
-  const placeholders = cles.map(() => "?").join(", ");
-  const resultat = await db.prepare(`SELECT cle_r2_archive FROM rapports_generes WHERE cle_r2_archive IN (${placeholders})`)
-    .bind(...cles).all<{ cle_r2_archive: string }>();
-  return new Set(resultat.results.map((ligne) => ligne.cle_r2_archive));
 }

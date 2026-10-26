@@ -56,7 +56,6 @@ export const schemaFiltresControle = z.strictObject({
   }
 });
 
-export const schemaPaginationControle = z.strictObject({ ...pagination });
 export const schemaFiltresClotures = z.strictObject({ ...pagination, province_id: identifiant.optional() });
 
 export const schemaFiltresObservations = z.strictObject({

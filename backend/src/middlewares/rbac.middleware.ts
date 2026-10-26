@@ -15,7 +15,13 @@ export function exigerRoles(...rolesAutorises: readonly RoleUtilisateur[]): Midd
 
 export const isolationProvinciale: MiddlewareHandler<EnvironnementApplication> = async (c, suivant) => {
   const utilisateur = c.get("utilisateur");
-  if (utilisateur.role !== "DELEGUE_PROVINCIAL") return suivant();
+  const rolesProvinciaux: RoleUtilisateur[] = [
+    "DELEGUE_PROVINCIAL",
+    "RESPONSABLE_STOCK",
+    "SUPERVISEUR_TERRAIN",
+    "AGENT_DISTRIBUTION",
+  ];
+  if (!rolesProvinciaux.includes(utilisateur.role)) return suivant();
   if (!utilisateur.province_id) return c.json({ erreur: "Aucune province n’est associée à votre compte." }, 403);
 
   const provinceRoute = c.req.param("provinceId") ?? new URL(c.req.url).pathname.match(/^\/api\/provincial\/(prov-[^/]+)(?:\/|$)/u)?.[1];
@@ -28,7 +34,16 @@ export const isolationProvinciale: MiddlewareHandler<EnvironnementApplication> =
   if (typeContenu.toLowerCase().includes("application/json") && c.req.method !== "GET") {
     try {
       const corps: unknown = await c.req.raw.clone().json();
-      if (typeof corps === "object" && corps !== null && "province_id" in corps) return c.json({ erreur: "Accès refusé." }, 403);
+      if (typeof corps === "object" && corps !== null && "province_id" in corps) {
+        if (
+          c.req.path.startsWith("/api/territoire/") &&
+          (corps as { province_id?: unknown }).province_id === utilisateur.province_id
+        ) {
+          // Autorisé pour les opérations territoriales dans la province de rattachement de l'utilisateur
+        } else {
+          return c.json({ erreur: "Accès refusé." }, 403);
+        }
+      }
     } catch {
       return c.json({ erreur: "Le corps de la requête est invalide." }, 400);
     }

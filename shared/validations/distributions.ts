@@ -45,6 +45,8 @@ export const schemaPlanDistribution = z.strictObject({
   date_prevue: dateIso,
   entrepot_id: identifiant,
   liste_beneficiaires_id: identifiant.nullable().optional(),
+  operation_centrale_id: identifiant.nullable().optional(),
+  dossier_execution_id: identifiant.nullable().optional(),
   observations: z.string().trim().max(2000).nullable().optional(),
   zones: z.array(schemaZoneDistribution).min(1).max(20),
   articles: z.array(schemaArticleDistribution).min(1).max(10),

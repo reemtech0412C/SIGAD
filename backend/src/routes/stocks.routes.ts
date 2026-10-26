@@ -21,9 +21,29 @@ import {
 } from "../../../shared/validations/stocks";
 
 const routesStocks = new Hono<EnvironnementApplication>();
-const ROLES_LECTURE = ["PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const;
-const ROLES_OPERATIONNELS = ["ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const;
+const ROLES_LECTURE = [
+  "PROPRIETAIRE",
+  "ADMIN_CENTRAL",
+  "DELEGUE_PROVINCIAL",
+  "RESPONSABLE_STOCK",
+  "SUPERVISEUR_TERRAIN",
+] as const;
+const ROLES_OPERATIONNELS = [
+  "ADMIN_CENTRAL",
+  "DELEGUE_PROVINCIAL",
+  "RESPONSABLE_STOCK",
+] as const;
 const ROLES_CENTRAUX = ["PROPRIETAIRE", "ADMIN_CENTRAL"] as const;
+const ROLES_PROVINCIAUX = [
+  "DELEGUE_PROVINCIAL",
+  "RESPONSABLE_STOCK",
+  "SUPERVISEUR_TERRAIN",
+  "AGENT_DISTRIBUTION",
+] as const;
+
+function estRoleProvincial(role: string): boolean {
+  return (ROLES_PROVINCIAUX as readonly string[]).includes(role);
+}
 
 interface Page<T> {
   elements: T[];
@@ -94,7 +114,7 @@ function appliquerPorteeProvince(
   filtres: FiltresStocks,
 ): { autorisee: boolean; provinceId: string | null } {
   const utilisateur = c.get("utilisateur");
-  if (utilisateur.role === "DELEGUE_PROVINCIAL") {
+  if (estRoleProvincial(utilisateur.role)) {
     if (!utilisateur.province_id || (filtres.province_id && filtres.province_id !== utilisateur.province_id)) {
       return { autorisee: false, provinceId: null };
     }
@@ -399,7 +419,7 @@ routesStocks.post("/entrepots", async (c) => {
   if (!autorise(utilisateur, ROLES_OPERATIONNELS)) return reponseInterdite(c);
   const entree = await lireCorps(c, schemaEntrepot);
   if (!entree) return c.json({ erreur: "Les données de l’entrepôt sont invalides." }, 400);
-  if (utilisateur.role === "DELEGUE_PROVINCIAL") {
+  if (estRoleProvincial(utilisateur.role)) {
     if (Object.hasOwn(entree, "province_id")) return reponseInterdite(c);
     if (!utilisateur.province_id || entree.niveau !== "PROVINCIAL") return reponseInterdite(c);
   } else if (entree.niveau === "PROVINCIAL" && !entree.province_id) {
@@ -408,7 +428,7 @@ routesStocks.post("/entrepots", async (c) => {
     return c.json({ erreur: "Un entrepôt central ne doit pas être rattaché à une province ou une localité." }, 400);
   }
   const id = crypto.randomUUID();
-  const provinceId = utilisateur.role === "DELEGUE_PROVINCIAL" ? utilisateur.province_id : (entree.province_id ?? null);
+  const provinceId = estRoleProvincial(utilisateur.role) ? utilisateur.province_id : (entree.province_id ?? null);
   try {
     await c.env.DB.batch([
       c.env.DB.prepare(
@@ -430,26 +450,27 @@ routesStocks.patch("/entrepots/:id", async (c) => {
   if (!autorise(utilisateur, ROLES_OPERATIONNELS)) return reponseInterdite(c);
   const entree = await lireCorps(c, schemaEntrepot);
   if (!entree) return c.json({ erreur: "Les données de l’entrepôt sont invalides." }, 400);
+  const estProv = estRoleProvincial(utilisateur.role);
   const avant = await c.env.DB.prepare(
     `SELECT id, niveau, province_id FROM entrepots
-     WHERE id = ? AND (? <> 'DELEGUE_PROVINCIAL' OR province_id = ?)`
-  ).bind(c.req.param("id"), utilisateur.role, utilisateur.province_id).first<{ id: string; niveau: string; province_id: string | null }>();
+     WHERE id = ? AND (? = 0 OR province_id = ?)`
+  ).bind(c.req.param("id"), estProv ? 1 : 0, utilisateur.province_id).first<{ id: string; niveau: string; province_id: string | null }>();
   if (!avant) return c.json({ erreur: "Entrepôt introuvable dans votre périmètre." }, 404);
-  if (utilisateur.role === "DELEGUE_PROVINCIAL") {
+  if (estProv) {
     if (Object.hasOwn(entree, "province_id") || entree.niveau !== "PROVINCIAL" || !utilisateur.province_id) return reponseInterdite(c);
   } else if ((entree.niveau === "PROVINCIAL" && !entree.province_id) || (entree.niveau === "CENTRAL" && (entree.province_id || entree.localite_id))) {
     return c.json({ erreur: "Le rattachement de l’entrepôt est invalide." }, 400);
   }
-  const provinceId = utilisateur.role === "DELEGUE_PROVINCIAL" ? utilisateur.province_id : (entree.province_id ?? null);
+  const provinceId = estProv ? utilisateur.province_id : (entree.province_id ?? null);
   try {
     const resultats = await c.env.DB.batch([
       c.env.DB.prepare(
         `UPDATE entrepots SET code_entrepot = ?, nom = ?, niveau = ?, province_id = ?, localite_id = ?,
          adresse_detaillee = ?, capacite_indicative = ?, responsable_nom = ?, responsable_telephone = ?, actif = ?
-         WHERE id = ? AND (? <> 'DELEGUE_PROVINCIAL' OR province_id = ?)`,
+         WHERE id = ? AND (? = 0 OR province_id = ?)`,
       ).bind(entree.code_entrepot, entree.nom, entree.niveau, provinceId, entree.localite_id ?? null,
         entree.adresse_detaillee ?? null, entree.capacite_indicative ?? null, entree.responsable_nom ?? null,
-        entree.responsable_telephone ?? null, Number(entree.actif), avant.id, utilisateur.role, utilisateur.province_id),
+        entree.responsable_telephone ?? null, Number(entree.actif), avant.id, estProv ? 1 : 0, utilisateur.province_id),
       construireAudit(c, "MODIFICATION_ENTREPOT", "ENTREPOT", avant.id, { ...entree, province_id: provinceId }),
     ]);
     if (resultats[0]?.meta.changes !== 1) return c.json({ erreur: "Entrepôt introuvable dans votre périmètre." }, 404);
@@ -556,7 +577,7 @@ routesStocks.get("/receptions-stock", async (c) => {
 routesStocks.get("/receptions-stock/:id", async (c) => {
   const utilisateur = c.get("utilisateur");
   if (!autorise(utilisateur, ROLES_LECTURE)) return reponseInterdite(c);
-  const conditions = utilisateur.role === "DELEGUE_PROVINCIAL" ? " AND r.province_id = ?" : "";
+  const conditions = estRoleProvincial(utilisateur.role) ? " AND r.province_id = ?" : "";
   const valeurs = conditions ? [c.req.param("id"), utilisateur.province_id] : [c.req.param("id")];
   const reception = await c.env.DB.prepare(
     `SELECT r.id, r.reference_reception, r.entrepot_id, e.nom AS entrepot, r.province_id,
@@ -671,7 +692,7 @@ routesStocks.get("/mouvements-stock", async (c) => {
 routesStocks.get("/mouvements-stock/:id", async (c) => {
   const utilisateur = c.get("utilisateur");
   if (!autorise(utilisateur, ROLES_LECTURE)) return reponseInterdite(c);
-  const condition = utilisateur.role === "DELEGUE_PROVINCIAL" ? " AND m.province_id = ?" : "";
+  const condition = estRoleProvincial(utilisateur.role) ? " AND m.province_id = ?" : "";
   const valeurs = condition ? [c.req.param("id"), utilisateur.province_id] : [c.req.param("id")];
   const mouvement = await c.env.DB.prepare(
     `SELECT m.id, m.reference_mouvement, m.entrepot_id, e.nom AS entrepot, m.province_id,

@@ -23,10 +23,29 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
   const empreinte = await hacherJeton(jeton);
   const ligne = await c.env.DB.prepare(
     `SELECT s.id, s.jeton_csrf, s.expire_le, s.utilisateur_id, s.mfa_verifiee,
+            s.activation_initiale, s.recuperation_id,
             u.id AS utilisateur_id_joint, u.identifiant, u.nom_complet, u.role,
-            u.province_id, u.doit_changer_mot_de_passe, u.double_facteur_actif, u.statut
+            u.province_id, u.courriel, u.telephone, u.doit_changer_mot_de_passe, u.double_facteur_actif, u.statut,
+            cc.institution, cc.fonction, cc.perimetre AS perimetre_consultation,
+            (SELECT json_group_array(p.province_id) FROM perimetres_provinciaux_consultation p
+              WHERE p.compte_consultation_id = cc.id) AS provinces_autorisees_json,
+            CASE
+              WHEN cc.id IS NOT NULL THEN 'CONSULTATION_INSTITUTIONNELLE'
+              WHEN pot.id IS NOT NULL THEN pot.role_terrain
+              ELSE u.role
+            END AS role_effectif,
+            CASE
+              WHEN cc.statut = 'SUSPENDU' THEN 'SUSPENDU'
+              WHEN pot.statut = 'SUSPENDU' THEN 'SUSPENDU'
+              WHEN pot.statut = 'REVOQUE' THEN 'SUSPENDU'
+              ELSE u.statut
+            END AS statut_effectif,
+            COALESCE(u.province_id, pot.province_id) AS province_id_effectif,
+            pot.entrepot_id AS entrepot_id_effectif
      FROM sessions AS s
      INNER JOIN utilisateurs AS u ON u.id = s.utilisateur_id
+     LEFT JOIN comptes_consultation cc ON cc.utilisateur_id = u.id
+     LEFT JOIN profils_operationnels_terrain pot ON pot.utilisateur_id = u.id AND pot.statut = 'ACTIF'
      WHERE s.jeton_hash = ? AND s.revoquee = 0 AND s.expire_le > datetime('now')`,
   )
     .bind(empreinte)
@@ -35,18 +54,28 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
       jeton_csrf: string;
       expire_le: string;
       mfa_verifiee: number;
+      activation_initiale: number;
+      recuperation_id: string | null;
       utilisateur_id: string;
       utilisateur_id_joint: string;
       identifiant: string;
       nom_complet: string;
-      role: UtilisateurSession["role"];
+      role_effectif: UtilisateurSession["role"];
       province_id: string | null;
+      province_id_effectif: string | null;
+      entrepot_id_effectif: string | null;
+      courriel: string | null;
+      telephone: string | null;
       doit_changer_mot_de_passe: number;
       double_facteur_actif: number;
-      statut: UtilisateurSession["statut"];
+      statut_effectif: UtilisateurSession["statut"];
+      institution: string | null;
+      fonction: string | null;
+      perimetre_consultation: UtilisateurSession["perimetre_consultation"];
+      provinces_autorisees_json: string | null;
     }>();
 
-  if (!ligne || ligne.statut !== "ACTIF") {
+  if (!ligne || ligne.statut_effectif !== "ACTIF") {
     return c.json({ erreur: "Votre session est invalide. Veuillez vous reconnecter." }, 401);
   }
 
@@ -54,11 +83,18 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
     id: ligne.utilisateur_id_joint,
     identifiant: ligne.identifiant,
     nom_complet: ligne.nom_complet,
-    role: ligne.role,
-    province_id: ligne.province_id,
+    role: ligne.role_effectif,
+    province_id: ligne.province_id_effectif ?? ligne.province_id,
+    courriel: ligne.courriel,
+    telephone: ligne.telephone,
     doit_changer_mot_de_passe: ligne.doit_changer_mot_de_passe,
     double_facteur_actif: ligne.double_facteur_actif,
-    statut: ligne.statut,
+    statut: ligne.statut_effectif,
+    ...(ligne.entrepot_id_effectif ? { entrepot_id: ligne.entrepot_id_effectif } : {}),
+    ...(ligne.provinces_autorisees_json ? { provinces_autorisees: JSON.parse(ligne.provinces_autorisees_json) as string[] } : {}),
+    ...(ligne.institution !== null ? { institution: ligne.institution } : {}),
+    ...(ligne.fonction !== null ? { fonction: ligne.fonction } : {}),
+    ...(ligne.perimetre_consultation ? { perimetre_consultation: ligne.perimetre_consultation } : {}),
   };
   const session: SessionActive = {
     id: ligne.id,
@@ -66,6 +102,8 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
     expire_le: ligne.expire_le,
     mfa_verifiee: ligne.mfa_verifiee,
     double_facteur_actif: ligne.double_facteur_actif,
+    activation_initiale: ligne.activation_initiale,
+    recuperation_id: ligne.recuperation_id,
     utilisateur,
   };
 
@@ -79,9 +117,22 @@ export const authMiddleware: MiddlewareHandler<EnvironnementApplication> = async
     c.req.path === "/api/auth/mfa/statut" ||
     c.req.path === "/api/auth/mfa/initialiser" ||
     c.req.path === "/api/auth/mfa/confirmer";
-  const administrateurAvecMfaObligatoire = utilisateur.role === "PROPRIETAIRE" || utilisateur.role === "ADMIN_CENTRAL";
+  const administrateurAvecMfaObligatoire = utilisateur.role === "PROPRIETAIRE"
+    || utilisateur.role === "ADMIN_CENTRAL" || utilisateur.role === "CONSULTATION_INSTITUTIONNELLE";
   if (administrateurAvecMfaObligatoire && (ligne.double_facteur_actif !== 1 || ligne.mfa_verifiee !== 1) && !cheminMfaAutorisePendantConfiguration) {
     return c.json({ erreur: "L’authentification multifacteur doit être configurée ou vérifiée avant cet accès.", mfa_requis: true }, 403);
+  }
+
+  const cheminsAutorisesActivationInitiale = new Set([
+    "/api/auth/session",
+    "/api/auth/deconnexion",
+    "/api/auth/changer-mot-de-passe-initial",
+    "/api/auth/mfa/statut",
+    "/api/auth/mfa/initialiser",
+    "/api/auth/mfa/confirmer",
+  ]);
+  if (ligne.activation_initiale === 1 && !cheminsAutorisesActivationInitiale.has(c.req.path)) {
+    return c.json({ erreur: "La session est limitée à l’activation initiale du compte.", activation_requise: true }, 403);
   }
 
   const cheminAutorisePendantChangement =

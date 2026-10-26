@@ -26,6 +26,7 @@ const schemaDestinationAffectee = z.strictObject({
 
 export const schemaCreationApprovisionnement = z.strictObject({
   reference: z.string().trim().min(6).max(80).regex(/^APP-[A-Z0-9-]+$/u),
+  operation_centrale_id: identifiant.nullable().optional(),
   intitule_operation: libelle,
   description: z.string().trim().max(2000).nullable().optional(),
   source_articles: z.enum(["ENTREPOT_CENTRAL", "FOURNISSEUR_EXTERNE", "DON_PARTENAIRE"]),

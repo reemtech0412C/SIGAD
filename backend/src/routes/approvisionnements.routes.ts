@@ -22,10 +22,19 @@ import {
   schemaReceptionProvinciale,
 } from "../../../shared/validations/approvisionnements";
 
+import type { RoleUtilisateur } from "../../../shared/constantes/roles";
+
 const routesLecture = new Hono<EnvironnementApplication>();
 const routesCentrales = new Hono<EnvironnementApplication>();
 const routesProvinciales = new Hono<EnvironnementApplication>();
-const ROLES_LECTURE = ["PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const;
+const ROLES_LECTURE: readonly RoleUtilisateur[] = [
+  "PROPRIETAIRE",
+  "ADMIN_CENTRAL",
+  "DELEGUE_PROVINCIAL",
+  "RESPONSABLE_STOCK",
+  "SUPERVISEUR_TERRAIN",
+  "AGENT_DISTRIBUTION",
+] as const;
 const schemaPageExpedition = z.strictObject({
   limite: z.coerce.number().int().min(1).max(100).default(25),
   decalage: z.coerce.number().int().min(0).max(10_000_000).default(0),
@@ -48,6 +57,7 @@ interface Page<T> {
 interface ApprovisionnementListeD1 {
   id: string;
   reference: string;
+  operation_centrale_id?: string | null;
   intitule_operation: string;
   date_creation: string;
   source_articles: string;
@@ -121,7 +131,7 @@ async function lirePage<T>(
 }
 
 function autoriseLecture(utilisateur: UtilisateurSession): boolean {
-  return ROLES_LECTURE.includes(utilisateur.role);
+  return utilisateur.role !== "CONSULTATION_INSTITUTIONNELLE" && ROLES_LECTURE.includes(utilisateur.role);
 }
 
 function reponsePage<T>(c: Context<EnvironnementApplication>, page: Page<T>) {
@@ -174,7 +184,7 @@ routesLecture.get("/", async (c) => {
   const statutSelection = estDelegue ? "COALESCE(d.statut_destination, 'PLANIFIEE')" : "a.statut";
   const liste = await lirePage<ApprovisionnementListeD1>(
     c,
-    `SELECT a.id, a.reference, a.intitule_operation, a.date_creation, a.source_articles,
+    `SELECT a.id, a.reference, a.operation_centrale_id, a.intitule_operation, a.date_creation, a.source_articles,
        a.nature_aide, ${statutSelection} AS statut,
        COUNT(DISTINCT d.id) AS nombre_destinations, COUNT(DISTINCT e.id) AS nombre_expeditions
      FROM approvisionnements_centraux a
@@ -227,7 +237,7 @@ routesLecture.get("/:id", async (c) => {
   if (!autoriseLecture(utilisateur)) return reponseInterdite(c);
   const estDelegue = utilisateur.role === "DELEGUE_PROVINCIAL";
   const approvisionnement = await c.env.DB.prepare(
-    `SELECT a.id, a.reference, a.intitule_operation, a.date_creation, a.description,
+    `SELECT a.id, a.reference, a.operation_centrale_id, a.intitule_operation, a.date_creation, a.description,
        a.source_articles, a.partenaire_id, a.nature_aide, a.date_prevue_expedition,
        a.instructions, ${estDelegue ? "d.statut_destination" : "a.statut"} AS statut,
        ${estDelegue ? "d.id AS destination_id, d.province_id" : "NULL AS destination_id, NULL AS province_id"}

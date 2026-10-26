@@ -2,18 +2,35 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import type { EnvironnementApplication, UtilisateurSession } from "../bindings";
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
+import {
+  ErreurIdempotenceImport,
+  executerImportIdempotent,
+  rejouerImportIdempotent,
+  type ResultatImportIdempotent,
+} from "../services/idempotence-import.service";
+import {
+  calculerPreuveImportMenage,
+  contientPreuveNouvelle,
+  creerSignatairePreuve,
+  empreinteReferencePreuve,
+  fusionnerEmpreintes,
+  lireEmpreintesPreuve,
+  type ComparaisonDoublon,
+} from "../services/preuve-doublon.service";
 import { convertirDateExcel, lireFeuilleExcelMenages } from "../services/xlsx-menages.service";
 import {
   schemaCreationListeBeneficiaires,
   schemaCreationPartenaire,
   schemaDecisionDoublon,
   schemaDecisionPartenaire,
+  schemaDecisionValidationMenage,
   schemaFiltresMenages,
   schemaFiltresPartenaires,
   schemaImportMenages,
   schemaInscriptionsBeneficiaires,
   schemaMenage,
   schemaPaginationGestion,
+  schemaReouvertureDoublon,
   type MenageSaisi,
 } from "../../../shared/validations/beneficiaires";
 
@@ -44,6 +61,19 @@ interface ResultatVerificationMenage {
   numero: number;
   localisation_valide: number;
   menage_doublon_id: string | null;
+  telephone_identique: number;
+  nom_localite_identiques: number;
+  dernier_signalement_id: string | null;
+  dernier_statut_traitement: string | null;
+  dernieres_empreintes: string | null;
+}
+
+interface ReponseImportMenages {
+  message: string;
+  nombre_menages: number;
+  doublons_signales: number;
+  menages_en_verification: number;
+  codes_menage: string[];
 }
 
 interface MenageListe {
@@ -59,6 +89,7 @@ interface MenageListe {
   categorie_population_id: string;
   categorie_population: string;
   statut: string;
+  statut_validation: "A_VERIFIER" | "VALIDE" | "REFUSE";
   date_enregistrement: string;
 }
 
@@ -106,6 +137,13 @@ interface SignalementDoublonD1 {
   motif_similitude: string;
   statut_traitement: string;
   cree_le: string;
+  traite_par?: string | null;
+  observations?: string | null;
+  empreintes_preuve_json?: string | null;
+  comparaison_json?: string | null;
+  empreinte_reference_preuve?: string | null;
+  reouverture_de_id?: string | null;
+  traite_le?: string | null;
 }
 
 interface LigneExportBeneficiaire {
@@ -129,8 +167,13 @@ interface ImportMenagePrepare {
   province_id: string;
   donnees: MenageSaisi;
   telephone: string | null;
-  statut: "ACTIF" | "DOUBLON_SUSPECTE";
+  statut: "ACTIF" | "INACTIF" | "DOUBLON_SUSPECTE";
+  statutValidation: "A_VERIFIER" | "VALIDE" | "REFUSE";
   menageDoublonId: string | null;
+  ouvrirSignalement: boolean;
+  empreintesPreuve: string[];
+  comparaisonPreuve: ComparaisonDoublon | null;
+  reouvertureDeId: string | null;
 }
 
 function reponseInterdite(c: Context<EnvironnementApplication>) {
@@ -149,6 +192,10 @@ function champCsv(valeur: string | number | null): string {
 
 function autorise(utilisateur: UtilisateurSession, roles: readonly string[]): boolean {
   return roles.includes(utilisateur.role);
+}
+
+function estAdministrateurCentral(utilisateur: UtilisateurSession): boolean {
+  return utilisateur.role === "ADMIN_CENTRAL";
 }
 
 function obtenirProvince(
@@ -247,12 +294,13 @@ function creerInstructionMenage(
     "localite_id", "arrondissement_id", "quartier_id", "carre_id", "site_humanitaire_id",
     "nom_chef_menage", "sexe_chef", "nombre_personnes", "telephone", "categorie_population_id",
     "criteres_vulnerabilite", "date_enregistrement", "statut", "cree_par",
+    "statut_validation",
   ];
   const valeurs: (string | number | null)[] = [
     menage.id,
     menage.code,
     menage.province_id,
-    d.departement_id,
+    d.departement_id ?? null,
     d.sous_prefecture_id ?? null,
     d.commune_id ?? null,
     d.localite_id ?? null,
@@ -269,6 +317,7 @@ function creerInstructionMenage(
     d.date_enregistrement,
     menage.statut,
     utilisateur.id,
+    menage.statutValidation,
   ];
   const valuesSql = valeurs.map(protegerSql).join(", ");
   return `INSERT INTO menages (${colonnes.join(", ")}) VALUES (${valuesSql})`;
@@ -296,9 +345,9 @@ function instructionsMembres(menageId: string, membres: MenageSaisi["membres"]):
   return instructions;
 }
 
-function instructionsSignalements(menages: readonly ImportMenagePrepare[]): string[] {
+function instructionsSignalements(menages: readonly ImportMenagePrepare[], utilisateur: UtilisateurSession): string[] {
   const lignes = menages.flatMap((menage) => {
-    if (!menage.menageDoublonId) return [];
+    if (!menage.menageDoublonId || !menage.ouvrirSignalement) return [];
     const id = crypto.randomUUID();
     const motif = menage.telephone ? "MEME_TELEPHONE" : "NOM_ET_LOCALITE_SIMILAIRES";
     return [`(${[
@@ -307,6 +356,11 @@ function instructionsSignalements(menages: readonly ImportMenagePrepare[]): stri
       menage.menageDoublonId,
       menage.id,
       motif,
+      JSON.stringify(menage.empreintesPreuve),
+      menage.comparaisonPreuve ? JSON.stringify(menage.comparaisonPreuve) : null,
+      menage.reouvertureDeId,
+      menage.reouvertureDeId ? utilisateur.id : null,
+      menage.reouvertureDeId ? "Un critère HMAC de rapprochement nouveau a été observé lors d’un nouvel import." : null,
     ].map(protegerSql).join(", ")})`];
   });
   if (lignes.length === 0) return [];
@@ -314,10 +368,29 @@ function instructionsSignalements(menages: readonly ImportMenagePrepare[]): stri
   const lots: string[] = [];
   for (let debut = 0; debut < lignes.length; debut += tailleGroupe) {
     lots.push(
-      `INSERT OR IGNORE INTO signalements_doublons (id, province_id, menage_source_id, menage_suspect_id, motif_similitude) VALUES ${lignes.slice(debut, debut + tailleGroupe).join(", ")}`,
+      `INSERT OR IGNORE INTO signalements_doublons
+       (id, province_id, menage_source_id, menage_suspect_id, motif_similitude, empreintes_preuve_json,
+        comparaison_json, reouverture_de_id, reouvert_par, motif_reouverture)
+       VALUES ${lignes.slice(debut, debut + tailleGroupe).join(", ")}`,
     );
   }
   return lots;
+}
+
+function instructionsReconciliationMenages(menages: readonly ImportMenagePrepare[]): string[] {
+  const doublons = new Map<string, { id: string; provinceId: string }>();
+  for (const menage of menages) {
+    if (menage.menageDoublonId && menage.ouvrirSignalement) {
+      doublons.set(`${menage.province_id}\u0000${menage.menageDoublonId}`, {
+        id: menage.menageDoublonId,
+        provinceId: menage.province_id,
+      });
+    }
+  }
+  return [...doublons.values()].map(({ id, provinceId }) =>
+    `UPDATE menages SET statut = 'DOUBLON_SUSPECTE', statut_validation = 'A_VERIFIER' WHERE id = ${protegerSql(id)} ` +
+    `AND province_id = ${protegerSql(provinceId)} AND statut <> 'ARCHIVE'`,
+  );
 }
 
 function requeteVerificationMenages(
@@ -333,7 +406,7 @@ function requeteVerificationMenages(
     const d = menage.donnees;
     const valeurs: (string | number | null)[] = [
       indexDebut + index,
-      d.departement_id,
+      d.departement_id ?? null,
       d.sous_prefecture_id ?? null,
       d.commune_id ?? null,
       d.localite_id ?? null,
@@ -351,37 +424,33 @@ function requeteVerificationMenages(
   return `WITH demandes (${nomsColonnes.join(", ")}) AS (VALUES ${valeursSql.join(", ")})
     SELECT d.numero,
       CASE WHEN
-        EXISTS (SELECT 1 FROM departements dep WHERE dep.id = d.departement_id AND dep.province_id = ${provinceSql} AND dep.actif = 1)
+        (
+          (d.departement_id IS NULL AND EXISTS (SELECT 1 FROM provinces p WHERE p.id = ${provinceSql} AND p.statut_particulier = 1))
+          OR EXISTS (SELECT 1 FROM departements dep WHERE dep.id = d.departement_id AND dep.province_id = ${provinceSql} AND dep.actif = 1)
+        )
         AND EXISTS (SELECT 1 FROM categories_population cp WHERE cp.id = d.categorie_population_id)
         AND (d.sous_prefecture_id IS NULL OR EXISTS (
           SELECT 1 FROM sous_prefectures sp WHERE sp.id = d.sous_prefecture_id
-            AND sp.departement_id = d.departement_id AND sp.actif = 1
+            AND (d.departement_id IS NULL OR sp.departement_id = d.departement_id) AND sp.actif = 1
         ))
         AND (d.commune_id IS NULL OR EXISTS (
           SELECT 1 FROM communes co WHERE co.id = d.commune_id AND co.province_id = ${provinceSql}
             AND co.actif = 1 AND co.statut_validation = 'VALIDE'
-            AND EXISTS (
-              SELECT 1 FROM rattachements_territoriaux rt WHERE rt.commune_id = co.id
-                AND rt.departement_id = d.departement_id
-                AND (d.sous_prefecture_id IS NULL OR rt.sous_prefecture_id = d.sous_prefecture_id)
-                AND rt.date_debut_validite <= date('now')
-                AND (rt.date_fin_validite IS NULL OR rt.date_fin_validite >= date('now'))
-            )
         ))
         AND (d.localite_id IS NULL OR EXISTS (
           SELECT 1 FROM localites loc WHERE loc.id = d.localite_id AND loc.province_id = ${provinceSql}
-            AND loc.departement_id = d.departement_id AND loc.statut_validation = 'VALIDE'
-            AND (loc.sous_prefecture_id IS NULL OR loc.sous_prefecture_id = d.sous_prefecture_id)
-            AND (loc.commune_id IS NULL OR loc.commune_id = d.commune_id)
+            AND (d.departement_id IS NULL OR loc.departement_id IS NULL OR loc.departement_id = d.departement_id) AND loc.statut_validation = 'VALIDE'
+            AND (d.sous_prefecture_id IS NULL OR loc.sous_prefecture_id IS NULL OR loc.sous_prefecture_id = d.sous_prefecture_id)
         ))
         AND (d.arrondissement_id IS NULL OR EXISTS (
           SELECT 1 FROM arrondissements ar INNER JOIN localites loc ON loc.id = ar.localite_id
           WHERE ar.id = d.arrondissement_id AND ar.localite_id = d.localite_id
-            AND ar.statut_validation = 'VALIDE' AND loc.mode_decoupage_urbain = 'AVEC_ARRONDISSEMENTS'
+            AND ar.statut_validation = 'VALIDE'
         ))
         AND (d.quartier_id IS NULL OR EXISTS (
           SELECT 1 FROM quartiers q WHERE q.id = d.quartier_id AND q.localite_id = d.localite_id
-            AND q.statut_validation = 'VALIDE' AND q.arrondissement_id IS d.arrondissement_id
+            AND q.statut_validation = 'VALIDE'
+            AND (d.arrondissement_id IS NULL OR q.arrondissement_id IS NULL OR q.arrondissement_id = d.arrondissement_id)
         ))
         AND (d.carre_id IS NULL OR EXISTS (
           SELECT 1 FROM carres ca INNER JOIN quartiers q ON q.id = ca.quartier_id
@@ -389,25 +458,51 @@ function requeteVerificationMenages(
         ))
         AND (d.site_humanitaire_id IS NULL OR EXISTS (
           SELECT 1 FROM sites_humanitaires site WHERE site.id = d.site_humanitaire_id
-            AND site.province_id = ${provinceSql} AND site.departement_id = d.departement_id
+            AND site.province_id = ${provinceSql}
+            AND (d.departement_id IS NULL OR site.departement_id IS NULL OR site.departement_id = d.departement_id)
             AND site.statut_validation = 'VALIDE'
-            AND (site.sous_prefecture_id IS NULL OR site.sous_prefecture_id = d.sous_prefecture_id)
-            AND (site.commune_id IS NULL OR site.commune_id = d.commune_id)
-            AND (site.localite_proche_id IS NULL OR site.localite_proche_id = d.localite_id)
+            AND (d.sous_prefecture_id IS NULL OR site.sous_prefecture_id IS NULL OR site.sous_prefecture_id = d.sous_prefecture_id)
+            AND (d.localite_id IS NULL OR site.localite_proche_id IS NULL OR site.localite_proche_id = d.localite_id)
         ))
       THEN 1 ELSE 0 END AS localisation_valide,
-      (SELECT m.id FROM menages m WHERE m.province_id = ${provinceSql} AND m.statut <> 'ARCHIVE'
+      candidat.id AS menage_doublon_id,
+      CASE WHEN d.telephone IS NOT NULL AND candidat.telephone = d.telephone THEN 1 ELSE 0 END AS telephone_identique,
+      CASE WHEN d.localite_id IS NOT NULL
+          AND lower(trim(candidat.nom_chef_menage)) = lower(trim(d.nom_chef_menage))
+          AND candidat.localite_id = d.localite_id THEN 1 ELSE 0 END AS nom_localite_identiques,
+      revue.id AS dernier_signalement_id,
+      revue.statut_traitement AS dernier_statut_traitement,
+      revue.empreintes_preuve_json AS dernieres_empreintes
+    FROM demandes d
+    LEFT JOIN menages candidat ON candidat.id = (SELECT m.id FROM menages m WHERE m.province_id = ${provinceSql} AND m.statut <> 'ARCHIVE'
         AND ((d.telephone IS NOT NULL AND m.telephone = d.telephone)
           OR (d.localite_id IS NOT NULL AND lower(trim(m.nom_chef_menage)) = lower(trim(d.nom_chef_menage))
             AND m.localite_id = d.localite_id))
         ORDER BY CASE WHEN d.telephone IS NOT NULL AND m.telephone = d.telephone THEN 0 ELSE 1 END,
-          m.cree_le ASC, m.id ASC LIMIT 1) AS menage_doublon_id
-    FROM demandes d`;
+          CASE
+            WHEN EXISTS (
+              SELECT 1 FROM signalements_doublons sd
+              WHERE sd.province_id = ${provinceSql} AND sd.menage_source_id = m.id
+            ) THEN 0
+            WHEN EXISTS (
+              SELECT 1 FROM signalements_doublons sd
+              WHERE sd.province_id = ${provinceSql} AND sd.menage_suspect_id = m.id
+            ) THEN 1
+            ELSE 2
+          END,
+          m.cree_le ASC, m.id ASC LIMIT 1)
+    LEFT JOIN signalements_doublons revue ON revue.id = (
+      SELECT sd.id FROM signalements_doublons sd
+      WHERE sd.province_id = ${provinceSql}
+        AND (sd.menage_source_id = candidat.id OR sd.menage_suspect_id = candidat.id)
+      ORDER BY sd.cree_le DESC, sd.id DESC LIMIT 1
+    )`;
 }
 
 async function verifierEtSignalerMenages(
   db: D1Database,
   menages: ImportMenagePrepare[],
+  secret: string,
 ): Promise<{ valides: boolean; nombreDoublons: number }> {
   const groupesParProvince = new Map<string, { ligne: ImportMenagePrepare; numero: number }[]>();
   for (const [numero, menage] of menages.entries()) {
@@ -431,8 +526,9 @@ async function verifierEtSignalerMenages(
     return { valides: false, nombreDoublons: 0 };
   }
 
-  const premierParTelephone = new Map<string, string>();
-  const premierParNomEtLocalite = new Map<string, string>();
+  const signataire = await creerSignatairePreuve(secret);
+  const premierParTelephone = new Map<string, ImportMenagePrepare>();
+  const premierParNomEtLocalite = new Map<string, ImportMenagePrepare>();
   for (let index = 0; index < menages.length; index += 1) {
     const menage = menages[index];
     const verification = parNumero.get(index);
@@ -443,14 +539,60 @@ async function verifierEtSignalerMenages(
       : null;
     const cleTelephoneProvince = menage.telephone ? `${menage.province_id}\u0000${menage.telephone}` : null;
     const cleNomProvinceLocalite = cleNomLocalite ? `${menage.province_id}\u0000${cleNomLocalite}` : null;
-    const doublonDansImport = cleTelephoneProvince ? premierParTelephone.get(cleTelephoneProvince) : undefined;
-    const doublonNomDansImport = cleNomProvinceLocalite ? premierParNomEtLocalite.get(cleNomProvinceLocalite) : undefined;
-    menage.menageDoublonId = verification.menage_doublon_id ?? doublonDansImport ?? doublonNomDansImport ?? null;
-    menage.statut = menage.menageDoublonId ? "DOUBLON_SUSPECTE" : "ACTIF";
-    if (cleTelephoneProvince && !premierParTelephone.has(cleTelephoneProvince)) premierParTelephone.set(cleTelephoneProvince, menage.id);
-    if (cleNomProvinceLocalite && !premierParNomEtLocalite.has(cleNomProvinceLocalite)) premierParNomEtLocalite.set(cleNomProvinceLocalite, menage.id);
+    const doublonTelephone = cleTelephoneProvince ? premierParTelephone.get(cleTelephoneProvince) : undefined;
+    const doublonNomLocalite = cleNomProvinceLocalite ? premierParNomEtLocalite.get(cleNomProvinceLocalite) : undefined;
+    const doublonDansImport = doublonTelephone ?? doublonNomLocalite;
+    menage.menageDoublonId = verification.menage_doublon_id ?? doublonDansImport?.id ?? null;
+    menage.ouvrirSignalement = false;
+    menage.empreintesPreuve = [];
+    menage.comparaisonPreuve = null;
+    menage.reouvertureDeId = null;
+    if (!menage.menageDoublonId) {
+      menage.statut = "ACTIF";
+      menage.statutValidation = "VALIDE";
+    } else {
+      const preuve = await calculerPreuveImportMenage({
+        signer: signataire,
+        provinceId: menage.province_id,
+        telephone: menage.telephone,
+        nomChef: menage.donnees.nom_chef_menage,
+        localiteId: menage.donnees.localite_id ?? null,
+        telephoneIdentique: verification.menage_doublon_id
+          ? verification.telephone_identique === 1
+          : Boolean(doublonTelephone),
+        nomLocaliteIdentiques: verification.menage_doublon_id
+          ? verification.nom_localite_identiques === 1
+          : Boolean(doublonNomLocalite),
+      });
+      const signalementConnu = verification.menage_doublon_id ? verification.dernier_signalement_id : null;
+      const empreintesConnues = verification.menage_doublon_id
+        ? lireEmpreintesPreuve(verification.dernieres_empreintes)
+        : null;
+      const nouvellePreuve = !signalementConnu || contientPreuveNouvelle(preuve.empreintes, empreintesConnues);
+      const peutOuvrirNouvelleRevue = nouvellePreuve;
+      menage.empreintesPreuve = signalementConnu
+        ? fusionnerEmpreintes(empreintesConnues, preuve.empreintes)
+        : preuve.empreintes;
+      menage.comparaisonPreuve = preuve.comparaison;
+      menage.ouvrirSignalement = peutOuvrirNouvelleRevue;
+      if (peutOuvrirNouvelleRevue) {
+        menage.statut = "DOUBLON_SUSPECTE";
+        menage.statutValidation = "A_VERIFIER";
+        menage.reouvertureDeId = signalementConnu && verification.dernier_statut_traitement !== "EN_ATTENTE"
+          ? signalementConnu
+          : null;
+      } else {
+        menage.statut = verification.dernier_statut_traitement === "CONFIRME_DOUBLON"
+          || verification.dernier_statut_traitement === "EN_ATTENTE"
+          ? "DOUBLON_SUSPECTE"
+          : "INACTIF";
+        menage.statutValidation = "A_VERIFIER";
+      }
+    }
+    if (cleTelephoneProvince && !premierParTelephone.has(cleTelephoneProvince)) premierParTelephone.set(cleTelephoneProvince, menage);
+    if (cleNomProvinceLocalite && !premierParNomEtLocalite.has(cleNomProvinceLocalite)) premierParNomEtLocalite.set(cleNomProvinceLocalite, menage);
   }
-  return { valides: true, nombreDoublons: menages.filter((menage) => menage.menageDoublonId !== null).length };
+  return { valides: true, nombreDoublons: menages.filter((menage) => menage.ouvrirSignalement).length };
 }
 
 function decouperCsv(texte: string): string[][] {
@@ -608,7 +750,12 @@ async function preparerImport(
       donnees,
       telephone: normaliserTelephone(donnees.telephone),
       statut: "ACTIF",
+      statutValidation: "VALIDE",
       menageDoublonId: null,
+      ouvrirSignalement: false,
+      empreintesPreuve: [],
+      comparaisonPreuve: null,
+      reouvertureDeId: null,
     });
   }
   if (lignes.reduce((total, ligne) => total + ligne.donnees.membres.length, 0) > 1000) {
@@ -628,13 +775,36 @@ async function enregistrerImport(
   const lignes = preparation.lignes;
   if (lignes.length === 0) return reponseInvalide(c, "Aucun ménage à importer.");
 
-  const controles = await verifierEtSignalerMenages(c.env.DB, lignes);
+  const cleRequete = c.req.header("X-Idempotency-Key");
+  if (!cleRequete) return c.json({ erreur: "L’en-tête X-Idempotency-Key est obligatoire pour une importation." }, 400);
+  let rejeu: ResultatImportIdempotent<ReponseImportMenages> | null;
+  try {
+    rejeu = await rejouerImportIdempotent<ReponseImportMenages>({
+      db: c.env.DB,
+      utilisateur,
+      routeApi: c.req.path,
+      cleRequete,
+      chargeUtile: menagesSaisis,
+    });
+  } catch (cause) {
+    if (cause instanceof ErreurIdempotenceImport) return c.json({ erreur: cause.message }, cause.statutHttp);
+    return c.json({ erreur: "L’état de la demande d’importation n’a pas pu être vérifié." }, 500);
+  }
+  if (rejeu) return c.json(rejeu.corps, 201);
+
+  let controles: { valides: boolean; nombreDoublons: number };
+  try {
+    controles = await verifierEtSignalerMenages(c.env.DB, lignes, c.env.CLE_CHIFFREMENT_MFA);
+  } catch {
+    return c.json({ erreur: "La protection des preuves de revue est indisponible; aucun ménage n’a été importé." }, 503);
+  }
   if (!controles.valides) return reponseInvalide(c, "Une localisation, une catégorie ou une relation géographique n’est pas validée pour la province du ménage.");
 
   const instructions = lignes.map((ligne) => creerInstructionMenage(ligne, utilisateur));
   for (const ligne of lignes) instructions.push(...instructionsMembres(ligne.id, ligne.donnees.membres));
   const requetes = instructions.map((instruction) => c.env.DB.prepare(instruction));
-  requetes.push(...instructionsSignalements(lignes).map((instruction) => c.env.DB.prepare(instruction)));
+  requetes.push(...instructionsReconciliationMenages(lignes).map((instruction) => c.env.DB.prepare(instruction)));
+  requetes.push(...instructionsSignalements(lignes, utilisateur).map((instruction) => c.env.DB.prepare(instruction)));
   requetes.push(creerInstructionAudit(c.env.DB, {
     utilisateur,
     action: "IMPORTATION_MENAGES",
@@ -642,13 +812,29 @@ async function enregistrerImport(
     entiteId: lignes[0]?.id ?? crypto.randomUUID(),
     adresseIp: c.req.header("CF-Connecting-IP") ?? null,
   }));
-  await c.env.DB.batch(requetes);
-  return c.json({
+  const corps: ReponseImportMenages = {
     message: "Importation enregistrée. Les doublons possibles sont signalés pour vérification manuelle.",
     nombre_menages: lignes.length,
     doublons_signales: controles.nombreDoublons,
+    menages_en_verification: lignes.filter((ligne) => ligne.statutValidation === "A_VERIFIER").length,
     codes_menage: lignes.map((ligne) => ligne.code),
-  }, 201);
+  };
+  try {
+    const resultat = await executerImportIdempotent({
+      db: c.env.DB,
+      utilisateur,
+      routeApi: c.req.path,
+      cleRequete,
+      chargeUtile: menagesSaisis,
+      statutHttp: 201,
+      corps,
+      instructions: requetes,
+    });
+    return c.json(resultat.corps, 201);
+  } catch (cause) {
+    if (cause instanceof ErreurIdempotenceImport) return c.json({ erreur: cause.message }, cause.statutHttp);
+    return c.json({ erreur: "L’importation n’a pas pu être enregistrée intégralement." }, 500);
+  }
 }
 
 routesGestion.get("/referentiels", async (c) => {
@@ -795,6 +981,7 @@ routesGestion.get("/menages", async (c) => {
   ajouterCondition(conditions, valeurs, "m.localite_id = ?", filtres.localite_id);
   ajouterCondition(conditions, valeurs, "m.categorie_population_id = ?", filtres.categorie_population_id);
   ajouterCondition(conditions, valeurs, "m.statut = ?", filtres.statut);
+  ajouterCondition(conditions, valeurs, "m.statut_validation = ?", filtres.statut_validation);
   if (filtres.recherche) {
     conditions.push("(m.code_menage LIKE ? OR m.nom_chef_menage LIKE ? OR m.telephone LIKE ?)");
     const terme = `%${filtres.recherche}%`;
@@ -805,7 +992,7 @@ routesGestion.get("/menages", async (c) => {
     c.env.DB,
     `SELECT m.id, m.code_menage, m.province_id, m.departement_id, m.localite_id,
       m.nom_chef_menage, m.sexe_chef, m.nombre_personnes, m.telephone,
-      m.categorie_population_id, cp.libelle AS categorie_population, m.statut, m.date_enregistrement
+      m.categorie_population_id, cp.libelle AS categorie_population, m.statut, m.statut_validation, m.date_enregistrement
      FROM menages m INNER JOIN categories_population cp ON cp.id = m.categorie_population_id
      WHERE ${where} ORDER BY m.date_enregistrement DESC, m.id LIMIT ? OFFSET ?`,
     `SELECT COUNT(*) AS total FROM menages m WHERE ${where}`,
@@ -823,7 +1010,7 @@ routesGestion.get("/menages/:menageId", async (c) => {
   const sql = `SELECT m.id, m.code_menage, m.province_id, m.departement_id, m.sous_prefecture_id,
       m.commune_id, m.localite_id, m.arrondissement_id, m.quartier_id, m.carre_id, m.site_humanitaire_id,
       m.nom_chef_menage, m.sexe_chef, m.nombre_personnes, m.telephone, m.categorie_population_id,
-      m.criteres_vulnerabilite, m.date_enregistrement, m.statut
+      m.criteres_vulnerabilite, m.date_enregistrement, m.statut, m.statut_validation
     FROM menages m WHERE m.id = ?${province ? " AND m.province_id = ?" : ""}`;
   const valeurs = province ? [c.req.param("menageId"), province] : [c.req.param("menageId")];
   const menage = await c.env.DB.prepare(sql).bind(...valeurs).first<Record<string, string | number | null>>();
@@ -934,14 +1121,14 @@ routesGestion.get("/listes-beneficiaires/:listeId/export", async (c) => {
   const encodeur = new TextEncoder();
   const enTeteEncodee = encodeur.encode(entete);
   let decalage = 0;
-  const sql = `SELECT m.code_menage, p.nom AS province, d.nom AS departement, l.nom AS localite,
+  const sql = `SELECT m.code_menage, p.nom AS province, COALESCE(d.nom, 'N''Djaména (Statut particulier)') AS departement, l.nom AS localite,
       m.nom_chef_menage, m.sexe_chef, m.nombre_personnes, cp.libelle AS categorie_population,
       m.criteres_vulnerabilite, m.date_enregistrement, m.statut AS statut_menage, i.statut_verification
     FROM inscriptions_beneficiaires i
     INNER JOIN listes_beneficiaires lb ON lb.id = i.liste_id
     INNER JOIN menages m ON m.id = i.menage_id
     INNER JOIN provinces p ON p.id = m.province_id
-    INNER JOIN departements d ON d.id = m.departement_id
+    LEFT JOIN departements d ON d.id = m.departement_id
     LEFT JOIN localites l ON l.id = m.localite_id
     INNER JOIN categories_population cp ON cp.id = m.categorie_population_id
     WHERE lb.id = ?${provinceId ? " AND lb.province_id = ?" : ""}
@@ -1057,8 +1244,8 @@ routesGestion.post("/listes-beneficiaires/:listeId/inscriptions", async (c) => {
   if (ids.length !== resultat.valeur.menage_ids.length) return c.json({ erreur: "La demande contient un même ménage plusieurs fois." }, 409);
   const listeSql = ids.map(protegerSql).join(", ");
   const menages = await c.env.DB.prepare(
-    `SELECT id, province_id, nombre_personnes, statut FROM menages WHERE id IN (${listeSql}) AND province_id = ${protegerSql(liste.province_id)} AND statut = 'ACTIF'`,
-  ).all<{ id: string; province_id: string; nombre_personnes: number; statut: string }>();
+    `SELECT id, province_id, nombre_personnes, statut, statut_validation FROM menages WHERE id IN (${listeSql}) AND province_id = ${protegerSql(liste.province_id)} AND statut = 'ACTIF' AND statut_validation = 'VALIDE'`,
+  ).all<{ id: string; province_id: string; nombre_personnes: number; statut: string; statut_validation: string }>();
   if (menages.results.length !== ids.length) return reponseInvalide(c, "Tous les ménages doivent être actifs et appartenir à la province de la liste.");
   const dejaInscrits = await c.env.DB.prepare(
     `SELECT menage_id FROM inscriptions_beneficiaires WHERE liste_id = ${protegerSql(liste.id)} AND menage_id IN (${listeSql})`,
@@ -1108,39 +1295,139 @@ routesGestion.get("/signalements-doublons", async (c) => {
 
 routesGestion.post("/signalements-doublons/:signalementId/decision", async (c) => {
   const utilisateur = c.get("utilisateur");
-  if (!autorise(utilisateur, ROLES_OPERATIONNELS)) return reponseInterdite(c);
+  if (!estAdministrateurCentral(utilisateur)) return reponseInterdite(c);
   const resultat = await lireCorps(c, schemaDecisionDoublon);
   if ("erreur" in resultat) return reponseInvalide(c, resultat.erreur);
-  const portee = utilisateur.role === "DELEGUE_PROVINCIAL" ? utilisateur.province_id : null;
-  if (utilisateur.role === "DELEGUE_PROVINCIAL" && !portee) return reponseInterdite(c);
   const signalement = await c.env.DB.prepare(
-    "SELECT id, province_id, menage_source_id, menage_suspect_id, statut_traitement FROM signalements_doublons WHERE id = ?" + (portee ? " AND province_id = ?" : ""),
-  ).bind(...(portee ? [c.req.param("signalementId"), portee] : [c.req.param("signalementId")])).first<SignalementDoublonD1>();
+    `SELECT id, province_id, menage_source_id, menage_suspect_id, statut_traitement, motif_similitude
+     FROM signalements_doublons WHERE id = ?`,
+  ).bind(c.req.param("signalementId")).first<SignalementDoublonD1>();
   if (!signalement) return c.json({ erreur: "Signalement de doublon introuvable." }, 404);
   if (signalement.statut_traitement !== "EN_ATTENTE") return c.json({ erreur: "Ce signalement a déjà été traité." }, 409);
-  const avant = await c.env.DB.prepare("SELECT statut FROM menages WHERE id = ? AND province_id = ?")
-    .bind(signalement.menage_suspect_id, signalement.province_id).first<{ statut: string }>();
-  if (!avant) return c.json({ erreur: "Ménage suspect introuvable." }, 404);
-  const statements = [
-    c.env.DB.prepare(
-      "UPDATE signalements_doublons SET statut_traitement = ?, traite_par = ?, observations = ? WHERE id = ? AND statut_traitement = 'EN_ATTENTE'",
-    ).bind(resultat.valeur.decision, utilisateur.id, resultat.valeur.observations ?? null, signalement.id),
-  ];
-  if (resultat.valeur.decision === "CONFIRME_DOUBLON") {
-    statements.push(c.env.DB.prepare("UPDATE menages SET statut = 'DOUBLON_SUSPECTE' WHERE id = ? AND province_id = ?")
-      .bind(signalement.menage_suspect_id, signalement.province_id));
+  if (!resultat.valeur.observations || resultat.valeur.observations.trim().length < 8) {
+    return reponseInvalide(c, "Une justification d’au moins huit caractères est obligatoire pour motiver la décision.");
   }
-  statements.push(creerInstructionAudit(c.env.DB, {
-    utilisateur,
-    action: resultat.valeur.decision,
-    entiteType: "SIGNALEMENT_DOUBLON",
-    entiteId: signalement.id,
-    adresseIp: c.req.header("CF-Connecting-IP") ?? null,
-    donneesAvant: JSON.stringify({ statut_traitement: signalement.statut_traitement, statut_menage: avant.statut }),
-    donneesApres: JSON.stringify(resultat.valeur),
-  }));
-  await c.env.DB.batch(statements);
+  const avant = await c.env.DB.prepare(
+    `SELECT id, statut, statut_validation FROM menages
+     WHERE province_id = ? AND id IN (?, ?) ORDER BY id`,
+  ).bind(signalement.province_id, signalement.menage_source_id, signalement.menage_suspect_id)
+    .all<{ id: string; statut: string; statut_validation: string }>();
+  if (avant.results.length !== 2 || avant.results.some((menage) => menage.statut !== "DOUBLON_SUSPECTE" || menage.statut_validation !== "A_VERIFIER")) {
+    return c.json({ erreur: "Les deux ménages ne sont plus dans l’état requis pour cette décision." }, 409);
+  }
+  const resultatBatch = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE signalements_doublons
+       SET statut_traitement = ?, traite_par = ?, observations = ?, traite_le = datetime('now')
+       WHERE id = ? AND statut_traitement = 'EN_ATTENTE'`,
+    ).bind(resultat.valeur.decision, utilisateur.id, resultat.valeur.observations ?? null, signalement.id),
+  ]);
+  if ((resultatBatch[0]?.meta.changes ?? 0) < 1) {
+    return c.json({ erreur: "Le signalement a été traité par une demande concurrente; actualisez la liste." }, 409);
+  }
   return c.json({ id: signalement.id, statut_traitement: resultat.valeur.decision });
+});
+
+routesGestion.post("/signalements-doublons/:signalementId/reouverture", async (c) => {
+  const utilisateur = c.get("utilisateur");
+  if (!estAdministrateurCentral(utilisateur)) return reponseInterdite(c);
+  const resultat = await lireCorps(c, schemaReouvertureDoublon);
+  if ("erreur" in resultat) return reponseInvalide(c, resultat.erreur);
+  const precedent = await c.env.DB.prepare(
+    `SELECT id, province_id, menage_source_id, menage_suspect_id, motif_similitude, statut_traitement
+     FROM signalements_doublons WHERE id = ?`,
+  ).bind(c.req.param("signalementId")).first<SignalementDoublonD1>();
+  if (!precedent) return c.json({ erreur: "Signalement de doublon introuvable." }, 404);
+  if (precedent.statut_traitement === "EN_ATTENTE") return c.json({ erreur: "Une revue est déjà ouverte pour ce signalement." }, 409);
+
+  let empreinteReference: string;
+  try {
+    empreinteReference = await empreinteReferencePreuve(
+      await creerSignatairePreuve(c.env.CLE_CHIFFREMENT_MFA),
+      resultat.valeur.reference_preuve,
+    );
+  } catch {
+    return c.json({ erreur: "La protection de la référence de preuve est indisponible." }, 503);
+  }
+  const dejaUtilisee = await c.env.DB.prepare(
+    `WITH RECURSIVE ancetres(id, reouverture_de_id, empreinte_reference_preuve) AS (
+       SELECT id, reouverture_de_id, empreinte_reference_preuve FROM signalements_doublons WHERE id = ?
+       UNION ALL
+       SELECT sd.id, sd.reouverture_de_id, sd.empreinte_reference_preuve
+       FROM signalements_doublons sd INNER JOIN ancetres a ON sd.id = a.reouverture_de_id
+     )
+     SELECT 1 AS trouve FROM ancetres WHERE empreinte_reference_preuve = ? LIMIT 1`,
+  ).bind(precedent.id, empreinteReference).first<{ trouve: number }>();
+  if (dejaUtilisee) return c.json({ erreur: "Cette référence de preuve figure déjà dans l’historique de la revue." }, 409);
+
+  const id = crypto.randomUUID();
+  const comparaison = JSON.stringify({ version: 1, critere: "REFERENCE_DOCUMENTAIRE", date_preuve: resultat.valeur.date_preuve });
+  try {
+    const lot = await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE menages SET statut = 'DOUBLON_SUSPECTE', statut_validation = 'A_VERIFIER'
+         WHERE province_id = ? AND id IN (?, ?) AND statut <> 'ARCHIVE'`,
+      ).bind(precedent.province_id, precedent.menage_source_id, precedent.menage_suspect_id),
+      c.env.DB.prepare(
+        `INSERT INTO signalements_doublons
+         (id, province_id, menage_source_id, menage_suspect_id, motif_similitude, observations,
+          empreintes_preuve_json, comparaison_json, empreinte_reference_preuve, reouverture_de_id,
+          reouvert_par, motif_reouverture)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(
+        id, precedent.province_id, precedent.menage_source_id, precedent.menage_suspect_id,
+        precedent.motif_similitude, null,
+        JSON.stringify([empreinteReference]), comparaison, empreinteReference, precedent.id,
+        utilisateur.id, resultat.valeur.observations,
+      ),
+    ]);
+    if ((lot[1]?.meta.changes ?? 0) < 1) {
+      return c.json({ erreur: "La réouverture n’a pas été enregistrée intégralement." }, 409);
+    }
+  } catch {
+    return c.json({ erreur: "La nouvelle revue n’a pas pu être ouverte; une opération concurrente ou une contrainte d’intégrité l’a empêchée." }, 409);
+  }
+  return c.json({ id, reouverture_de_id: precedent.id, statut_traitement: "EN_ATTENTE" }, 201);
+});
+
+routesGestion.post("/menages/:menageId/validation", async (c) => {
+  const utilisateur = c.get("utilisateur");
+  if (!estAdministrateurCentral(utilisateur)) return reponseInterdite(c);
+  const resultat = await lireCorps(c, schemaDecisionValidationMenage);
+  if ("erreur" in resultat) return reponseInvalide(c, resultat.erreur);
+  const id = c.req.param("menageId");
+  const avant = await c.env.DB.prepare(
+    `SELECT id, province_id, statut, statut_validation FROM menages WHERE id = ?`,
+  ).bind(id).first<{ id: string; province_id: string; statut: string; statut_validation: string }>();
+  if (!avant) return c.json({ erreur: "Ménage introuvable." }, 404);
+  if (avant.statut !== "INACTIF" || avant.statut_validation !== "A_VERIFIER") {
+    return c.json({ erreur: "Seul un ménage en attente de validation individuelle peut recevoir cette décision." }, 409);
+  }
+  const revueOuverte = await c.env.DB.prepare(
+    `SELECT 1 AS trouve FROM signalements_doublons
+     WHERE province_id = ? AND statut_traitement = 'EN_ATTENTE'
+       AND (menage_source_id = ? OR menage_suspect_id = ?) LIMIT 1`,
+  ).bind(avant.province_id, id, id).first<{ trouve: number }>();
+  if (revueOuverte) return c.json({ erreur: "Le ménage reste lié à une revue de doublon ouverte." }, 409);
+
+  const statut = resultat.valeur.decision === "VALIDER" ? "ACTIF" : "INACTIF";
+  const statutValidation = resultat.valeur.decision === "VALIDER" ? "VALIDE" : "REFUSE";
+  const lot = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE menages SET statut = ?, statut_validation = ?
+         , validation_decidee_par = ?, validation_decidee_le = datetime('now'), motif_validation = ?
+       WHERE id = ? AND province_id = ? AND statut = 'INACTIF' AND statut_validation = 'A_VERIFIER'
+         AND NOT EXISTS (
+           SELECT 1 FROM signalements_doublons sd WHERE sd.province_id = menages.province_id
+             AND sd.statut_traitement = 'EN_ATTENTE'
+             AND (sd.menage_source_id = menages.id OR sd.menage_suspect_id = menages.id)
+         )`,
+    ).bind(statut, statutValidation, utilisateur.id, resultat.valeur.observations, id, avant.province_id),
+  ]);
+  if ((lot[0]?.meta.changes ?? 0) < 1) {
+    return c.json({ erreur: "Le ménage a été traité par une demande concurrente; actualisez son dossier." }, 409);
+  }
+  return c.json({ id, statut, statut_validation: statutValidation });
 });
 
 export { routesGestion };

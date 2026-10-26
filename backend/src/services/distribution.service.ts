@@ -11,10 +11,19 @@ import type {
   RemiseDistributionSaisie,
 } from "../../../shared/validations/distributions.ts";
 
+import type { RoleUtilisateur } from "../../../shared/constantes/roles.ts";
+
 const MAX_LOTS_PAR_OPERATION = 16;
 const MAX_LOTS_PAR_REMISE = 12;
 const EPSILON_QUANTITE = 0.000001;
-const ROLES_LECTURE = ["PROPRIETAIRE", "ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"] as const;
+const ROLES_LECTURE: readonly RoleUtilisateur[] = [
+  "PROPRIETAIRE",
+  "ADMIN_CENTRAL",
+  "DELEGUE_PROVINCIAL",
+  "RESPONSABLE_STOCK",
+  "SUPERVISEUR_TERRAIN",
+  "AGENT_DISTRIBUTION",
+] as const;
 
 type Database = EnvironnementApplication["Bindings"]["DB"];
 type Ecriture = D1PreparedStatement;
@@ -53,6 +62,8 @@ interface DistributionD1 {
   observations: string | null;
   cree_par: string;
   date_declaration_fin: string | null;
+  operation_centrale_id?: string | null;
+  dossier_execution_id?: string | null;
   cree_le: string;
   modifie_le: string;
 }
@@ -174,7 +185,9 @@ function exigerDelegue(utilisateur: UtilisateurSession): string {
 }
 
 function verifierLecture(utilisateur: UtilisateurSession): void {
-  if (!ROLES_LECTURE.includes(utilisateur.role)) throw new ErreurDistribution("Accès refusé.", 403);
+  if (utilisateur.role === "CONSULTATION_INSTITUTIONNELLE" || !ROLES_LECTURE.includes(utilisateur.role)) {
+    throw new ErreurDistribution("Accès refusé.", 403);
+  }
 }
 
 function validerCleIdempotence(cle: string): void {
@@ -217,7 +230,7 @@ async function lireDistributionAutorisee(
        d.partenaire_execution_id, d.objectif, d.nombre_menages_cibles,
        d.nombre_personnes_cibles, d.date_prevue, d.entrepot_id, e.nom AS entrepot_nom,
        d.liste_beneficiaires_id, d.statut, d.version_plan, d.observations,
-       d.cree_par, d.date_declaration_fin, d.cree_le, d.modifie_le
+       d.cree_par, d.date_declaration_fin, d.operation_centrale_id, d.dossier_execution_id, d.cree_le, d.modifie_le
      FROM distributions_provinciales d
      INNER JOIN provinces p ON p.id = d.province_id
      INNER JOIN departements dep ON dep.id = d.departement_id
@@ -244,7 +257,7 @@ async function validerPlanEtPreparer(
     `SELECT COUNT(*) AS nombre, COALESCE(SUM(m.nombre_personnes), 0) AS personnes
      FROM json_each(?) selection
      INNER JOIN menages m ON m.id = json_extract(selection.value, '$.id')
-     WHERE m.province_id = ? AND m.departement_id = ? AND m.statut = 'ACTIF'`,
+     WHERE m.province_id = ? AND m.departement_id = ? AND m.statut = 'ACTIF' AND m.statut_validation = 'VALIDE'`,
   ).bind(menagesJson, provinceId, plan.departement_id).first<{ nombre: number; personnes: number }>());
   if ((resultatMenages?.nombre ?? 0) !== plan.menages.length) {
     throw new ErreurDistribution("Un ménage est absent, inactif ou hors de votre périmètre territorial.", 400);
@@ -367,14 +380,15 @@ function construireInstructionsCreation(
          (id, reference_distribution, intitule_distribution, province_id, departement_id,
           sous_prefecture_id, commune_id, nature_aide, bailleur_fonds_id, partenaire_execution_id,
           objectif, nombre_menages_cibles, nombre_personnes_cibles, date_prevue, entrepot_id,
-          liste_beneficiaires_id, observations, cree_par)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          liste_beneficiaires_id, observations, cree_par, operation_centrale_id, dossier_execution_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         prepare.id, prepare.reference, plan.intitule_distribution, prepare.provinceId,
         plan.departement_id, plan.sous_prefecture_id ?? null, plan.commune_id ?? null,
         plan.nature_aide, plan.bailleur_fonds_id ?? null, plan.partenaire_execution_id ?? null,
         plan.objectif, prepare.menages.length, prepare.nombrePersonnes, plan.date_prevue,
         plan.entrepot_id, prepare.listeBeneficiairesId, plan.observations ?? null, utilisateur.id,
+        plan.operation_centrale_id ?? null, plan.dossier_execution_id ?? null,
       ),
       changementsAttendus: 1,
     },
@@ -524,6 +538,7 @@ export async function modifierDistributionBrouillon(
           sous_prefecture_id = ?, commune_id = ?, nature_aide = ?, bailleur_fonds_id = ?,
           partenaire_execution_id = ?, objectif = ?, nombre_menages_cibles = ?, nombre_personnes_cibles = ?,
           date_prevue = ?, entrepot_id = ?, liste_beneficiaires_id = ?, observations = ?,
+          operation_centrale_id = ?, dossier_execution_id = ?,
           version_plan = version_plan + 1, modifie_le = datetime('now')
          WHERE id = ? AND province_id = ? AND statut IN ('BROUILLON', 'EN_PREPARATION')`,
       ).bind(
@@ -531,7 +546,8 @@ export async function modifierDistributionBrouillon(
         plan.commune_id ?? null, plan.nature_aide, plan.bailleur_fonds_id ?? null,
         plan.partenaire_execution_id ?? null, plan.objectif, prepare.menages.length,
         prepare.nombrePersonnes, plan.date_prevue, plan.entrepot_id, prepare.listeBeneficiairesId,
-        plan.observations ?? null, distributionId, provinceId,
+        plan.observations ?? null, plan.operation_centrale_id ?? null, plan.dossier_execution_id ?? null,
+        distributionId, provinceId,
       ),
       changementsAttendus: 1,
     },
@@ -583,6 +599,7 @@ export async function listerDistributions(
       `SELECT d.id, d.reference_distribution, d.intitule_distribution, d.province_id,
         p.nom AS province_nom, d.date_prevue, d.nature_aide, d.statut,
         d.nombre_menages_cibles, d.nombre_personnes_cibles, d.modifie_le,
+        d.operation_centrale_id, d.dossier_execution_id,
         COUNT(DISTINCT md.id) AS menages_inscrits, COUNT(DISTINCT ad.id) AS nombre_articles
        FROM distributions_provinciales d
        INNER JOIN provinces p ON p.id = d.province_id
@@ -681,7 +698,7 @@ export async function listerMenagesCiblesDisponibles(
   filtres: { limite: number; decalage: number; recherche?: string | undefined; departement_id?: string | undefined; localite_id?: string | undefined; site_humanitaire_id?: string | undefined },
 ) {
   const provinceId = exigerDelegue(utilisateur);
-  const conditions = ["m.province_id = ?", "m.statut = 'ACTIF'"];
+  const conditions = ["m.province_id = ?", "m.statut = 'ACTIF'", "m.statut_validation = 'VALIDE'"];
   const valeurs: (string | number)[] = [provinceId];
   if (filtres.recherche) {
     conditions.push("(m.code_menage LIKE ? OR m.nom_chef_menage LIKE ?)");
@@ -816,7 +833,7 @@ async function lirePlanComplet(db: Database, distribution: DistributionD1) {
       `SELECT md.id, md.menage_id, m.code_menage, m.nom_chef_menage, m.nombre_personnes,
         md.zone_distribution_id, md.statut_service FROM menages_distribution md
        INNER JOIN menages m ON m.id = md.menage_id
-       WHERE md.distribution_id = ? AND md.province_id = ? AND m.statut = 'ACTIF' ORDER BY md.id`,
+       WHERE md.distribution_id = ? AND md.province_id = ? AND m.statut = 'ACTIF' AND m.statut_validation = 'VALIDE' ORDER BY md.id`,
     ).bind(distribution.id, distribution.province_id).all<Record<string, unknown>>(),
     db.prepare(
       `SELECT a.id, a.menage_distribution_id, a.distribution_id, a.article_id, a.quantite_prevue, a.quantite_servie

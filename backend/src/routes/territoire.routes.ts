@@ -1,7 +1,10 @@
 import { Hono, type Context } from "hono";
 import type { EnvironnementApplication } from "../bindings";
 import { creerInstructionAudit } from "../middlewares/audit.middleware";
+import { ROLES_PROPOSITION_MODIFICATION_TERRITORIALE } from "../../../shared/constantes/roles";
 import {
+  creerUniteTerritorialeDynamique,
+  ErreurCreationTerritorialeDynamique,
   listerPage,
   lireLocalitePourSelection,
   lireProvinceRessource,
@@ -22,10 +25,13 @@ import type {
   SousPrefectureTerritoriale,
 } from "../../../shared/types/territoire";
 import {
+  schemaAjoutDynamiqueUniteTerritoriale,
   schemaFiltresTerritoriaux,
+  schemaPropositionCorrectionTerritoriale,
   schemaPropositionLocalite,
   schemaPropositionQuartier,
   schemaPropositionSiteHumanitaire,
+  type TypeUniteAjoutDynamique,
 } from "../../../shared/validations/territoire";
 
 const routesTerritoire = new Hono<EnvironnementApplication>();
@@ -137,7 +143,7 @@ routesTerritoire.get("/departements", async (c) => {
   const where = conditions.join(" AND ");
   const page = await listerPage<DepartementTerritorial>(
     c.env.DB,
-    `SELECT d.id, d.province_id, d.code, d.nom, d.chef_lieu FROM departements d WHERE ${where} ORDER BY d.nom, d.id LIMIT ? OFFSET ?`,
+    `SELECT d.id, d.province_id, d.code, d.nom, d.chef_lieu, d.statut_validation, d.source_officielle FROM departements d WHERE ${where} ORDER BY d.nom, d.id LIMIT ? OFFSET ?`,
     `SELECT COUNT(*) AS total FROM departements d WHERE ${where}`,
     valeurs,
     filtres,
@@ -230,23 +236,25 @@ routesTerritoire.get("/rattachements-territoriaux", async (c) => {
 routesTerritoire.get("/cantons", async (c) => {
   const filtres = lireFiltres(c);
   if (!filtres) return reponsePaginationInvalide(c);
+  if (filtres.departement_id && !(await confirmerProvinceRessource(c, "departement", filtres.departement_id))) return reponseRessourceIntrouvable(c);
   if (filtres.sous_prefecture_id && !(await confirmerProvinceRessource(c, "sous_prefecture", filtres.sous_prefecture_id))) return reponseRessourceIntrouvable(c);
   const portee = resoudrePorteeTerritoriale(c.get("utilisateur"), filtres.province_id);
   if (!portee.autorisee) return reponsePorteeInterdite(c);
   const conditions = ["ca.statut_validation = 'VALIDE'"];
   const valeurs: (string | number | null)[] = [];
   ajouterFiltre(conditions, valeurs, "d.province_id = ?", portee.province_id ?? undefined);
+  ajouterFiltre(conditions, valeurs, "d.id = ?", filtres.departement_id);
   ajouterFiltre(conditions, valeurs, "ca.sous_prefecture_id = ?", filtres.sous_prefecture_id);
   const where = conditions.join(" AND ");
   return c.json(await listerPage<CantonTerritorial>(
     c.env.DB,
-    `SELECT ca.id, ca.sous_prefecture_id, ca.nom FROM cantons ca
-     INNER JOIN sous_prefectures sp ON sp.id = ca.sous_prefecture_id
-     INNER JOIN departements d ON d.id = sp.departement_id
+    `SELECT ca.id, d.id AS departement_id, ca.sous_prefecture_id, ca.nom FROM cantons ca
+     LEFT JOIN sous_prefectures sp ON sp.id = ca.sous_prefecture_id
+     INNER JOIN departements d ON d.id = COALESCE(ca.departement_id, sp.departement_id)
      WHERE ${where} ORDER BY ca.nom, ca.id LIMIT ? OFFSET ?`,
     `SELECT COUNT(*) AS total FROM cantons ca
-     INNER JOIN sous_prefectures sp ON sp.id = ca.sous_prefecture_id
-     INNER JOIN departements d ON d.id = sp.departement_id WHERE ${where}`,
+     LEFT JOIN sous_prefectures sp ON sp.id = ca.sous_prefecture_id
+     INNER JOIN departements d ON d.id = COALESCE(ca.departement_id, sp.departement_id) WHERE ${where}`,
     valeurs,
     filtres,
   ));
@@ -363,7 +371,6 @@ routesTerritoire.get("/carres", async (c) => {
   ).bind(filtres.quartier_id, c.get("utilisateur").province_id, c.get("utilisateur").province_id)
     .first<{ id: string; possede_carres: number }>();
   if (!quartier) return reponseRessourceIntrouvable(c);
-  if (quartier.possede_carres !== 1) return c.json({ erreur: "Ce quartier ne possède pas de carrés." }, 409);
   return c.json(await listerPage<CarreTerritorial>(
     c.env.DB,
     `SELECT id, quartier_id, code_ou_nom FROM carres
@@ -417,13 +424,140 @@ routesTerritoire.get("/sites-humanitaires/:id", async (c) => {
   return c.json(site);
 });
 
+async function resoudreProvinceProposition(
+  c: Context<EnvironnementApplication>,
+  provinceExplicite: string | undefined,
+  departementId: string | null | undefined,
+): Promise<{ ok: true; provinceId: string } | { ok: false; reponse: Response }> {
+  const utilisateur = c.get("utilisateur");
+  if (!ROLES_PROPOSITION_MODIFICATION_TERRITORIALE.includes(utilisateur.role)) {
+    return { ok: false, reponse: reponsePorteeInterdite(c) };
+  }
+  const provinceDepartement = departementId
+    ? await lireProvinceRessource(c.env.DB, "departement", departementId)
+    : null;
+
+  if (utilisateur.role === "DELEGUE_PROVINCIAL") {
+    if (!utilisateur.province_id) {
+      return { ok: false, reponse: reponsePorteeInterdite(c) };
+    }
+    if (provinceExplicite && provinceExplicite !== utilisateur.province_id) {
+      return { ok: false, reponse: reponsePorteeInterdite(c) };
+    }
+    if (departementId && provinceDepartement !== utilisateur.province_id) {
+      return { ok: false, reponse: reponseRessourceIntrouvable(c) };
+    }
+    return { ok: true, provinceId: utilisateur.province_id };
+  }
+
+  if (departementId && !provinceDepartement) {
+    return { ok: false, reponse: reponseRessourceIntrouvable(c) };
+  }
+  if (provinceExplicite && provinceDepartement && provinceExplicite !== provinceDepartement) {
+    return {
+      ok: false,
+      reponse: c.json({ erreur: "Le département sélectionné ne relève pas de la province indiquée." }, 400),
+    };
+  }
+  const provinceCible = provinceExplicite ?? provinceDepartement;
+  if (!provinceCible) {
+    return {
+      ok: false,
+      reponse: c.json({ erreur: "La province ou le département de rattachement est obligatoire." }, 400),
+    };
+  }
+  const provinceActive = await c.env.DB.prepare(
+    "SELECT id FROM provinces WHERE id = ? AND actif = 1 LIMIT 1",
+  ).bind(provinceCible).first<{ id: string }>();
+  if (!provinceActive) {
+    return { ok: false, reponse: reponseRessourceIntrouvable(c) };
+  }
+  return { ok: true, provinceId: provinceCible };
+}
+
+async function lireUniteCibleCorrection(
+  base: D1Database,
+  typeUnite: TypeUniteAjoutDynamique,
+  uniteId: string,
+): Promise<{ id: string; nom: string; province_id: string } | null> {
+  switch (typeUnite) {
+    case "DEPARTEMENT":
+      return base
+        .prepare("SELECT id, nom, province_id FROM departements WHERE id = ? AND actif = 1 LIMIT 1")
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "SOUS_PREFECTURE":
+      return base
+        .prepare("SELECT id, nom, province_id FROM sous_prefectures WHERE id = ? AND actif = 1 LIMIT 1")
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "CANTON":
+      return base
+        .prepare(
+          `SELECT ca.id, ca.nom, COALESCE(d.province_id, sp.province_id) AS province_id
+           FROM cantons ca
+           LEFT JOIN departements d ON d.id = ca.departement_id
+           LEFT JOIN sous_prefectures sp ON sp.id = ca.sous_prefecture_id
+           WHERE ca.id = ? AND ca.actif = 1 LIMIT 1`,
+        )
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "VILLE":
+    case "VILLAGE":
+    case "HAMEAU":
+    case "FERRICK":
+    case "CAMPEMENT":
+      return base
+        .prepare("SELECT id, nom, province_id FROM localites WHERE id = ? AND actif = 1 LIMIT 1")
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "ARRONDISSEMENT":
+      return base
+        .prepare(
+          `SELECT a.id, a.nom, l.province_id
+           FROM arrondissements a
+           INNER JOIN localites l ON l.id = a.localite_id
+           WHERE a.id = ? AND a.actif = 1 LIMIT 1`,
+        )
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "QUARTIER":
+      return base
+        .prepare(
+          `SELECT q.id, q.nom, l.province_id
+           FROM quartiers q
+           INNER JOIN localites l ON l.id = q.localite_id
+           WHERE q.id = ? AND q.actif = 1 LIMIT 1`,
+        )
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "CARRE":
+      return base
+        .prepare(
+          `SELECT c.id, c.nom, l.province_id
+           FROM carres c
+           INNER JOIN quartiers q ON q.id = c.quartier_id
+           INNER JOIN localites l ON l.id = q.localite_id
+           WHERE c.id = ? AND c.actif = 1 LIMIT 1`,
+        )
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+    case "SITE_HUMANITAIRE":
+      return base
+        .prepare("SELECT id, nom, province_id FROM sites_humanitaires WHERE id = ? AND actif = 1 LIMIT 1")
+        .bind(uniteId)
+        .first<{ id: string; nom: string; province_id: string }>();
+  }
+}
+
 routesTerritoire.post("/propositions/localites", async (c) => {
   const utilisateur = c.get("utilisateur");
-  if (utilisateur.role !== "DELEGUE_PROVINCIAL" || !utilisateur.province_id) return reponsePorteeInterdite(c);
+  if (!ROLES_PROPOSITION_MODIFICATION_TERRITORIALE.includes(utilisateur.role)) return reponsePorteeInterdite(c);
   const proposition = await lireCorps(c, schemaPropositionLocalite);
   if (!proposition) return c.json({ erreur: "La proposition de localité est invalide ou contient des champs non autorisés." }, 400);
-  const provinceDepartement = await lireProvinceRessource(c.env.DB, "departement", proposition.departement_id);
-  if (provinceDepartement !== utilisateur.province_id) return reponseRessourceIntrouvable(c);
+  const resolutionProvince = await resoudreProvinceProposition(c, proposition.province_id, proposition.departement_id);
+  if (!resolutionProvince.ok) return resolutionProvince.reponse;
+  const provinceCible = resolutionProvince.provinceId;
   if (proposition.sous_prefecture_id) {
     const sousPrefecture = await c.env.DB.prepare(
       "SELECT id FROM sous_prefectures WHERE id = ? AND departement_id = ? AND actif = 1",
@@ -438,16 +572,23 @@ routesTerritoire.post("/propositions/localites", async (c) => {
          AND (? IS NULL OR rt.sous_prefecture_id = ?)
          AND rt.date_debut_validite <= date('now')
          AND (rt.date_fin_validite IS NULL OR rt.date_fin_validite >= date('now'))`,
-    ).bind(proposition.commune_id, utilisateur.province_id, proposition.departement_id,
+    ).bind(proposition.commune_id, provinceCible, proposition.departement_id,
       proposition.sous_prefecture_id ?? null, proposition.sous_prefecture_id ?? null).first<{ valide: number }>();
     if (!rattachement) return c.json({ erreur: "La commune ne relève pas du rattachement administratif sélectionné." }, 400);
   }
   if (proposition.canton_id) {
-    if (!proposition.sous_prefecture_id) return c.json({ erreur: "Un canton exige la sélection de sa sous-préfecture." }, 400);
     const canton = await c.env.DB.prepare(
-      "SELECT id FROM cantons WHERE id = ? AND sous_prefecture_id = ? AND statut_validation = 'VALIDE'",
-    ).bind(proposition.canton_id, proposition.sous_prefecture_id).first<{ id: string }>();
-    if (!canton) return c.json({ erreur: "Le canton ne relève pas de la sous-préfecture sélectionnée." }, 400);
+      `SELECT ca.id, COALESCE(ca.departement_id, sp.departement_id) AS dep_id, ca.sous_prefecture_id
+       FROM cantons ca
+       LEFT JOIN sous_prefectures sp ON sp.id = ca.sous_prefecture_id
+       WHERE ca.id = ? AND ca.statut_validation = 'VALIDE'`,
+    ).bind(proposition.canton_id).first<{ id: string; dep_id: string; sous_prefecture_id: string | null }>();
+    if (!canton || canton.dep_id !== proposition.departement_id) {
+      return c.json({ erreur: "Le canton ne relève pas du département sélectionné." }, 400);
+    }
+    if (proposition.sous_prefecture_id && canton.sous_prefecture_id && canton.sous_prefecture_id !== proposition.sous_prefecture_id) {
+      return c.json({ erreur: "Le canton ne relève pas de la sous-préfecture sélectionnée." }, 400);
+    }
   }
   const id = crypto.randomUUID();
   const insertion = c.env.DB.prepare(
@@ -455,7 +596,7 @@ routesTerritoire.post("/propositions/localites", async (c) => {
      (id, province_id, departement_id, sous_prefecture_id, commune_id, canton_id, nom,
       type_localite, mode_decoupage_urbain, statut_validation, source_documentation, propose_par)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AUCUN', 'PROPOSE', ?, ?)`,
-  ).bind(id, utilisateur.province_id, proposition.departement_id, proposition.sous_prefecture_id ?? null,
+  ).bind(id, provinceCible, proposition.departement_id ?? null, proposition.sous_prefecture_id ?? null,
     proposition.commune_id ?? null, proposition.canton_id ?? null, proposition.nom,
     proposition.type_localite, proposition.source_documentation, utilisateur.id);
   const audit = creerInstructionAudit(c.env.DB, {
@@ -464,23 +605,34 @@ routesTerritoire.post("/propositions/localites", async (c) => {
     entiteType: "LOCALITE",
     entiteId: id,
     adresseIp: adresseIp(c.req.raw),
-    donneesApres: JSON.stringify({ ...proposition, province_id: utilisateur.province_id, statut_validation: "PROPOSE" }),
+    donneesApres: JSON.stringify({ ...proposition, province_id: provinceCible, statut_validation: "PROPOSE" }),
   });
   try {
     await c.env.DB.batch([insertion, audit]);
   } catch {
     return c.json({ erreur: "La proposition est incompatible avec le référentiel territorial." }, 409);
   }
-  return c.json({ id, province_id: utilisateur.province_id, statut_validation: "PROPOSE" }, 201);
+  return c.json({ id, province_id: provinceCible, statut_validation: "PROPOSE" }, 201);
 });
 
 routesTerritoire.post("/propositions/quartiers", async (c) => {
   const utilisateur = c.get("utilisateur");
-  if (utilisateur.role !== "DELEGUE_PROVINCIAL" || !utilisateur.province_id) return reponsePorteeInterdite(c);
+  if (!ROLES_PROPOSITION_MODIFICATION_TERRITORIALE.includes(utilisateur.role)) return reponsePorteeInterdite(c);
+  if (utilisateur.role === "DELEGUE_PROVINCIAL" && !utilisateur.province_id) return reponsePorteeInterdite(c);
   const proposition = await lireCorps(c, schemaPropositionQuartier);
   if (!proposition) return c.json({ erreur: "La proposition de quartier est invalide ou contient des champs non autorisés." }, 400);
+  if (
+    utilisateur.role === "DELEGUE_PROVINCIAL" &&
+    proposition.province_id &&
+    proposition.province_id !== utilisateur.province_id
+  ) {
+    return reponsePorteeInterdite(c);
+  }
   const localite = await lireLocalitePourSelection(c.env.DB, utilisateur, proposition.localite_id);
   if (!localite || localite.statut_validation !== "VALIDE") return reponseRessourceIntrouvable(c);
+  if (proposition.province_id && proposition.province_id !== localite.province_id) {
+    return c.json({ erreur: "La ville sélectionnée ne relève pas de la province indiquée." }, 400);
+  }
   if (localite.type_localite !== "VILLE") return c.json({ erreur: "Un quartier ne peut être proposé que pour une ville." }, 400);
   if (localite.mode_decoupage_urbain === "AVEC_ARRONDISSEMENTS") {
     if (!proposition.arrondissement_id) return c.json({ erreur: "La ville exige la sélection d’un arrondissement." }, 400);
@@ -505,24 +657,24 @@ routesTerritoire.post("/propositions/quartiers", async (c) => {
     entiteType: "QUARTIER",
     entiteId: id,
     adresseIp: adresseIp(c.req.raw),
-    donneesApres: JSON.stringify({ ...proposition, province_id: utilisateur.province_id, statut_validation: "PROPOSE" }),
+    donneesApres: JSON.stringify({ ...proposition, province_id: localite.province_id, statut_validation: "PROPOSE" }),
   });
   try {
     await c.env.DB.batch([insertion, audit]);
   } catch {
     return c.json({ erreur: "La proposition est incompatible avec le référentiel territorial." }, 409);
   }
-  return c.json({ id, localite_id: localite.id, statut_validation: "PROPOSE" }, 201);
+  return c.json({ id, localite_id: localite.id, province_id: localite.province_id, statut_validation: "PROPOSE" }, 201);
 });
 
 routesTerritoire.post("/propositions/sites-humanitaires", async (c) => {
   const utilisateur = c.get("utilisateur");
-  if (utilisateur.role !== "DELEGUE_PROVINCIAL" || !utilisateur.province_id) return reponsePorteeInterdite(c);
+  if (!ROLES_PROPOSITION_MODIFICATION_TERRITORIALE.includes(utilisateur.role)) return reponsePorteeInterdite(c);
   const proposition = await lireCorps(c, schemaPropositionSiteHumanitaire);
   if (!proposition) return c.json({ erreur: "La proposition de site humanitaire est invalide ou contient des champs non autorisés." }, 400);
-  if ((await lireProvinceRessource(c.env.DB, "departement", proposition.departement_id)) !== utilisateur.province_id) {
-    return reponseRessourceIntrouvable(c);
-  }
+  const resolutionProvince = await resoudreProvinceProposition(c, proposition.province_id, proposition.departement_id);
+  if (!resolutionProvince.ok) return resolutionProvince.reponse;
+  const provinceCible = resolutionProvince.provinceId;
   if (proposition.sous_prefecture_id) {
     const sousPrefecture = await c.env.DB.prepare(
       "SELECT id FROM sous_prefectures WHERE id = ? AND departement_id = ? AND actif = 1",
@@ -537,7 +689,7 @@ routesTerritoire.post("/propositions/sites-humanitaires", async (c) => {
          AND (? IS NULL OR rt.sous_prefecture_id = ?)
          AND rt.date_debut_validite <= date('now')
          AND (rt.date_fin_validite IS NULL OR rt.date_fin_validite >= date('now'))`,
-    ).bind(proposition.commune_id, utilisateur.province_id, proposition.departement_id,
+    ).bind(proposition.commune_id, provinceCible, proposition.departement_id,
       proposition.sous_prefecture_id ?? null, proposition.sous_prefecture_id ?? null).first<{ valide: number }>();
     if (!rattachement) return c.json({ erreur: "La commune ne relève pas du rattachement administratif sélectionné." }, 400);
   }
@@ -559,7 +711,7 @@ routesTerritoire.post("/propositions/sites-humanitaires", async (c) => {
      (id, province_id, departement_id, sous_prefecture_id, commune_id, localite_proche_id,
       nom, categorie_site, statut_validation, propose_par)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PROPOSE', ?)`,
-  ).bind(id, utilisateur.province_id, proposition.departement_id, proposition.sous_prefecture_id ?? null,
+  ).bind(id, provinceCible, proposition.departement_id ?? null, proposition.sous_prefecture_id ?? null,
     proposition.commune_id ?? null, proposition.localite_proche_id ?? null, proposition.nom,
     proposition.categorie_site, utilisateur.id);
   const audit = creerInstructionAudit(c.env.DB, {
@@ -568,14 +720,128 @@ routesTerritoire.post("/propositions/sites-humanitaires", async (c) => {
     entiteType: "SITE_HUMANITAIRE",
     entiteId: id,
     adresseIp: adresseIp(c.req.raw),
-    donneesApres: JSON.stringify({ ...proposition, province_id: utilisateur.province_id, statut_validation: "PROPOSE" }),
+    donneesApres: JSON.stringify({ ...proposition, province_id: provinceCible, statut_validation: "PROPOSE" }),
   });
   try {
     await c.env.DB.batch([insertion, audit]);
   } catch {
     return c.json({ erreur: "La proposition est incompatible avec le référentiel territorial." }, 409);
   }
-  return c.json({ id, province_id: utilisateur.province_id, statut_validation: "PROPOSE" }, 201);
+  return c.json({ id, province_id: provinceCible, statut_validation: "PROPOSE" }, 201);
+});
+
+routesTerritoire.post("/propositions/corrections", async (c) => {
+  const utilisateur = c.get("utilisateur");
+  if (!ROLES_PROPOSITION_MODIFICATION_TERRITORIALE.includes(utilisateur.role)) return reponsePorteeInterdite(c);
+  const proposition = await lireCorps(c, schemaPropositionCorrectionTerritoriale);
+  if (!proposition) {
+    return c.json(
+      { erreur: "La proposition de correction territoriale est invalide ou incomplète." },
+      400,
+    );
+  }
+  if (utilisateur.role === "DELEGUE_PROVINCIAL") {
+    if (!utilisateur.province_id || proposition.province_id !== utilisateur.province_id) {
+      return reponsePorteeInterdite(c);
+    }
+  }
+  const cible = await lireUniteCibleCorrection(c.env.DB, proposition.type_unite, proposition.unite_id);
+  if (!cible) {
+    return reponseRessourceIntrouvable(c);
+  }
+  if (cible.province_id !== proposition.province_id) {
+    return utilisateur.role === "DELEGUE_PROVINCIAL"
+      ? reponsePorteeInterdite(c)
+      : c.json({ erreur: "L'unité territoriale sélectionnée ne relève pas de la province indiquée." }, 400);
+  }
+
+  const idProposition = crypto.randomUUID();
+  const instructions: D1PreparedStatement[] = [
+    c.env.DB.prepare(
+      `INSERT INTO audits_territoire
+       (id, action, entite_type, entite_id, utilisateur_id, anciennes_valeurs, nouvelles_valeurs, justificatif, motif, adresse_ip)
+       VALUES (?, 'MODIFICATION', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      idProposition,
+      proposition.type_unite,
+      proposition.unite_id,
+      utilisateur.id,
+      JSON.stringify({ id: cible.id, nom: cible.nom, province_id: cible.province_id }),
+      JSON.stringify({
+        nom_corrige: proposition.nom_corrige,
+        motif_correction: proposition.motif_correction,
+        source_documentation: proposition.source_documentation ?? null,
+        statut_proposition: "PROPOSE",
+      }),
+      proposition.source_documentation ?? "Proposition de correction territoriale",
+      proposition.motif_correction,
+      adresseIp(c.req.raw),
+    ),
+    creerInstructionAudit(c.env.DB, {
+      utilisateur,
+      action: "PROPOSITION_CORRECTION_TERRITORIALE",
+      entiteType: proposition.type_unite,
+      entiteId: proposition.unite_id,
+      adresseIp: adresseIp(c.req.raw),
+      donneesAvant: JSON.stringify({ id: cible.id, nom: cible.nom, province_id: cible.province_id }),
+      donneesApres: JSON.stringify({
+        id_proposition: idProposition,
+        nom_corrige: proposition.nom_corrige,
+        motif_correction: proposition.motif_correction,
+        source_documentation: proposition.source_documentation ?? null,
+      }),
+    }),
+  ];
+
+  try {
+    await c.env.DB.batch(instructions);
+  } catch {
+    return c.json({ erreur: "Impossible d'enregistrer la proposition de correction territoriale." }, 409);
+  }
+
+  return c.json(
+    {
+      id: idProposition,
+      type_unite: proposition.type_unite,
+      unite_id: proposition.unite_id,
+      province_id: cible.province_id,
+      ancien_nom: cible.nom,
+      nom_corrige: proposition.nom_corrige,
+      statut_proposition: "ENREGISTREE",
+    },
+    201,
+  );
+});
+
+routesTerritoire.post("/unites-dynamiques", async (c) => {
+  const utilisateur = c.get("utilisateur");
+  const donnee = await lireCorps(c, schemaAjoutDynamiqueUniteTerritoriale);
+  if (!donnee) {
+    return c.json(
+      { erreur: "Les données de l'unité territoriale à ajouter sont invalides ou incomplètes." },
+      400,
+    );
+  }
+  try {
+    const resultat = await creerUniteTerritorialeDynamique(
+      c.env.DB,
+      utilisateur,
+      donnee,
+      adresseIp(c.req.raw),
+    );
+    return c.json(resultat, resultat.doublon_existant ? 200 : 201);
+  } catch (erreur) {
+    if (erreur instanceof ErreurCreationTerritorialeDynamique) {
+      return c.json(
+        { erreur: erreur.message },
+        erreur.statutHttp as 400 | 403 | 404 | 409,
+      );
+    }
+    return c.json(
+      { erreur: "Impossible d'enregistrer l'unité territoriale demandée." },
+      500,
+    );
+  }
 });
 
 export { routesTerritoire };

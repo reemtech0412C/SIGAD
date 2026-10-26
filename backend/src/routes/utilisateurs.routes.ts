@@ -121,13 +121,18 @@ routesProprietaire.post("/utilisateurs/:id/reinitialiser-acces", async (c) => {
 
   const codeActivation = genererJetonAleatoire(24);
   const empreinteCode = await hacherMotDePasse(codeActivation);
+  const expirationCode = new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
   const miseAJour = c.env.DB.prepare(
-    `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = ?, doit_changer_mot_de_passe = 1,
+    `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = ?, code_activation_expire_le = ?,
+       code_activation_recuperation_id = NULL, doit_changer_mot_de_passe = 1,
        statut = 'ACTIF', tentatives_echouees = 0, verrouille_jusqua = NULL, modifie_le = datetime('now')
      WHERE id = ?`,
-  ).bind(empreinteCode, empreinteCode, id);
+  ).bind(empreinteCode, empreinteCode, expirationCode, id);
   const revoquerSessions = c.env.DB.prepare(
     "UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0",
+  ).bind(id);
+  const revoquerDefisMfa = c.env.DB.prepare(
+    "UPDATE defis_mfa SET consomme = 1 WHERE utilisateur_id = ? AND consomme = 0",
   ).bind(id);
   const audit = creerInstructionAudit(c.env.DB, {
     utilisateur: c.get("utilisateur"),
@@ -138,7 +143,7 @@ routesProprietaire.post("/utilisateurs/:id/reinitialiser-acces", async (c) => {
     donneesAvant: JSON.stringify({ doit_changer_mot_de_passe: cible.doit_changer_mot_de_passe === 1 }),
     donneesApres: JSON.stringify({ doit_changer_mot_de_passe: true }),
   });
-  await c.env.DB.batch([miseAJour, revoquerSessions, audit]);
+  await c.env.DB.batch([miseAJour, revoquerSessions, revoquerDefisMfa, audit]);
   return c.json({ message: "Le code d’activation a été généré. Transmettez-le à l’utilisateur par un canal sécurisé.", code_activation: codeActivation });
 });
 

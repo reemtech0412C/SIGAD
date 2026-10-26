@@ -10,6 +10,7 @@ import {
   listerFiltresRapports,
   preparerExportRapport,
 } from "../services/rapports.service.ts";
+import { lireIndicateursCarte } from "../services/indicateurs-carte.service.ts";
 import { creerFichierRapport } from "../services/rapports-export.service.ts";
 import { typeErreurSecurise } from "../services/fichiers-securite.service.ts";
 import { repererArchivesOrphelines, supprimerArchivesOrphelinesR2, televerserPuisReferencerR2 } from "../services/stockage-r2.service.ts";
@@ -22,6 +23,7 @@ import {
   TYPES_RAPPORT,
   type TypeRapport,
 } from "../../../shared/validations/rapports.ts";
+import { schemaFiltresIndicateursCarte } from "../../../shared/validations/indicateurs-carte.ts";
 
 const PREFIXE_ARCHIVES = "archives/rapports/";
 const DELAI_SECURITE_ORPHELIN_MS = 24 * 60 * 60 * 1000;
@@ -43,6 +45,32 @@ async function lireCorps<T>(
 ): Promise<T | null> {
   try {
     const resultat = schema.safeParse(await c.req.json());
+    return resultat.success ? resultat.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function lireCorpsExport(c: Context<EnvironnementApplication>): Promise<{
+  format: "PDF" | "EXCEL" | "CSV";
+  filtres: Record<string, string | undefined>;
+  archiver: boolean;
+} | null> {
+  const typeContenu = c.req.header("Content-Type")?.split(";", 1)[0]?.trim().toLowerCase();
+  if (typeContenu !== "application/x-www-form-urlencoded") return lireCorps(c, schemaExportRapport);
+  try {
+    const formulaire = await c.req.raw.clone().formData();
+    const format = formulaire.get("format");
+    const filtresJson = formulaire.get("filtres");
+    const valeurArchivage = formulaire.get("archiver");
+    if (typeof format !== "string" || typeof filtresJson !== "string"
+      || (valeurArchivage !== "true" && valeurArchivage !== "false")) return null;
+    const filtres: unknown = JSON.parse(filtresJson);
+    const resultat = schemaExportRapport.safeParse({
+      format,
+      filtres,
+      archiver: valeurArchivage === "true",
+    });
     return resultat.success ? resultat.data : null;
   } catch {
     return null;
@@ -132,7 +160,9 @@ async function enregistrerRapport(
   }
 }
 
-routesRapports.get("/catalogue", (c) => c.json({ elements: TYPES_RAPPORT.map((type) => lireDefinitionRapport(type)) }));
+routesRapports.get("/catalogue", (c) => c.json({ elements: TYPES_RAPPORT
+  .map((type) => lireDefinitionRapport(type))
+  .filter((definition) => c.get("utilisateur").role !== "CONSULTATION_INSTITUTIONNELLE" || !definition.donneesSensibles) }));
 
 routesRapports.get("/filtres", async (c) => {
   try {
@@ -147,6 +177,16 @@ routesRapports.get("/tableau-de-bord", async (c) => {
   if (!filtres) return c.json({ erreur: "Les filtres du tableau de bord sont invalides." }, 400);
   try {
     return c.json(await lireTableauDeBordRapports(c.env.DB, c.get("utilisateur"), filtres));
+  } catch (erreur) {
+    return reponseErreur(c, erreur);
+  }
+});
+
+routesRapports.get("/indicateurs-carte", async (c) => {
+  const filtres = lireFiltres(c, schemaFiltresIndicateursCarte);
+  if (!filtres) return c.json({ erreur: "Les filtres des indicateurs cartographiques sont invalides." }, 400);
+  try {
+    return c.json(await lireIndicateursCarte(c.env.DB, c.get("utilisateur"), filtres, c.env.ENVIRONMENT));
   } catch (erreur) {
     return reponseErreur(c, erreur);
   }
@@ -177,7 +217,7 @@ routesRapports.get("/:type/apercu", async (c) => {
 routesRapports.post("/:type/export", async (c) => {
   const type = c.req.param("type") as TypeRapport;
   if (!TYPES_RAPPORT.includes(type)) return c.json({ erreur: "Le type de rapport demandé est inconnu." }, 404);
-  const corps = await lireCorps(c, schemaExportRapport);
+  const corps = await lireCorpsExport(c);
   if (!corps) return c.json({ erreur: "Le format ou les paramètres d’export sont invalides." }, 400);
   let cleR2: string | null = null;
   const id = crypto.randomUUID();
@@ -365,7 +405,3 @@ routesRapports.get("/archives/:id", async (c) => {
     return reponseErreur(c, erreur);
   }
 });
-
-export function estTypeRapport(valeur: string): valeur is TypeRapport {
-  return TYPES_RAPPORT.includes(valeur as TypeRapport);
-}

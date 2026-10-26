@@ -40,10 +40,11 @@ const SQL_OPERATIONS = `WITH operations AS (
   UNION ALL
   SELECT m.id, 'STOCK_PROVINCIAL', m.reference_mouvement, m.motif,
     m.type_mouvement, substr(m.cree_le, 1, 10), m.province_id, p.nom,
-    NULL, NULL, NULL, NULL, a.nature_aide, m.type_mouvement
+    NULL, NULL, NULL, NULL, ca.code, m.type_mouvement
   FROM mouvements_stock m
   INNER JOIN provinces p ON p.id = m.province_id
   INNER JOIN articles a ON a.id = m.article_id
+  LEFT JOIN categories_aide ca ON ca.id = a.categorie_id
   WHERE m.province_id IS NOT NULL
 )`;
 

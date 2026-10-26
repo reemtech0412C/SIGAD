@@ -191,11 +191,12 @@ export async function creerApprovisionnementCentral(
   ajouterEcriture(instructions, db, "la création de l’approvisionnement", `
     INSERT INTO approvisionnements_centraux
       (id, reference, intitule_operation, date_creation, description, source_articles, partenaire_id,
-       nature_aide, date_prevue_expedition, instructions, statut, cree_par)
-    VALUES (?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?, 'BROUILLON', ?)
+       nature_aide, date_prevue_expedition, instructions, statut, cree_par, operation_centrale_id)
+    VALUES (?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?, 'BROUILLON', ?, ?)
   `, [id, entree.reference, entree.intitule_operation, entree.description ?? null,
     entree.source_articles, entree.partenaire_id ?? null, entree.nature_aide,
-    entree.date_prevue_expedition ?? null, entree.instructions ?? null, utilisateur.id]);
+    entree.date_prevue_expedition ?? null, entree.instructions ?? null, utilisateur.id,
+    entree.operation_centrale_id ?? null]);
 
   const destinationIds = new Map<string, string>();
   for (const destination of entree.destinations) {
