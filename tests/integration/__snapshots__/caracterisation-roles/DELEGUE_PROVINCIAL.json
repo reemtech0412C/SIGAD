@@ -1,0 +1,1514 @@
+[
+  {
+    "methode": "GET",
+    "chemin": "/api/administration/comptes/consultation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/consultation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/administration/comptes/consultation/:id/perimetre",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/consultation/:id/reactiver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/consultation/:id/renvoyer-invitation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/consultation/:id/revoquer-sessions",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/consultation/:id/suspendre",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/administration/comptes/decisions",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/administration/comptes/delegues",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:id/approuver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:id/refuser",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:id/remplacer/:utilisateurId",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:utilisateurId/reactiver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:utilisateurId/renvoyer-invitation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:utilisateurId/revoquer-sessions",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/delegues/:utilisateurId/suspendre",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/administration/comptes/delegues/comptes",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements/:id/destinations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements/:id/expeditions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements/:id/receptions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements/:id/receptions/:receptionId",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/approvisionnements/:id/repartition",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/changer-mot-de-passe-initial",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 409,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/connexion",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/auth/csrf",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/mfa/confirmer",
+    "attendu": "DECLARE_DENY",
+    "statut": 409,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/mfa/initialiser",
+    "attendu": "DECLARE_DENY",
+    "statut": 409,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/mfa/reinitialiser/:utilisateurId",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/auth/mfa/statut",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/mfa/verifier",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 401,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/recuperation-proprietaire",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/recuperation-proprietaire/revoquer",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/auth/session",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/approvisionnements",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/approvisionnements/:id/cloture",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/approvisionnements/:id/expeditions",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/approvisionnements/:id/receptions/:receptionId/rapprochement",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/approvisionnements/:id/validation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/approvisionnements/referentiels/entrepots-centraux",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/audit",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/controle/corrections",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/controle/distributions/:id/cloture",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/controle/fermetures",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/controle/observations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/controle/observations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/controle/observations/:id/cloture",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/controle/operations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/controle/synthese",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/distributions/:id/cloture",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/distributions/:id/corrections/:correctionId/validation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/distributions/:id/retour-correction",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/central/referentiel-territorial/propositions",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/referentiel-territorial/propositions/:type/:id/decision",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/compte",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/compte",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/courriel",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/courriel/verifier",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/mot-de-passe",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/compte/sessions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/sessions/revoquer-autres",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "PUT",
+    "chemin": "/api/distributions/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/corrections",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/declaration-fin",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/execution",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/:id/menages",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/:id/menages/:menageDistributionId/allocations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/preparation",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/:id/pv",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/pv",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/remises",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/:id/synthese",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/distributions/:id/validation",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/menages",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/distributions/referentiels",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/listes-beneficiaires",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/listes-beneficiaires",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/listes-beneficiaires/:listeId/export",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/listes-beneficiaires/:listeId/inscriptions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/listes-beneficiaires/:listeId/menages",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/menages",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/menages",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/menages/:menageId",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/menages/:menageId/validation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/menages/importations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/partenaires",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/partenaires",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/partenaires/:partenaireId",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/partenaires/:partenaireId/validation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/referentiels",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/gestion/signalements-doublons",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/signalements-doublons/:signalementId/decision",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/gestion/signalements-doublons/:signalementId/reouverture",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/inscriptions/delegues",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/inscriptions/delegues/provinces",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/inscriptions/delegues/renvoyer-code",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/inscriptions/delegues/verifier-courriel",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/notifications",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/notifications/:id/lecture",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/notifications/lecture-toutes",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/operations-centrales",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/operations-centrales",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/operations-centrales/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "PUT",
+    "chemin": "/api/operations-centrales/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/operations-centrales/:id/approbations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/operations-centrales/:id/consolidation",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/operations-centrales/:id/documents",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/operations-centrales/:id/documents/:docId",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/operations-centrales/:id/statut",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/audit",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/donnees-test/historique",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/donnees-test/nettoyage-lot",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/donnees-test/operations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "DELETE",
+    "chemin": "/api/proprietaire/donnees-test/operations/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/donnees-test/operations/:id/apercu",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/donnees-test/operations/:id/reclassifier",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/donnees-test/operations/:id/supprimer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/donnees-test/reconciliation-r2",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/donnees-test/reconciliation-r2/traiter",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/referentiel-territorial/propositions",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/referentiel-territorial/propositions/:type/:id/decision",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/arborescence",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/audits",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/doublons",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/export",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/export-xlsx",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/fusions/executer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/fusions/simulation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/import/executer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/import/previsualiser",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/recherche",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/territoire/tableau-de-bord",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "DELETE",
+    "chemin": "/api/proprietaire/territoire/unites/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PUT",
+    "chemin": "/api/proprietaire/territoire/unites/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites/:id/archiver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites/:id/rattachement",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites/:id/reactiver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites/:id/simuler-rattachement",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites/:id/valider",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/territoire/unites/valider-lot",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/utilisateurs",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/utilisateurs/:id/reinitialiser-acces",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/proprietaire/utilisateurs/:id/statut",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/:provinceId/profil",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/audit",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/corrections",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/expeditions",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/expeditions/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/expeditions/:id/pv",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/provincial/expeditions/:id/pv",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/provincial/expeditions/:id/reception",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/observations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/provincial/observations/:id/reponse",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/operations-centrales",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/provincial/operations-centrales/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/provincial/operations-centrales/:id/dossier",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/:type/apercu",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/rapports/:type/export",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/archives",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/archives/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/archives/reconciliation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/rapports/archives/reconciliation",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/catalogue",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/filtres",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/indicateurs-carte",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/rapports/tableau-de-bord",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/sante",
+    "attendu": "PUBLIC_OR_PREAUTH",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/ajustements-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/ajustements-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/articles",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/articles",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/stocks/articles/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/categories-aide",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/categories-aide",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/stocks/categories-aide/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/conditionnements",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/conditionnements",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/stocks/conditionnements/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/entrepots",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/entrepots",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/stocks/entrepots/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/lots-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/mouvements-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/mouvements-stock/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/receptions-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/receptions-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/receptions-stock/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/soldes-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/transferts-stock",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/stocks/unites-mesure",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/stocks/unites-mesure",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PATCH",
+    "chemin": "/api/stocks/unites-mesure/:id",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/arrondissements",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/cantons",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/carres",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/communes",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/departements",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/localites",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/localites/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/territoire/propositions/corrections",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/territoire/propositions/localites",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/territoire/propositions/quartiers",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/territoire/propositions/sites-humanitaires",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/provinces",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/quartiers",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/rattachements-territoriaux",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/sites-humanitaires",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/sites-humanitaires/:id",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/territoire/sous-prefectures",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/territoire/unites-dynamiques",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 400,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/auth/deconnexion",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  }
+]
