@@ -1,0 +1,90 @@
+Command: npm run verify
+Started UTC: 2026-10-26T18:51:57.0635558+00:00
+
+
+> sigad-tchad@3.0.0 verify
+> node scripts/verify.mjs
+
+
+[VERIFY] DÉBUT TypeScript sans génération — 2026-10-26T18:51:59.409Z (26/10/2026 19:51:59 Africa/Ndjamena)
+[VERIFY] FIN TypeScript sans génération — 2026-10-26T18:52:00.416Z (26/10/2026 19:52:00 Africa/Ndjamena) — exit=0
+
+[VERIFY] DÉBUT Tests unitaires — 2026-10-26T18:52:00.417Z (26/10/2026 19:52:00 Africa/Ndjamena)
+
+ RUN  v4.1.12 C:/Users/Lenovo/Downloads/SIGAD
+
+······································································································································································
+
+ Test Files  34 passed (34)
+      Tests  166 passed (166)
+   Start at  19:52:00
+   Duration  31.80s (transform 1.07s, setup 0ms, import 4.98s, tests 12.74s, environment 6ms)
+
+[VERIFY] FIN Tests unitaires — 2026-10-26T18:52:32.801Z (26/10/2026 19:52:32 Africa/Ndjamena) — exit=0
+
+[VERIFY] DÉBUT Matrice des permissions en mode contrôle — 2026-10-26T18:52:32.802Z (26/10/2026 19:52:32 Africa/Ndjamena)
+PASS — Matrice de sécurité synchronisée avec 216 routes API déclarées.
+[VERIFY] FIN Matrice des permissions en mode contrôle — 2026-10-26T18:52:32.946Z (26/10/2026 19:52:32 Africa/Ndjamena) — exit=0
+
+[VERIFY] DÉBUT Schéma et migrations en mémoire — 2026-10-26T18:52:32.947Z (26/10/2026 19:52:32 Africa/Ndjamena)
+PASS — EXPLAIN QUERY PLAN (SQLite vierge) : listes paginées des ménages et des mouvements utilisent leurs index composites sans tri temporaire.
+PASS — SQLite vierge : 36 migrations appliquées jusqu’à 0036; 91 tables SIGAD; 136 index; 72 déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; ombre rôles/portées: 25/25, zéro divergence; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.
+[VERIFY] FIN Schéma et migrations en mémoire — 2026-10-26T18:52:33.540Z (26/10/2026 19:52:33 Africa/Ndjamena) — exit=0
+
+[VERIFY] DÉBUT Migration 0022 en mémoire — 2026-10-26T18:52:33.541Z (26/10/2026 19:52:33 Africa/Ndjamena)
+PASS — migration 0022 sur un schéma 0021 : historique confirmé distinct conservé, deux dossiers placés en revue individuelle, nouvelles décisions atomiques, historique immuable et clés étrangères valides.
+PASS — migration 0022 sur un schéma vierge : colonnes, clé étrangère d’historique et index partiel uniques vérifiés.
+[VERIFY] FIN Migration 0022 en mémoire — 2026-10-26T18:52:33.828Z (26/10/2026 19:52:33 Africa/Ndjamena) — exit=0
+
+[VERIFY] DÉBUT Intégration Wrangler locale — 2026-10-26T18:52:33.829Z (26/10/2026 19:52:33 Africa/Ndjamena)
+Seed initial sécurisé généré pour le développement local.
+Seed SQL conservé hors du dépôt : C:\Users\Lenovo\AppData\Local\Packages\sandbox.{4cbd3747-57ee-488a-85d5-bca182395810}\AC\Temp\sigad-verify-2hbydy\sigad-acceptation-worker-HMQ1f6\seed-initial.sql
+Codes d’activation conservés hors du dépôt : C:\Users\Lenovo\AppData\Local\Packages\sandbox.{4cbd3747-57ee-488a-85d5-bca182395810}\AC\Temp\sigad-verify-2hbydy\sigad-acceptation-worker-HMQ1f6\codes-activation.json
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mA fetch request failed, likely due to a connectivity issue.[0m
+
+  
+  Common causes:
+    - No internet connection or network connectivity problems
+    - Firewall or VPN blocking the request
+    - Network proxy configuration issues
+  
+  Please check your network connection and try again.
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mfetch failed[0m
+
+
+[32mIf you think this is a bug then please create an issue at https://github.com/cloudflare/workers-sdk/issues/new/choose[0m
+🪵  Logs were written to "C:\Users\Lenovo\AppData\Local\Packages\sandbox.{4cbd3747-57ee-488a-85d5-bca182395810}\AC\Temp\sigad-verify-2hbydy\sigad-acceptation-worker-HMQ1f6\appdata\xdg\.wrangler\logs\wrangler-2026-10-26_18-52-37_629.log"
+La commande Node s’est terminée avec le code 1.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+[Error: EPERM: operation not permitted, unlink 'C:\Users\Lenovo\AppData\Local\Packages\sandbox.{4cbd3747-57ee-488a-85d5-bca182395810}\AC\Temp\sigad-verify-2hbydy\sigad-acceptation-worker-HMQ1f6\codes-activation.json'] {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'unlink',
+  path: 'C:\\Users\\Lenovo\\AppData\\Local\\Packages\\sandbox.{4cbd3747-57ee-488a-85d5-bca182395810}\\AC\\Temp\\sigad-verify-2hbydy\\sigad-acceptation-worker-HMQ1f6\\codes-activation.json'
+}
+
+Node.js v24.19.0
+[VERIFY] FIN Intégration Wrangler locale — 2026-10-26T18:52:47.735Z (26/10/2026 19:52:47 Africa/Ndjamena) — exit=1
+
+[VERIFY] Tracked/non-ignored files changed: 1
+docs/architecture-modernization/evidence/verify-b2-3-20261026.txt
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
+[VERIFY] Evidence: docs/architecture-modernization/evidence/verify-20261026T185158181Z.txt
+
+Finished UTC: 2026-10-26T18:52:50.5702565+00:00
+Exit code: 1

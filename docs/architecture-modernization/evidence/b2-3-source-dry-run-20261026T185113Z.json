@@ -1,0 +1,194 @@
+{
+  "mode": "READ_ONLY_DRY_RUN",
+  "runAt": "2026-10-26T18:51:13.966Z",
+  "persistentDatabaseWrites": 0,
+  "migrationsApplied": "in-memory only, to reconstruct current repository state",
+  "sources": {
+    "ochaCodAb": {
+      "title": "Chad - Subnational Administrative Boundaries",
+      "license": "Creative Commons Attribution for Intergovernmental Organisations (CC BY-IGO)",
+      "datasetDate": "[2025-02-12T00:00:00 TO 2025-10-30T23:59:59]",
+      "metadataModified": "2026-08-14T06:40:18.697908",
+      "adm1": 23,
+      "adm2": 70,
+      "uniqueAdm1Pcodes": 23,
+      "duplicateAdm1Pcodes": 0,
+      "duplicateAdm2Pcodes": 0,
+      "duplicateAdm2NamesWithinMappedParent": 0,
+      "adm2ParentCodesNotInAdm1": 0
+    },
+    "inseedSilaExtract": {
+      "rows": 5,
+      "provinces": [
+        "Sila"
+      ],
+      "documentaryStatus": {
+        "A_RELIRE_SUR_FACSIMILE": 5
+      },
+      "operationalDecision": {
+        "NE_PAS_ACTIVER": 5
+      }
+    },
+    "loi015CommunesTranscription": {
+      "rows": 500,
+      "sourceLevel": "communes/collectivités autonomes"
+    },
+    "adm1Mapping": {
+      "rows": 23,
+      "duplicateSourceCodes": 0,
+      "duplicateSigadIds": 0,
+      "rowsMatchingLegacyAndOchaByIdPcodeAndNormalizedName": 23
+    }
+  },
+  "legacyInMemory": {
+    "counts": {
+      "provinces": {
+        "count": 23,
+        "metadataColumns": [],
+        "withoutSourceReference": 23
+      },
+      "departements": {
+        "count": 112,
+        "metadataColumns": [
+          "source_officielle",
+          "reference_juridique"
+        ],
+        "withoutSourceReference": 0
+      },
+      "sous_prefectures": {
+        "count": 0,
+        "metadataColumns": [
+          "source_officielle"
+        ],
+        "withoutSourceReference": 0
+      },
+      "communes": {
+        "count": 0,
+        "metadataColumns": [
+          "source_officielle"
+        ],
+        "withoutSourceReference": 0
+      },
+      "cantons": {
+        "count": 0,
+        "metadataColumns": [
+          "source_officielle"
+        ],
+        "withoutSourceReference": 0
+      },
+      "arrondissements": {
+        "count": 10,
+        "metadataColumns": [],
+        "withoutSourceReference": 10
+      },
+      "quartiers": {
+        "count": 19,
+        "metadataColumns": [],
+        "withoutSourceReference": 19
+      },
+      "carres": {
+        "count": 0,
+        "metadataColumns": [],
+        "withoutSourceReference": 0
+      },
+      "localites": {
+        "count": 1,
+        "metadataColumns": [
+          "source_documentation"
+        ],
+        "withoutSourceReference": 0
+      },
+      "sites_humanitaires": {
+        "count": 0,
+        "metadataColumns": [],
+        "withoutSourceReference": 0
+      }
+    },
+    "departmentValidation": [
+      {
+        "validation_administrative": "A_VERIFIER",
+        "validation_rattachement": "A_VERIFIER",
+        "statut_validation": "VALIDE",
+        "statut_operationnel": "ACTIF",
+        "count": 32
+      },
+      {
+        "validation_administrative": "VALIDE",
+        "validation_rattachement": "VALIDE",
+        "statut_validation": "VALIDE",
+        "statut_operationnel": "ACTIF",
+        "count": 80
+      }
+    ],
+    "totalUnits": 165,
+    "duplicateIdsAcrossUnitTables": 0,
+    "duplicateNormalizedNamesWithinRecordedParent": {
+      "provinces": 0,
+      "departements": 0,
+      "arrondissements": 0,
+      "quartiers": 0,
+      "carres": 0,
+      "localites": 0,
+      "sites_humanitaires": 0
+    },
+    "populatedLegacyRelationColumns": {
+      "departements.cree_par": 0,
+      "departements.province_id": 112,
+      "sous_prefectures.cree_par": 0,
+      "sous_prefectures.departement_id": 0,
+      "communes.province_id": 0,
+      "cantons.cree_par": 0,
+      "cantons.sous_prefecture_id": 0,
+      "cantons.departement_id": 0,
+      "arrondissements.cree_par": 0,
+      "arrondissements.commune_id": 0,
+      "arrondissements.localite_id": 10,
+      "quartiers.cree_par": 0,
+      "quartiers.valide_par": 0,
+      "quartiers.propose_par": 0,
+      "quartiers.arrondissement_id": 19,
+      "quartiers.localite_id": 19,
+      "carres.cree_par": 0,
+      "carres.site_humanitaire_id": 0,
+      "carres.quartier_id": 0,
+      "localites.cree_par": 0,
+      "localites.valide_par": 0,
+      "localites.propose_par": 0,
+      "localites.canton_id": 0,
+      "localites.commune_id": 0,
+      "localites.sous_prefecture_id": 0,
+      "localites.departement_id": 0,
+      "localites.province_id": 1,
+      "sites_humanitaires.cree_par": 0,
+      "sites_humanitaires.valide_par": 0,
+      "sites_humanitaires.propose_par": 0,
+      "sites_humanitaires.localite_proche_id": 0,
+      "sites_humanitaires.commune_id": 0,
+      "sites_humanitaires.sous_prefecture_id": 0,
+      "sites_humanitaires.departement_id": 0,
+      "sites_humanitaires.province_id": 0
+    },
+    "foreignKeyViolations": 0,
+    "unitsWithoutUnitLevelSourceReference": {
+      "provinces": 23,
+      "departements": 0,
+      "arrondissements": 10,
+      "quartiers": 19,
+      "localites": 0
+    }
+  },
+  "dryRunMatch": {
+    "ochaAdm2MatchedByNormalizedNameAndMappedProvince": 54,
+    "ochaAdm2Unmatched": 16,
+    "localDepartmentsNotMatchedToOchaAdm2": 58,
+    "sameNameDifferentParentCandidates": 0,
+    "unmappedAdm2Parents": 0,
+    "interpretation": "name matching is diagnostic only; OCHA ADM2 is not a legal department register"
+  },
+  "expectedIdentityImpact": {
+    "existingUnitIdsAvailableForGidPreservation": 165,
+    "existingForeignKeysChanged": 0,
+    "newUnitsInvented": 0,
+    "targetTablesCreated": 0
+  }
+}
