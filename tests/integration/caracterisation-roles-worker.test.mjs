@@ -63,6 +63,8 @@ function classeStatut(statut) {
 class ClientLocal {
   cookies = new Map();
   jetonCsrf = null;
+  identifiantConnexion = "";
+  motDePasseConnexion = "";
 
   async requete(chemin, options = {}) {
     const entetes = new Headers({ Accept: "application/json" });
@@ -130,6 +132,8 @@ async function preparerCompte(base, compte) {
   await base.prepare("DELETE FROM compteurs_totp_utilises WHERE utilisateur_id = ?").run(compte.id);
   await base.prepare("UPDATE defis_mfa SET consomme = 1 WHERE utilisateur_id = ?").run(compte.id);
   const client = new ClientLocal();
+  client.identifiantConnexion = compte.identifiant;
+  client.motDePasseConnexion = motDePasse;
   await client.connecter(compte.identifiant, motDePasse);
   if (["PROPRIETAIRE", "ADMIN_CENTRAL", "CONSULTATION_INSTITUTIONNELLE"].includes(compte.roleCaractérisation)) {
     await configurerMfaTest(client, compte.identifiant);
@@ -312,6 +316,104 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
     if (discrepancesPotentielles.length) console.log(JSON.stringify(discrepancesPotentielles));
     if (sondesInconclusives.length) console.log(`SONDES_INCONCLUSIVES ${JSON.stringify(sondesInconclusives)}`);
     if (accesSansPolitiqueExplicite.length) console.log(`ACCES_SANS_POLITIQUE ${JSON.stringify(accesSansPolitiqueExplicite)}`);
+
+    const provincesARestaurer = [];
+    const resultatsSondesValides = [];
+    const idCarreProbe = "b21-carre-probe-ndjamena";
+    try {
+      base.prepare(`INSERT INTO carres (id, quartier_id, code_ou_nom, statut_validation)
+        VALUES (?, 'qrt-ndj-1-farcha', 'Sonde temporaire B2.1', 'VALIDE')`).run(idCarreProbe);
+      assert.ok(base.prepare(`SELECT c.id FROM carres c INNER JOIN quartiers q ON q.id = c.quartier_id
+        INNER JOIN localites l ON l.id = q.localite_id
+        WHERE c.id = ? AND c.statut_validation = 'VALIDE' AND l.province_id = 'prov-ndjamena'`).get(idCarreProbe),
+      "Le carré synthétique doit être valide et rattaché au référentiel de N’Djamena avant la sonde HTTP.");
+      for (const role of rolesTerrain) {
+        const compte = comptes.find((element) => element.roleCaractérisation === role);
+        assert.ok(compte, `Le compte de test de ${role} est requis pour les sondes géographiques.`);
+        const utilisateur = base.prepare("SELECT province_id FROM utilisateurs WHERE id = ?").get(compte.id);
+        const profil = base.prepare(`SELECT id, province_id FROM profils_operationnels_terrain
+          WHERE utilisateur_id = ? AND role_terrain = ? AND statut = 'ACTIF'`).get(compte.id, role);
+        assert.ok(utilisateur && profil, `Le compte et le profil ${role} doivent exister dans la D1 temporaire.`);
+        provincesARestaurer.push({ utilisateurId: compte.id, provinceUtilisateur: utilisateur.province_id, profilId: profil.id, provinceProfil: profil.province_id });
+        if (utilisateur.province_id === "prov-ndjamena" || profil.province_id === "prov-ndjamena") {
+          base.prepare("UPDATE utilisateurs SET province_id = 'prov-sila' WHERE id = ?").run(compte.id);
+          base.prepare("UPDATE profils_operationnels_terrain SET province_id = 'prov-sila' WHERE id = ?").run(profil.id);
+        }
+      }
+
+      for (const role of [...rolesTerrain, "CONSULTATION_INSTITUTIONNELLE"]) {
+        const client = clients.get(role);
+        await client.connecter(client.identifiantConnexion, client.motDePasseConnexion);
+      }
+
+      const sondesTerritoriales = [
+        ["arrondissements", "/api/territoire/arrondissements?localite_id=loc-ndjamena-ville"],
+        ["quartiers", "/api/territoire/quartiers?localite_id=loc-ndjamena-ville&arrondissement_id=arr-ndj-1"],
+        ["carres", "/api/territoire/carres?quartier_id=qrt-ndj-1-farcha"],
+      ];
+      for (const role of rolesTerrain) {
+        const client = clients.get(role);
+        for (const [nom, chemin] of sondesTerritoriales) {
+          const resultat = await client.requete(chemin);
+          resultatsSondesValides.push({
+            role,
+            sonde: nom,
+            statut: resultat.reponse.status,
+            erreur: resultat.donnees?.erreur ?? null,
+            lignes: Array.isArray(resultat.donnees?.elements) ? resultat.donnees.elements.length : null,
+            resultatAttendu: nom === "carres" ? "REFUS_INTERPROVINCIAL_404" : "REFUS_INTERPROVINCIAL",
+          });
+        }
+        const referentiel = await client.requete("/api/distributions/referentiels?type=articles");
+        resultatsSondesValides.push({ role, sonde: "referentiels-distribution", statut: referentiel.reponse.status, resultatAttendu: "REFUS_ROLE" });
+      }
+
+      const exportConsultatif = await clients.get("CONSULTATION_INSTITUTIONNELLE").requete(
+        "/api/rapports/RAPPORT_DISTRIBUTION/export",
+        { methode: "POST", corps: { format: "CSV", filtres: {}, archiver: false }, cleIdempotence: "b21-role-probe-report-0001" },
+      );
+      const idRapportProbe = exportConsultatif.reponse.headers.get("X-Report-Id");
+      if (idRapportProbe) await base.prepare("DELETE FROM rapports_generes WHERE id = ?").run(idRapportProbe);
+      resultatsSondesValides.push({
+        role: "CONSULTATION_INSTITUTIONNELLE",
+        sonde: "export-rapport-non-sensible",
+        statut: exportConsultatif.reponse.status,
+        resultatAttendu: "AUTORISATION_CONDITIONNELLE_DOCUMENTEE",
+      });
+      const exportSensible = await clients.get("CONSULTATION_INSTITUTIONNELLE").requete(
+        "/api/rapports/LISTE_BENEFICIAIRES/export",
+        { methode: "POST", corps: { format: "CSV", filtres: {}, archiver: false }, cleIdempotence: "b21-role-probe-sensitive-0001" },
+      );
+      resultatsSondesValides.push({
+        role: "CONSULTATION_INSTITUTIONNELLE",
+        sonde: "export-rapport-sensible",
+        statut: exportSensible.reponse.status,
+        resultatAttendu: "REFUS_SENSIBLE",
+      });
+
+      console.log(`SONDES_VALIDES_B2_1 ${JSON.stringify(resultatsSondesValides)}`);
+      const refusInattendus = resultatsSondesValides.filter((sonde) => {
+        if (sonde.sonde === "export-rapport-non-sensible") return sonde.statut !== 200;
+        if (sonde.sonde === "export-rapport-sensible") return sonde.statut !== 403;
+        if (sonde.sonde === "carres") return sonde.statut !== 404;
+        return sonde.statut !== 403;
+      });
+      assert.deepEqual(refusInattendus, [],
+        "Les requêtes valides doivent respecter les refus de rôle et de province caractérisés; examiner toute réponse différente avant de modifier la matrice.");
+      for (const role of [...rolesTerrain, "CONSULTATION_INSTITUTIONNELLE"]) {
+        const client = clients.get(role);
+        const deconnexion = await client.requete("/api/auth/deconnexion", {
+          methode: "POST", corps: {}, cleIdempotence: `b21-role-probe-logout-${role}-0001`,
+        });
+        assert.equal(deconnexion.reponse.status, 200);
+      }
+    } finally {
+      base.prepare("DELETE FROM carres WHERE id = ?").run(idCarreProbe);
+      for (const valeur of provincesARestaurer) {
+        base.prepare("UPDATE profils_operationnels_terrain SET province_id = ? WHERE id = ?").run(valeur.provinceProfil, valeur.profilId);
+        base.prepare("UPDATE utilisateurs SET province_id = ? WHERE id = ?").run(valeur.provinceUtilisateur, valeur.utilisateurId);
+      }
+    }
   } finally {
     for (const id of profilsAjoutes) await base.prepare("DELETE FROM profils_operationnels_terrain WHERE id = ?").run(id);
     if (compteConsultationAjoute) {
