@@ -14,7 +14,7 @@ describe("Service cryptographique SIGAD", () => {
     const empreinteB = await hacherMotDePasse("Mot-de-passe-Tchad-2026!");
 
     assert.notEqual(empreinteA, empreinteB);
-    assert.match(empreinteA, /^pbkdf2-sha256\$310000\$/u);
+    assert.match(empreinteA, /^pbkdf2-sha256\$100000\$/u);
     assert.equal(await verifierMotDePasse("Mot-de-passe-Tchad-2026!", empreinteA), true);
     assert.equal(await verifierMotDePasse("Mot-de-passe-incorrect", empreinteA), false);
   });
@@ -22,7 +22,8 @@ describe("Service cryptographique SIGAD", () => {
   it("rejette les empreintes mal formées et les paramètres PBKDF2 hors limites", async () => {
     assert.equal(await verifierMotDePasse("secret", "empreinte-invalide"), false);
     assert.equal(await verifierMotDePasse("secret", "pbkdf2-sha256$99999$YWJj$YWJj"), false);
-    assert.equal(await verifierMotDePasse("secret", "pbkdf2-sha256$1000001$YWJj$YWJj"), false);
+    assert.equal(await verifierMotDePasse("secret", "pbkdf2-sha256$100001$YWJj$YWJj"), false);
+    assert.equal(await verifierMotDePasse("secret", "pbkdf2-sha256$310000$YWJj$YWJj"), false);
   });
 
   it("génère des jetons aléatoires URL-safe de longueur attendue", () => {

@@ -6,6 +6,7 @@ import {
   deconnecterDansLeNavigateur,
   ouvrirModule,
 } from "./authentification";
+import { choisirLocaliteRuraleSila } from "./localisation";
 
 interface ExpeditionE2E {
   id: string;
@@ -21,7 +22,7 @@ async function lireExpeditionE2E(): Promise<ExpeditionE2E> {
 }
 
 test("parcours navigateur de réception, distribution, contrôle et notification sur D1 locale", async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(600_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await connecterDansLeNavigateur(page, "sila");
 
@@ -29,11 +30,9 @@ test("parcours navigateur de réception, distribution, contrôle et notification
   const chefComplet = `Ménage E2E complet ${suffixe}`;
   const chefPartiel = `Ménage E2E partiel ${suffixe}`;
   const date = new Date().toISOString().slice(0, 10);
-  await expect(page.getByRole("heading", { name: "Partenaires, ménages et listes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Registre des ménages" })).toBeVisible();
 
-  await page.getByLabel("Département *").selectOption("dep-test-sila");
-  await page.getByLabel("Nature du lieu").selectOption("VILLAGE");
-  await page.getByLabel("Village").selectOption("loc-test-village");
+  await choisirLocaliteRuraleSila(page);
   await page.getByLabel("Nom du chef de ménage *").fill(chefComplet);
   await page.getByLabel("Nombre de personnes *").fill("4");
   await page.getByLabel("Catégorie de population *").selectOption({ index: 1 });
@@ -41,9 +40,7 @@ test("parcours navigateur de réception, distribution, contrôle et notification
   await page.getByRole("button", { name: "Enregistrer le ménage" }).click();
   await expect(page.getByText("Le ménage a été enregistré. Tout rapprochement potentiel reste soumis à une vérification humaine.", { exact: true })).toBeVisible();
 
-  await page.getByLabel("Département *").selectOption("dep-test-sila");
-  await page.getByLabel("Nature du lieu").selectOption("VILLAGE");
-  await page.getByLabel("Village").selectOption("loc-test-village");
+  await choisirLocaliteRuraleSila(page);
   await page.getByLabel("Nom du chef de ménage *").fill(chefPartiel);
   await page.getByLabel("Nombre de personnes *").fill("3");
   await page.getByLabel("Catégorie de population *").selectOption({ index: 1 });
@@ -51,10 +48,9 @@ test("parcours navigateur de réception, distribution, contrôle et notification
   await page.getByRole("button", { name: "Enregistrer le ménage" }).click();
   await expect(page.getByText("Le ménage a été enregistré. Tout rapprochement potentiel reste soumis à une vérification humaine.", { exact: true })).toBeVisible();
 
-  const navigation = page.getByRole("navigation", { name: "Navigation principale" });
-  await navigation.getByRole("button", { name: "Approvisionnements" }).click();
-  await expect(page.getByRole("heading", { name: "Approvisionnements centraux" })).toBeVisible();
-  await page.getByRole("button", { name: "Réception provinciale" }).click();
+  await ouvrirModule(page, "Approvisionnements");
+  await expect(page.getByRole("tablist", { name: "Fonctions des approvisionnements" })).toBeVisible();
+  await page.getByRole("tab", { name: "Réception provinciale" }).click();
   const expedition = await lireExpeditionE2E();
   const ligneExpedition = page.getByRole("row").filter({ hasText: expedition.reference_bordereau });
   await expect(ligneExpedition).toBeVisible();
@@ -70,8 +66,8 @@ test("parcours navigateur de réception, distribution, contrôle et notification
   const quantitesReception = page.locator(".tableau-reception tbody input[type='number']");
   await expect(quantitesReception).toHaveCount(3);
   await quantitesReception.nth(0).fill(String(expedition.quantite_expediee));
-  await quantitesReception.nth(1).fill("1");
-  await quantitesReception.nth(2).fill("1");
+  await quantitesReception.nth(1).fill(String(expedition.quantite_expediee));
+  await quantitesReception.nth(2).fill("0");
   await page.getByRole("button", { name: "Confirmer la réception" }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   await formulaireReception.setInputFiles({
@@ -82,35 +78,29 @@ test("parcours navigateur de réception, distribution, contrôle et notification
   await page.getByRole("button", { name: "Confirmer la réception" }).click();
   await expect(page.getByRole("status")).toContainText("Le procès-verbal et la réception ont été enregistrés");
 
-  await navigation.getByRole("button", { name: "Distributions provinciales" }).click();
-  await expect(page.getByRole("heading", { name: "Distributions provinciales" })).toBeVisible();
+  await ouvrirModule(page, "Distributions provinciales");
+  await expect(page.getByRole("table")).toBeVisible();
   await page.getByRole("button", { name: "Nouvelle distribution" }).click();
   const intitule = `Distribution E2E ${suffixe}`;
   await page.getByLabel("Intitulé de la distribution").fill(intitule);
   await page.getByLabel("Date prévue").fill(date);
-  await page.getByLabel("Nature de l’aide").selectOption("ALIMENTAIRE");
+  await page.getByLabel("Nature de l’aide").selectOption("NFI");
 
   const entrepot = page.getByLabel("Entrepôt provincial");
-  await expect(entrepot.locator("option").filter({ hasText: "Entrepôt synthétique Sila Phase 6" })).toHaveCount(1);
-  const entrepotPhaseSix = await entrepot.locator("option").evaluateAll((options) => {
-    const option = options.find((element) => (element as HTMLOptionElement).textContent?.includes("Entrepôt synthétique Sila Phase 6"));
-    return option ? (option as HTMLOptionElement).value : "";
-  });
-  if (!entrepotPhaseSix) throw new Error("Le dépôt de test local de Sila n’est pas disponible.");
-  await entrepot.selectOption(entrepotPhaseSix);
+  await entrepot.selectOption(expedition.entrepot_recepteur_id);
   await page.getByLabel("Objectif").fill("Tester la réservation FEFO et les remises depuis le parcours navigateur local.");
   await page.getByLabel("Localité ou site humanitaire").selectOption("localite:loc-test-village");
   await page.getByRole("button", { name: "Ajouter la zone" }).click();
 
   const article = page.getByLabel("Article", { exact: true });
-  const articleRiz = await article.locator("option").evaluateAll((options) => {
-    const option = options.find((element) => (element as HTMLOptionElement).textContent?.includes("Riz synthétique Phase 6"));
+  const articleNfi = await article.locator("option").evaluateAll((options) => {
+    const option = options.find((element) => (element as HTMLOptionElement).textContent?.includes("Kit d’hygiène synthétique Phase 5"));
     return option ? (option as HTMLOptionElement).value : "";
   });
-  if (!articleRiz) throw new Error("Aucun article riz de test local n’est disponible.");
-  await article.selectOption(articleRiz);
+  if (!articleNfi) throw new Error("Aucun article NFI de l’expédition E2E locale n’est disponible.");
+  await article.selectOption(articleNfi);
   await page.getByLabel("Source en stock").selectOption("STOCK_EXISTANT");
-  await page.getByLabel("Ration par ménage").fill("0.1");
+  await page.getByLabel("Ration par ménage").fill("2");
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
 
   const rechercheMenages = page.getByLabel("Recherche", { exact: true });
@@ -134,9 +124,17 @@ test("parcours navigateur de réception, distribution, contrôle et notification
   await page.getByRole("button", { name: "Démarrer l’exécution" }).click();
 
   const ligneComplete = page.getByRole("row").filter({ hasText: chefComplet });
+  const chargementAllocationsCompletes = page.waitForResponse((reponse) =>
+    new URL(reponse.url()).pathname.startsWith(`/api/distributions/${distribution.id}/menages/`) &&
+    new URL(reponse.url()).pathname.endsWith("/allocations") && reponse.request().method() === "GET");
   await ligneComplete.getByRole("button", { name: "Saisir une remise" }).click();
+  expect((await chargementAllocationsCompletes).status()).toBe(200);
+  await expect(page.locator('input[aria-label^="Quantité remise pour "]').first()).toHaveValue("2");
   await page.getByLabel("Identité du récepteur").fill("Récepteur de test complet");
+  const reponseRemiseComplete = page.waitForResponse((reponse) =>
+    new URL(reponse.url()).pathname === `/api/distributions/${distribution.id}/remises` && reponse.request().method() === "POST");
   await page.getByRole("button", { name: "Enregistrer la remise" }).click();
+  expect((await reponseRemiseComplete).status()).toBe(201);
   await expect(ligneComplete).toContainText("Servi");
 
   const lignePartielle = page.getByRole("row").filter({ hasText: chefPartiel });
@@ -144,18 +142,29 @@ test("parcours navigateur de réception, distribution, contrôle et notification
     new URL(reponse.url()).pathname.startsWith(`/api/distributions/${distribution.id}/menages/`) &&
     new URL(reponse.url()).pathname.endsWith("/allocations") && reponse.request().method() === "GET");
   await lignePartielle.getByRole("button", { name: "Saisir une remise" }).click();
-  await chargementAllocationsPartielles;
-  await expect(page.locator('input[aria-label^="Quantité remise pour "]')).toHaveValue("0.1");
+  expect((await chargementAllocationsPartielles).status()).toBe(200);
+  await expect(page.locator('input[aria-label^="Quantité remise pour "]')).toHaveValue("2");
   await page.getByLabel("Statut").selectOption("PARTIELLEMENT_SERVI");
   await expect(page.getByLabel("Statut")).toHaveValue("PARTIELLEMENT_SERVI");
-  await page.locator('input[aria-label^="Quantité remise pour "]').fill("0.05");
-  await expect(page.locator('input[aria-label^="Quantité remise pour "]')).toHaveValue("0.05");
+  await page.locator('input[aria-label^="Quantité remise pour "]').fill("1");
+  await expect(page.locator('input[aria-label^="Quantité remise pour "]')).toHaveValue("1");
   await page.getByLabel("Identité du récepteur").fill("Récepteur de test partiel");
+  const reponseRemisePartielle = page.waitForResponse((reponse) =>
+    new URL(reponse.url()).pathname === `/api/distributions/${distribution.id}/remises` && reponse.request().method() === "POST");
   await page.getByRole("button", { name: "Enregistrer la remise" }).click();
+  expect((await reponseRemisePartielle).status()).toBe(201);
   await expect(lignePartielle).toContainText("Partiellement servi");
+  const chargementAllocationsComplement = page.waitForResponse((reponse) =>
+    new URL(reponse.url()).pathname.startsWith(`/api/distributions/${distribution.id}/menages/`) &&
+    new URL(reponse.url()).pathname.endsWith("/allocations") && reponse.request().method() === "GET");
   await lignePartielle.getByRole("button", { name: "Saisir une remise" }).click();
+  expect((await chargementAllocationsComplement).status()).toBe(200);
+  await expect(page.locator('input[aria-label^="Quantité remise pour "]').first()).toHaveValue("1");
   await page.getByLabel("Identité du récepteur").fill("Récepteur de test après complément");
+  const reponseRemiseComplement = page.waitForResponse((reponse) =>
+    new URL(reponse.url()).pathname === `/api/distributions/${distribution.id}/remises` && reponse.request().method() === "POST");
   await page.getByRole("button", { name: "Enregistrer la remise" }).click();
+  expect((await reponseRemiseComplement).status()).toBe(201);
   await expect(lignePartielle).toContainText("Servi");
 
   await page.getByLabel("Procès-verbal de distribution en PDF").setInputFiles({

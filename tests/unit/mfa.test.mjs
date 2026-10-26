@@ -33,7 +33,11 @@ describe("Authentification TOTP", () => {
     const chiffre = await chiffrerSecretTotp(secretRfc, cle);
     assert.match(chiffre, /^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u);
     assert.equal(await dechiffrerSecretTotp(chiffre, cle), secretRfc);
-    await assert.rejects(() => dechiffrerSecretTotp(`${chiffre.slice(0, -1)}A`, cle));
+    const [version, nonce, contenu] = chiffre.split(".");
+    assert.ok(version && nonce && contenu);
+    const contenuAlteree = Buffer.from(contenu, "base64url");
+    contenuAlteree[0] = (contenuAlteree[0] ?? 0) ^ 1;
+    await assert.rejects(() => dechiffrerSecretTotp(`${version}.${nonce}.${contenuAlteree.toString("base64url")}`, cle));
     await assert.rejects(() => chiffrerSecretTotp(secretRfc, "cle-invalide"));
   });
 

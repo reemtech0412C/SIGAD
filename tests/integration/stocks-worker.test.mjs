@@ -131,10 +131,11 @@ test("Gestion des articles et stocks dans le Worker Cloudflare et D1 locaux", as
     for (const identifiant of ["central", "sila", "ouaddai"]) {
       const empreinte = await hacherMotDePasse(codes.get(identifiant));
       baseInitialisation.prepare(
-        `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = NULL,
+        `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = ?,
+         code_activation_expire_le = datetime('now', '+24 hours'),
          doit_changer_mot_de_passe = 1, statut = 'ACTIF', tentatives_echouees = 0,
          verrouille_jusqua = NULL WHERE identifiant = ?`,
-      ).run(empreinte, identifiant);
+      ).run(empreinte, empreinte, identifiant);
     }
     baseInitialisation.prepare("UPDATE utilisateurs SET statut = 'ACTIF' WHERE identifiant IN ('central', 'sila', 'ouaddai')").run();
   } finally { baseInitialisation.close(); }

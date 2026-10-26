@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { webcrypto } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -14,7 +16,12 @@ const temporaireParente = resolve(process.env.SIGAD_TEST_TEMP_ROOT ?? tmpdir());
 let dossierTemporaire;
 let dossierPersistance;
 let processusWorker;
+let processusCourriel;
 const cleMfaLocale = randomBytes(32).toString("base64url");
+const paireOperateurLocale = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+const clePubliqueOperateurLocale = Buffer.from(JSON.stringify(await webcrypto.subtle.exportKey("jwk", paireOperateurLocale.publicKey))).toString("base64url");
+const clePriveeOperateurLocale = JSON.stringify(await webcrypto.subtle.exportKey("jwk", paireOperateurLocale.privateKey));
+const identiteOperateurLocale = "operateur-local-test";
 
 function executerNode(argumentsNode, environnement = process.env) {
   const resultat = spawnSync(process.execPath, argumentsNode, {
@@ -39,28 +46,27 @@ async function choisirPortLibre() {
   return adresse.port;
 }
 
-async function attendreWorker(adresse, enfant) {
-  const limite = Date.now() + 45_000;
+async function attendreWorker(adresse, enfant, cheminSante = "/api/sante") {
+  const limite = Date.now() + 90_000;
   let erreurRecente;
   while (Date.now() < limite) {
     if (enfant.exitCode !== null) throw new Error(`Wrangler s’est arrêté avant que le Worker soit prêt (code ${enfant.exitCode}).`);
     try {
-      const reponse = await fetch(`${adresse}/api/sante`, { signal: AbortSignal.timeout(1_000) });
+      const reponse = await fetch(`${adresse}${cheminSante}`, { signal: AbortSignal.timeout(5_000) });
       if (reponse.status === 200) return;
       erreurRecente = new Error(`Le contrôle de santé a renvoyé HTTP ${reponse.status}.`);
     } catch (erreur) {
       erreurRecente = erreur;
     }
-    await new Promise((resoudre) => setTimeout(resoudre, 250));
+    await new Promise((resoudre) => setTimeout(resoudre, 500));
   }
   throw new Error(`Le Worker local n’a pas démarré à temps: ${erreurRecente instanceof Error ? erreurRecente.message : "aucune réponse"}.`);
 }
 
-async function arreterWorker() {
-  if (!processusWorker || processusWorker.exitCode !== null) return;
+async function arreterProcessus(enfant) {
+  if (!enfant || enfant.exitCode !== null) return;
   async function attendreFermeture(delai) {
-    const enfant = processusWorker;
-    if (!enfant || enfant.exitCode !== null) return;
+    if (enfant.exitCode !== null) return;
     await new Promise((resoudre) => {
       const fermer = () => {
         clearTimeout(minuteur);
@@ -73,11 +79,44 @@ async function arreterWorker() {
       enfant.once("close", fermer);
     });
   }
-  processusWorker.kill("SIGINT");
+  enfant.kill("SIGINT");
   await attendreFermeture(8_000);
-  if (processusWorker.exitCode === null) {
-    processusWorker.kill();
+  if (enfant.exitCode === null) {
+    enfant.kill();
     await attendreFermeture(5_000);
+  }
+}
+
+async function preparerCommunesPourE2E(dossierD1) {
+  if (process.env.SIGAD_PHASE114_ACTIVATION !== "1") return;
+  const racineTemporaire = resolve(dossierPersistance);
+  const cheminD1 = resolve(dossierD1);
+  assert.ok(cheminD1.startsWith(`${racineTemporaire}${sep}`), "Le jeu de communes doit rester dans la D1 temporaire créée pour Playwright.");
+  const fichiers = await readdir(cheminD1);
+  const fichierBase = fichiers.find((nom) => nom.endsWith(".sqlite") && nom !== "metadata.sqlite");
+  if (!fichierBase) throw new Error("La base D1 temporaire du parcours territorial est introuvable.");
+  const base = new DatabaseSync(join(cheminD1, fichierBase));
+  try {
+    const avant = base.prepare(
+      "SELECT COUNT(*) AS total, SUM(CASE WHEN statut_validation = 'VALIDE' AND actif = 1 THEN 1 ELSE 0 END) AS actives FROM communes",
+    ).get();
+    if (avant.total !== 500 || avant.actives !== 0) {
+      throw new Error("Le jeu territorial Playwright doit commencer avec 500 communes en relecture, sans commune active.");
+    }
+    const resultat = base.prepare(
+      "UPDATE communes SET statut_validation = 'VALIDE', actif = 1 WHERE province_id IN ('prov-sila', 'prov-ouaddai') AND statut_validation = 'PROPOSE'",
+    ).run();
+    if (resultat.changes !== 39) throw new Error(`Le jeu de test devait activer 39 communes de Sila et Ouaddaï, ${resultat.changes} modifiées.`);
+    const comptes = base.prepare(
+      "SELECT province_id, COUNT(*) AS total FROM communes WHERE statut_validation = 'VALIDE' AND actif = 1 GROUP BY province_id ORDER BY province_id",
+    ).all();
+    assert.deepEqual(comptes.map((ligne) => ({ province_id: ligne.province_id, total: ligne.total })), [
+      { province_id: "prov-ouaddai", total: 20 },
+      { province_id: "prov-sila", total: 19 },
+    ], "Seules les communes nécessaires au parcours de recherche isolé sont activées dans la D1 temporaire.");
+    console.log("PASS — Jeu Playwright isolé : 19 communes de Sila et 20 d’Ouaddaï activées uniquement dans la D1 temporaire.");
+  } finally {
+    base.close();
   }
 }
 
@@ -128,6 +167,8 @@ try {
     "migrations",
     "apply",
     "DB",
+    "--config",
+    "wrangler.integration.toml",
     "--local",
     "--persist-to",
     dossierPersistance,
@@ -137,6 +178,8 @@ try {
     "d1",
     "execute",
     "DB",
+    "--config",
+    "wrangler.integration.toml",
     "--local",
     "--persist-to",
     dossierPersistance,
@@ -149,10 +192,14 @@ try {
     SIGAD_CODES_FILE: fichierCodes,
     SIGAD_D1_STATE_DIR: dossierD1,
     SIGAD_MFA_TEST_KEY: cleMfaLocale,
+    SIGAD_TEST_OPERATOR_PRIVATE_JWK: clePriveeOperateurLocale,
+    SIGAD_RECUPERATION_OPERATEUR_IDENTITE: identiteOperateurLocale,
+    SIGAD_RECUPERATION_OPERATEUR_CLE_PUBLIQUE: clePubliqueOperateurLocale,
     ...(process.env.SIGAD_RUN_PLAYWRIGHT === "1"
       ? {
         SIGAD_E2E_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-central-e2e.txt"),
         SIGAD_E2E_SILA_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-sila-e2e.txt"),
+        SIGAD_E2E_PROPRIETAIRE_PASSWORD_FILE: join(dossierTemporaire, "mot-de-passe-proprietaire-e2e.txt"),
         SIGAD_E2E_EXPEDITION_FILE: join(dossierTemporaire, "expedition-e2e.json"),
       }
       : {}),
@@ -162,27 +209,67 @@ try {
     resolve(racine, "scripts/verifier-schema-local.mjs"),
     "--d1-local",
   ], environnementTest);
+  await preparerCommunesPourE2E(dossierD1);
 
-  const port = await choisirPortLibre();
-  const adresse = `http://127.0.0.1:${port}`;
-  processusWorker = spawn(process.execPath, [
+  const portCourriel = await choisirPortLibre();
+  const adresseCourriel = `http://127.0.0.1:${portCourriel}`;
+  processusCourriel = spawn(process.execPath, [
     executableWrangler,
     "dev",
     "--config",
-    "wrangler.toml",
+    "tests/fixtures/email-provider/wrangler.toml",
+    "--local",
+    "--ip",
+    "127.0.0.1",
+    "--port",
+    String(portCourriel),
+    "--show-interactive-dev-session=false",
+  ], {
+    cwd: racine,
+    env: environnementWrangler,
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  processusCourriel.stdout.on("data", (donnees) => process.stdout.write(donnees));
+  processusCourriel.stderr.on("data", (donnees) => process.stderr.write(donnees));
+  await attendreWorker(adresseCourriel, processusCourriel, "/health");
+
+  const port = await choisirPortLibre();
+  const adresse = `http://127.0.0.1:${port}`;
+  const livraisonCourrielActive = process.env.SIGAD_EMAIL_DELIVERY_ENABLED === "false" ? "false" : "true";
+  const argumentsWorker = [
+    executableWrangler,
+    "dev",
+    "--config",
+    "wrangler.integration.toml",
     "--local",
     "--ip",
     "127.0.0.1",
     "--port",
     String(port),
     "--var",
-    "ENVIRONMENT:development",
+    "ENVIRONMENT:staging",
+    "--var",
+    `EMAIL_DELIVERY_ENABLED:${livraisonCourrielActive}`,
+    "--var",
+    "SIGAD_RECUPERATION_PROPRIETAIRE_ACTIVE:true",
+    "--var",
+    `SIGAD_RECUPERATION_OPERATEUR_IDENTITE:${identiteOperateurLocale}`,
+    "--var",
+    `SIGAD_RECUPERATION_OPERATEUR_CLE_PUBLIQUE:${clePubliqueOperateurLocale}`,
     "--var",
     `CLE_CHIFFREMENT_MFA:${cleMfaLocale}`,
     "--show-interactive-dev-session=false",
     "--persist-to",
     dossierPersistance,
-  ], {
+  ];
+  if (livraisonCourrielActive === "true") {
+    argumentsWorker.splice(argumentsWorker.length - 3, 0,
+      "--var", "RESEND_API_KEY:cle-test-locale-sigad",
+      "--var", "SIGAD_EMAIL_FROM:test@sigad.invalid",
+      "--var", `SIGAD_OTP_HMAC_SECRET:${randomBytes(32).toString("base64url")}`);
+  }
+  processusWorker = spawn(process.execPath, argumentsWorker, {
     cwd: racine,
     env: environnementWrangler,
     stdio: ["ignore", "pipe", "pipe"],
@@ -194,11 +281,16 @@ try {
 
   const tousLesTests = [
     "auth-worker.test.mjs",
+    "comptes-sans-courriel-worker.test.mjs",
+    "reprise-verification-courriel-worker.test.mjs",
+    "recovery-proprietaire-worker.test.mjs",
     "securite-matrice-worker.test.mjs",
     "stocks-worker.test.mjs",
     "approvisionnements-worker.test.mjs",
     "distributions-worker.test.mjs",
     "rapports-worker.test.mjs",
+    "operations-centrales-worker.test.mjs",
+    "donnees-test-worker.test.mjs",
   ];
   const testsSelectionnes = process.env.SIGAD_INTEGRATION_TESTS
     ? process.env.SIGAD_INTEGRATION_TESTS.split(",").map((nom) => nom.trim()).filter(Boolean)
@@ -217,12 +309,17 @@ try {
       ...environnementTest,
       SIGAD_LOCAL_API_URL: adresse,
       SIGAD_D1_STATE_DIR: dossierD1,
+      SIGAD_TEST_EMAIL_CAPTURE_URL: adresseCourriel,
     });
   }
   if (process.env.SIGAD_RUN_PLAYWRIGHT === "1") {
-    const optionsPlaywright = process.env.SIGAD_PLAYWRIGHT_GREP
-      ? ["--grep", process.env.SIGAD_PLAYWRIGHT_GREP]
-      : [];
+    const optionsPlaywright = [];
+    if (process.env.SIGAD_PLAYWRIGHT_GREP) {
+      optionsPlaywright.push("--grep", process.env.SIGAD_PLAYWRIGHT_GREP);
+    }
+    if (process.env.SIGAD_PLAYWRIGHT_GREP_INVERT) {
+      optionsPlaywright.push("--grep-invert", process.env.SIGAD_PLAYWRIGHT_GREP_INVERT);
+    }
     executerNode([
       "--experimental-sqlite",
       resolve(racine, "node_modules/@playwright/test/cli.js"),
@@ -231,15 +328,20 @@ try {
       ...optionsPlaywright,
     ], {
       ...environnementTest,
+      LOCALAPPDATA: process.env.LOCALAPPDATA ?? environnementTest.LOCALAPPDATA,
+      APPDATA: process.env.APPDATA ?? environnementTest.APPDATA,
+      USERPROFILE: process.env.USERPROFILE ?? environnementTest.USERPROFILE,
       SIGAD_LOCAL_API_URL: adresse,
       SIGAD_D1_STATE_DIR: dossierD1,
+      SIGAD_TEST_EMAIL_CAPTURE_URL: adresseCourriel,
     });
   }
 } catch (erreur) {
   console.error(erreur instanceof Error ? erreur.message : "Échec inconnu de l’acceptation locale.");
   process.exitCode = 1;
 } finally {
-  await arreterWorker();
+  await arreterProcessus(processusWorker);
+  await arreterProcessus(processusCourriel);
   if (dossierTemporaire) {
     const chemin = resolve(dossierTemporaire);
     if (!isAbsolute(chemin) || !chemin.startsWith(`${temporaireParente}${sep}`) || !chemin.slice(temporaireParente.length + 1).startsWith("sigad-acceptation-worker-")) {
@@ -249,6 +351,7 @@ try {
       "codes-activation.json",
       "mot-de-passe-central-e2e.txt",
       "mot-de-passe-sila-e2e.txt",
+      "mot-de-passe-proprietaire-e2e.txt",
     ].map((nom) => rm(join(chemin, nom), { force: true, maxRetries: 8, retryDelay: 250 })));
     await rm(chemin, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
   }

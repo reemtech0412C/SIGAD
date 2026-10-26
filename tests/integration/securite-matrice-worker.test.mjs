@@ -26,14 +26,14 @@ function ouvrirD1Locale() {
 function routesDeLaMatrice() {
   const contenu = readFileSync(resolve(racine, "docs/matrice-securite-api-phase9.md"), "utf8");
   const resultat = [];
-  for (const correspondance of contenu.matchAll(/^\| (GET|POST|PUT|PATCH) \| `([^`]+)` \| ([^|]+) \|/gmu)) {
+  for (const correspondance of contenu.matchAll(/^\| (GET|POST|PUT|PATCH|DELETE) \| `([^`]+)` \| ([^|]+) \|/gmu)) {
     const methode = correspondance[1];
     const chemin = correspondance[2];
     const politique = correspondance[3]?.trim() ?? "";
     if (!methode || !chemin) continue;
     resultat.push({ methode, chemin, politique });
   }
-  if (resultat.length !== 140) throw new Error(`La matrice décrit ${resultat.length} routes au lieu de 140; régénérez et auditez la liste.`);
+  if (resultat.length !== 216) throw new Error(`La matrice décrit ${resultat.length} routes au lieu de 216; régénérez et auditez la liste.`);
   return resultat;
 }
 
@@ -60,12 +60,13 @@ class ClientLocal {
 
   async requete(chemin, options = {}) {
     const entetes = new Headers({ Accept: "application/json" });
-    if (options.corps !== undefined) entetes.set("Content-Type", "application/json");
+    const corps = options.corpsBrut ?? (options.corps === undefined ? undefined : JSON.stringify(options.corps));
+    if (corps !== undefined) entetes.set("Content-Type", "application/json");
     if (options.csrf !== false && this.jetonCsrf) entetes.set("X-CSRF-Token", this.jetonCsrf);
     if (this.cookies.size) entetes.set("Cookie", [...this.cookies].map(([nom, valeur]) => `${nom}=${encodeURIComponent(valeur)}`).join("; "));
     const reponse = await fetch(new URL(chemin, adresseApi), {
       method: options.methode ?? "GET", headers: entetes,
-      ...(options.corps === undefined ? {} : { body: JSON.stringify(options.corps) }),
+      ...(corps === undefined ? {} : { body: corps }),
     });
     for (const cookie of reponse.headers.getSetCookie()) {
       const [paire, ...attributs] = cookie.split(";");
@@ -108,6 +109,13 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
   const clients = new Map();
   let clientSila;
   try {
+    const deleguesOuaddaiIssusDesTestsPrecedents = base.prepare(`SELECT id FROM utilisateurs
+      WHERE province_id = 'prov-ouaddai' AND role = 'DELEGUE_PROVINCIAL' AND statut = 'ACTIF'
+        AND id <> 'usr-ouaddai'`).all();
+    for (const delegue of deleguesOuaddaiIssusDesTestsPrecedents) {
+      base.prepare("UPDATE utilisateurs SET statut = 'SUSPENDU' WHERE id = ? AND statut = 'ACTIF'").run(delegue.id);
+      base.prepare("UPDATE sessions SET revoquee = 1 WHERE utilisateur_id = ? AND revoquee = 0").run(delegue.id);
+    }
     const identifiants = ["proprietaire", "central", "sila", "ouaddai"];
     for (const identifiant of identifiants) {
       const motDePasse = `Matrice-${randomBytes(24).toString("base64url")}Aa9`;
@@ -171,11 +179,107 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
     assert.ok(clientSila, "Le compte de test de Sila doit être initialisé.");
     const accesProvinceAlteree = await clientSila.requete("/api/provincial/prov-ouaddai/profil");
     assert.equal(accesProvinceAlteree.reponse.status, 403, "Un délégué de Sila ne doit pas pouvoir changer la province du chemin.");
+
+    const propositionSansSession = await anonyme.requete("/api/territoire/propositions/localites", {
+      methode: "POST",
+      corpsBrut: "{",
+    });
+    assert.equal(propositionSansSession.reponse.status, 401,
+      "L’authentification doit rejeter la requête anonyme avant d’analyser un corps invalide.");
+
+    const routesProposition = [
+      "/api/territoire/propositions/localites",
+      "/api/territoire/propositions/quartiers",
+      "/api/territoire/propositions/sites-humanitaires",
+      "/api/territoire/propositions/corrections",
+    ];
+    for (const chemin of routesProposition) {
+      for (const role of roles) {
+        const resultatCorpsInvalide = await clients.get(role).requete(chemin, {
+          methode: "POST",
+          corps: {},
+        });
+        assert.equal(resultatCorpsInvalide.reponse.status, 400,
+          `${role} est autorisé à atteindre la validation du corps de ${chemin}.`);
+      }
+    }
+
+    const propositionHorsProvince = await clientSila.requete("/api/territoire/propositions/localites", {
+      methode: "POST",
+      corps: {
+        province_id: "prov-ouaddai",
+        nom: "Localité de contrôle hors province",
+        type_localite: "VILLAGE",
+        source_documentation: "Référentiel territorial de test",
+      },
+    });
+    assert.equal(propositionHorsProvince.reponse.status, 403,
+      "Un délégué ne peut pas proposer une localité dans une autre province.");
+
+    const idSila = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = 'sila'").get().id;
+    const idCentral = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = 'central'").get().id;
+    const profilTerrainExistant = base.prepare(
+      "SELECT id FROM profils_operationnels_terrain WHERE utilisateur_id = ? AND statut = 'ACTIF'",
+    ).get(idSila);
+    assert.equal(profilTerrainExistant, undefined, "Le profil terrain temporaire doit pouvoir être isolé pour ce contrôle.");
+    const idProfilTerrainTemporaire = randomBytes(16).toString("hex");
+    base.prepare(`INSERT INTO profils_operationnels_terrain
+      (id, utilisateur_id, role_terrain, province_id, statut, attribue_par)
+      VALUES (?, ?, 'RESPONSABLE_STOCK', 'prov-sila', 'ACTIF', ?)`)
+      .run(idProfilTerrainTemporaire, idSila, idCentral);
+    try {
+      const roleTerrainCorpsMalforme = await clientSila.requete("/api/territoire/propositions/localites", {
+        methode: "POST",
+        corpsBrut: "{",
+      });
+      assert.equal(roleTerrainCorpsMalforme.reponse.status, 403,
+        "Un rôle terrain interdit doit être refusé avant l’analyse d’un JSON malformé.");
+    } finally {
+      base.prepare("DELETE FROM profils_operationnels_terrain WHERE id = ?").run(idProfilTerrainTemporaire);
+    }
+
+    const idProprietaire = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = 'proprietaire'").get().id;
+    const compteConsultationExistant = base.prepare(
+      "SELECT id FROM comptes_consultation WHERE utilisateur_id = ?",
+    ).get(idProprietaire);
+    assert.equal(compteConsultationExistant, undefined, "Le rôle de consultation temporaire doit être isolé du compte propriétaire.");
+    const idCompteConsultationTemporaire = randomBytes(16).toString("hex");
+    base.prepare(`INSERT INTO comptes_consultation
+      (id, utilisateur_id, institution, fonction, perimetre, statut, cree_par)
+      VALUES (?, ?, 'Institution de test', 'Observateur', 'NATIONAL', 'ACTIF', ?)`)
+      .run(idCompteConsultationTemporaire, idProprietaire, idProprietaire);
+    try {
+      const propositionConsultative = await clients.get("PROPRIETAIRE").requete(
+        "/api/territoire/propositions/localites",
+        { methode: "POST", corps: {} },
+      );
+      assert.equal(propositionConsultative.reponse.status, 403,
+        "CONSULTATION_INSTITUTIONNELLE ne peut pas soumettre une proposition, même avec un corps invalide.");
+      assert.match(propositionConsultative.donnees?.erreur ?? "", /compte est limité à la consultation/iu,
+        "Le refus doit provenir du contrôle de rôle consultatif avant l’analyse du corps.");
+    } finally {
+      base.prepare("DELETE FROM comptes_consultation WHERE id = ?").run(idCompteConsultationTemporaire);
+    }
+
+    for (const actionProtegee of [
+      { methode: "POST", chemin: "/api/central/referentiel-territorial/propositions/LOCALITE/absente/decision" },
+      { methode: "POST", chemin: "/api/proprietaire/territoire/fusions/executer" },
+      { methode: "DELETE", chemin: "/api/proprietaire/territoire/unites/absente?type=LOCALITE" },
+      { methode: "PUT", chemin: "/api/proprietaire/territoire/unites/absente?type=LOCALITE" },
+    ]) {
+      const tentative = await clientSila.requete(actionProtegee.chemin, {
+        methode: actionProtegee.methode,
+        corps: {},
+      });
+      assert.equal(tentative.reponse.status, 403,
+        `La permission de proposer une correction ne doit pas accorder ${actionProtegee.methode} ${actionProtegee.chemin}.`);
+    }
+
     const empreinteApres = empreinteEtat(base);
-    assert.equal(empreinteApres, empreinteAvant, "Les refus d’accès ne doivent modifier aucune ligne métier, de stock, d’archive, de session ou d’audit.");
+    assert.equal(empreinteApres, empreinteAvant, "Les refus d’accès et les comptes temporaires de test ne doivent modifier aucune donnée persistante.");
     assert.ok(routesAnonymesVerifiees >= 120, `La couverture anonyme ${routesAnonymesVerifiees}/140 est insuffisante.`);
     assert.ok(refusRoleVerifies >= 80, `La couverture RBAC ${refusRoleVerifies} décisions refusées est insuffisante.`);
-    console.log(`PASS — matrice sécurité : ${matrice.length} routes cataloguées, ${routesAnonymesVerifiees} essais anonymes et ${refusRoleVerifies} refus RBAC; empreinte complète des 65 tables inchangée après les requêtes interdites.`);
+    console.log(`PASS — matrice sécurité : ${matrice.length} routes cataloguées, ${routesAnonymesVerifiees} essais anonymes et ${refusRoleVerifies} refus RBAC; propositions, portée provinciale, consultation, approbations, fusions, suppressions et modifications protégées; empreinte complète de D1 inchangée.`);
   } finally {
     base.close();
   }

@@ -1,38 +1,21 @@
 import { randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { enregistrerMotDePasseE2E } from "./authentification";
-
-async function lireMotDePasseSila(): Promise<string> {
-  const chemin = process.env.SIGAD_E2E_SILA_PASSWORD_FILE;
-  if (!chemin) throw new Error("SIGAD_E2E_SILA_PASSWORD_FILE doit viser le secret temporaire du Worker local.");
-  const motDePasse = (await readFile(chemin, "utf8")).trim();
-  if (motDePasse.length < 12) throw new Error("Le mot de passe temporaire Sila est invalide.");
-  return motDePasse;
-}
+import { connecterDansLeNavigateur, ouvrirElementNavigation } from "./authentification";
+import { choisirLocaliteRuraleSila } from "./localisation";
 
 test("parcours du délégué, création et import d’un ménage dans le navigateur", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await page.getByLabel("Identifiant").fill("sila");
-  await page.getByLabel("Mot de passe").fill(await lireMotDePasseSila());
-  await page.getByRole("button", { name: "Se connecter" }).click();
-  await expect(page.getByRole("heading", { name: "Créer un nouveau mot de passe" })).toBeVisible();
-  const nouveauMotDePasse = `E2E-${randomBytes(18).toString("base64url")}Aa9`;
-  await page.getByLabel("Nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
-  await page.getByLabel("Confirmer le nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
-  await page.getByRole("button", { name: "Enregistrer le nouveau mot de passe" }).click();
-  await enregistrerMotDePasseE2E("sila", nouveauMotDePasse);
+  await connecterDansLeNavigateur(page, "sila");
 
+  await page.setViewportSize({ width: 1440, height: 1000 });
   const navigation = page.getByRole("navigation", { name: "Navigation principale" });
-  await expect(navigation.getByRole("button", { name: "Gestion des bénéficiaires" })).toBeVisible();
-  await expect(navigation.getByRole("button", { name: "Administration des comptes" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Partenaires, ménages et listes" })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: "Bénéficiaires", exact: true })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: "Administration", exact: true })).toHaveCount(0);
+  await expect(page.locator(".sigad-admin__zone-contenu h1")).toHaveCount(0);
+  await expect(page.getByRole("tablist", { name: "Modules de gestion des bénéficiaires" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Enregistrer un ménage" })).toBeVisible();
 
-  await page.getByLabel("Département *").selectOption("dep-test-sila");
-  await page.getByLabel("Nature du lieu").selectOption("VILLAGE");
-  await page.getByLabel("Village").selectOption("loc-test-village");
+  await choisirLocaliteRuraleSila(page);
   await page.getByLabel("Nom du chef de ménage *").fill(`Ménage navigateur ${randomBytes(4).toString("hex")}`);
   await page.getByLabel("Nombre de personnes *").fill("4");
   await page.getByLabel("Catégorie de population *").selectOption({ index: 1 });
@@ -55,12 +38,14 @@ test("parcours du délégué, création et import d’un ménage dans le navigat
   await page.getByRole("button", { name: "Importer le fichier" }).click();
   await expect(page.getByText(/1 ménage\(s\) importé\(s\)/u)).toBeVisible();
 
-  await navigation.getByRole("button", { name: "Articles et stocks" }).click();
-  await expect(page.getByRole("heading", { name: "Articles et stocks" })).toBeVisible();
-  await navigation.getByRole("button", { name: "Distributions provinciales" }).click();
-  await expect(page.getByRole("heading", { name: "Distributions provinciales" })).toBeVisible();
-  await navigation.getByRole("button", { name: "Contrôle et notifications" }).click();
-  await expect(page.getByRole("heading", { name: "Contrôle provincial" })).toBeVisible();
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await ouvrirElementNavigation(page, "Opérations & aide", "Articles et stocks");
+  await expect(page.getByText("Périmètre provincial", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Modules de stock" })).toBeVisible();
+  await ouvrirElementNavigation(page, "Opérations & aide", "Distributions provinciales");
+  await expect(page.getByLabel("Recherche")).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+  await ouvrirElementNavigation(page, "Suivi & contrôle", "Contrôles et audits");
+  await expect(page.getByRole("tablist", { name: "Modules de contrôle" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Observations" })).toHaveAttribute("aria-selected", "true");
   await expect(navigation).toBeVisible();
 });

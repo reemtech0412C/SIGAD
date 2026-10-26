@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fichierSpecification = resolve(racine, "sigad_v3_0.md");
-const iterationsPbkdf2 = 310_000;
+const iterationsPbkdf2 = 100_000;
 
 function encoderBase64Url(octets) {
   return Buffer.from(octets).toString("base64url");
@@ -132,6 +132,7 @@ async function construireSeed(mode, fichierCodes, fichierSeed) {
       utilisateur.provinceId === null ? "NULL" : citerSql(utilisateur.provinceId),
       citerSql(empreinte),
       citerSql(empreinte),
+      "datetime('now', '+24 hours')",
       "1",
       "'ACTIF'",
     ].join(", ")})`);
@@ -165,12 +166,14 @@ ${provincesSql}
 ON CONFLICT(id) DO NOTHING;
 
 INSERT INTO utilisateurs
-  (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, code_activation_hash, doit_changer_mot_de_passe, statut)
+  (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, code_activation_hash, code_activation_expire_le, doit_changer_mot_de_passe, statut)
 VALUES
 ${utilisateursSql.join(",\n")}
 ON CONFLICT(id) DO UPDATE SET
   mot_de_passe_hash = excluded.mot_de_passe_hash,
   code_activation_hash = excluded.code_activation_hash,
+  code_activation_expire_le = excluded.code_activation_expire_le,
+  code_activation_recuperation_id = NULL,
   doit_changer_mot_de_passe = 1,
   statut = excluded.statut;
 

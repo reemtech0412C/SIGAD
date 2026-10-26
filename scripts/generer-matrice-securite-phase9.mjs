@@ -26,6 +26,13 @@ const montages = {
   routesDistributions: [{ prefixe: "/api/distributions", roles: "PROPRIETAIRE, ADMIN_CENTRAL et DELEGUE_PROVINCIAL selon le contrôle métier; création et exécution par DELEGUE_PROVINCIAL; administration centrale sous /api/central/distributions", province: "Délégué: utilisateur.province_id de session propagé aux requêtes métier et aux ressources enfants" }],
   routesControleDistributions: [{ prefixe: "/api/central/distributions", roles: "ADMIN_CENTRAL uniquement", province: "National; le dossier et ses lignes gardent la province enregistrée en base" }],
   routesRapports: [{ prefixe: "/api/rapports", roles: "PROPRIETAIRE, ADMIN_CENTRAL, DELEGUE_PROVINCIAL; rapprochement d’archives: PROPRIETAIRE uniquement", province: "Délégué: utilisateur.province_id de session pour aperçu, export, archive et téléchargement" }],
+  routesPublics: [{ prefixe: "/api/inscriptions/delegues", roles: "Public; validation CSRF pré-authentification et vérification e-mail; aucune session ni donnée métier avant approbation centrale", province: "Province reçue uniquement pour la demande; aucune autorisation provinciale avant création explicite du compte par ADMIN_CENTRAL" }],
+  routesCompte: [{ prefixe: "/api/compte", roles: "Session authentifiée; chaque lecture et écriture porte uniquement sur l’utilisateur de la session; CSRF requis pour les mutations", province: "Province, rôle, statut et périmètre administratif immuables depuis ce formulaire; la portée vient de la session et de D1" }],
+  routesAdministration: [{ prefixe: "/api/administration/comptes", roles: "ADMIN_CENTRAL authentifié avec MFA vérifiée; décisions motivées et auditées", province: "Périmètre central; province de délégation relue en D1; remplacement et unicité protégés par transaction et index partiel" }],
+  routesOperationsCentrales: [{ prefixe: "/api/operations-centrales", roles: "Lecture: PROPRIETAIRE, ADMIN_CENTRAL, DELEGUE_PROVINCIAL, CONSULTATION_INSTITUTIONNELLE; Mutations: ADMIN_CENTRAL uniquement", province: "Délégué: provinces autorisées de sa session; Central/Propriétaire: national" }],
+  routesOperationsProvinciales: [{ prefixe: "/api/provincial/operations-centrales", roles: "DELEGUE_PROVINCIAL uniquement", province: "utilisateur.province_id de session; vérifié par middleware et service" }],
+  routesProprietaireDonneesTest: [{ prefixe: "/api/proprietaire/donnees-test", roles: "PROPRIETAIRE uniquement", province: "Sans restriction de province; gouvernance et purge des données de test" }],
+  routesAdministrationTerritoriale: [{ prefixe: "/api/proprietaire/territoire", roles: "PROPRIETAIRE uniquement", province: "Sans restriction de province; administration nationale du référentiel territorial" }],
 };
 
 const fichiers = (await readdir(routes)).filter((nom) => nom.endsWith(".routes.ts")).sort();
@@ -56,6 +63,9 @@ for (const fichier of chemins) {
         if (routeComplete.endsWith("/csrf")) {
           roles = "Public; émission du jeton CSRF sans données métier";
           province = "Aucune";
+        } else if (routeComplete.includes("/recuperation-proprietaire")) {
+          roles = "Preuve opérateur ES256 à usage unique et CSRF pré-authentification; récupération désactivée par défaut et limitée à Staging";
+          province = "Compte propriétaire SIGAD fixé côté serveur; aucune donnée métier ni session complète";
         } else if (routeComplete.endsWith("/connexion")) {
           roles = "Public; connexion protégée par CSRF pré-authentification, limitation des tentatives et MFA obligatoire pour les comptes centraux";
           province = "Aucune avant authentification; province jointe depuis le compte en base";
@@ -78,9 +88,17 @@ for (const fichier of chemins) {
         roles = "PROPRIETAIRE ou ADMIN_CENTRAL uniquement";
       } else if (variable === "routesStocks" && mutation) {
         roles = "ADMIN_CENTRAL ou DELEGUE_PROVINCIAL; opérations bornées à l’entrepôt autorisé";
+      } else if (variable === "routesTerritoire" && routeComplete.startsWith("/api/territoire/propositions/")) {
+        roles = "PROPRIETAIRE, ADMIN_CENTRAL ou DELEGUE_PROVINCIAL pour soumettre une proposition; approbation distincte sous /api/proprietaire et /api/central";
+        province = "PROPRIETAIRE et ADMIN_CENTRAL: portée nationale; DELEGUE_PROVINCIAL: utilisateur.province_id de session et rattachement à une entité de la même province";
+      } else if (variable === "routesTerritoire" && routeComplete === "/api/territoire/unites-dynamiques") {
+        roles = "PROPRIETAIRE, ADMIN_CENTRAL, DELEGUE_PROVINCIAL, RESPONSABLE_STOCK, SUPERVISEUR_TERRAIN ou AGENT_DISTRIBUTION pour la création directe; CONSULTATION_INSTITUTIONNELLE interdite";
+        province = "PROPRIETAIRE et ADMIN_CENTRAL: portée nationale; rôles provinciaux: province issue de la session; création de département réservée aux rôles centraux";
       } else if (variable === "routesTerritoire" && mutation) {
-        roles = "DELEGUE_PROVINCIAL uniquement pour soumettre une proposition; validation hors de ce routeur";
-        province = "utilisateur.province_id de session; rattachement à une entité de la même province";
+        throw new Error(`La mutation territoriale ${routeComplete} n’est classée ni comme proposition ni comme création directe.`);
+      } else if (variable === "routesGestion" && /^\/api\/gestion\/(?:menages\/[^/]+\/validation|signalements-doublons\/[^/]+\/(?:decision|reouverture))$/u.test(routeComplete)) {
+        roles = "ADMIN_CENTRAL uniquement; décision motivée, auditée et conditionnelle";
+        province = "Portée nationale d’examen; ménages et signalements résolus par leurs identifiants en base, sans province fournie par le client";
       } else if (variable === "routesGestion" && routeComplete.endsWith("/validation")) {
         roles = "PROPRIETAIRE ou ADMIN_CENTRAL uniquement";
       } else if (variable === "routesGestion" && mutation && routeComplete === "/api/gestion/partenaires") {

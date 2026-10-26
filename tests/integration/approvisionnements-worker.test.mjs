@@ -118,11 +118,13 @@ async function connecterComptes(base) {
   const resultats = {};
   for (const identifiant of ["central", "sila", "ouaddai", "proprietaire"]) {
     const motDePasse = nouveauMotDePasse();
+    const empreinte = await hacherMotDePasse(motDePasse);
     base.prepare(
-      `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = NULL,
+      `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = ?,
+       code_activation_expire_le = datetime('now', '+24 hours'),
        doit_changer_mot_de_passe = 1, statut = 'ACTIF', tentatives_echouees = 0,
        verrouille_jusqua = NULL WHERE identifiant = ?`,
-    ).run(await hacherMotDePasse(motDePasse), identifiant);
+    ).run(empreinte, empreinte, identifiant);
     const client = new ClientLocal();
     await client.connexion(identifiant, motDePasse);
     resultats[identifiant] = client;
@@ -645,14 +647,14 @@ test("Approvisionnements centraux, réception provinciale et intégrité atomiqu
   if (process.env.SIGAD_E2E_EXPEDITION_FILE) {
     const operationNavigateur = await creerApprovisionnement(central, corpsApprovisionnement(
       `APP-${suffixe}-NAVIGATEUR`,
-      [{ province_id: "prov-sila", articles: [{ article_id: ids.articleNfi, quantite_allouee: 2 }] }],
+      [{ province_id: "prov-sila", articles: [{ article_id: ids.articleNfi, quantite_allouee: 6 }] }],
       { source_articles: "FOURNISSEUR_EXTERNE", partenaire_id: ids.partenaire, nature_aide: "NFI" },
     ));
     await validerApprovisionnement(central, operationNavigateur.id);
     const allocationNavigateur = (await central.requete(`/api/approvisionnements/${operationNavigateur.id}/repartition?limite=10&decalage=0`)).donnees.elements[0];
     const expeditionNavigateur = await creerExpedition(central, operationNavigateur.id, allocationNavigateur.destination_id, null, [{
       article_approvisionnement_id: allocationNavigateur.id,
-      quantite_expediee: 2,
+      quantite_expediee: 6,
       numero_lot_fournisseur: `FOURN-E2E-${suffixe}`,
       date_peremption: null,
     }], `BORD-E2E-${suffixe}`);
@@ -661,7 +663,7 @@ test("Approvisionnements centraux, réception provinciale et intégrité atomiqu
       id: expeditionNavigateur.donnees.id,
       reference_bordereau: `BORD-E2E-${suffixe}`,
       entrepot_recepteur_id: ids.entrepotSila,
-      quantite_expediee: 2,
+      quantite_expediee: 6,
     }), { encoding: "utf8", mode: 0o600 });
   }
 });

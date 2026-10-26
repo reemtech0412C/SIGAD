@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { strToU8, zipSync } from "fflate";
 import { hacherJeton, verifierMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
-import { codeMfaInutilise, configurerMfaTest } from "./mfa-test-helper.mjs";
+import { codeMfaInutilise, configurerMfaTest, terminerConnexionMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -16,6 +16,10 @@ const cheminCodes = process.env.SIGAD_CODES_FILE;
 
 function nouveauMotDePasse() {
   return `Sigad-${randomBytes(18).toString("base64url")}Aa9`;
+}
+
+function nouvelleCleImport() {
+  return `test-import-${randomBytes(24).toString("base64url")}`;
 }
 
 function creerClasseurMenageExcel() {
@@ -84,6 +88,7 @@ class ClientLocal {
     const corpsFormulaire = options.corps instanceof FormData;
     if (options.corps !== undefined && !corpsFormulaire) entetes.set("Content-Type", "application/json");
     if (options.csrf !== false && this.jetonCsrf) entetes.set("X-CSRF-Token", this.jetonCsrf);
+    if (options.cleIdempotence) entetes.set("X-Idempotency-Key", options.cleIdempotence);
     if (this.cookies.size > 0) {
       entetes.set("Cookie", [...this.cookies].map(([nom, valeur]) => `${nom}=${encodeURIComponent(valeur)}`).join("; "));
     }
@@ -103,13 +108,14 @@ class ClientLocal {
       if (expiration || valeur === "") this.cookies.delete(nom);
       else this.cookies.set(nom, valeur);
     }
+    const corpsTexte = await reponse.text();
     let donnees = null;
     try {
-      donnees = await reponse.json();
+      donnees = JSON.parse(corpsTexte);
     } catch {
       donnees = null;
     }
-    return { reponse, donnees };
+    return { reponse, donnees, corpsTexte };
   }
 
   async initialiserCsrf() {
@@ -152,6 +158,16 @@ function codePour(codes, identifiant) {
   const entree = codes.find((code) => code.identifiant === identifiant);
   if (!entree) throw new Error(`Le code d’activation du compte ${identifiant} est absent.`);
   return entree.code_activation;
+}
+
+async function dernierCourrielPour(courriel) {
+  const adresse = process.env.SIGAD_TEST_EMAIL_CAPTURE_URL;
+  if (!adresse) throw new Error("Le service local de capture des e-mails de test est absent.");
+  const reponse = await fetch(new URL("/__test/emails", adresse));
+  assert.equal(reponse.status, 200, "Le Worker local du prestataire de test doit être disponible.");
+  const messages = await reponse.json();
+  assert.equal(Array.isArray(messages), true);
+  return messages.reverse().find((message) => Array.isArray(message.to) && message.to.includes(courriel)) ?? null;
 }
 
 function preparerFixturesTerritoriales(base) {
@@ -241,6 +257,11 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(sante.headers.get("referrer-policy"), "no-referrer");
   assert.match(sante.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/u);
   assert.equal(sante.headers.get("cache-control"), "no-store");
+  const provincesInscription = await fetch(new URL("/api/inscriptions/delegues/provinces", adresseApi));
+  assert.equal(provincesInscription.status, 200, "Le formulaire public doit lire la liste de provinces depuis D1.");
+  const donneesProvinces = await provincesInscription.json();
+  assert.equal(Array.isArray(donneesProvinces.elements), true);
+  assert.equal(donneesProvinces.elements.length, 23, "Le formulaire public expose uniquement le référentiel validé des 23 provinces.");
   const baseFixtures = ouvrirD1Locale();
   try {
     preparerFixturesTerritoriales(baseFixtures);
@@ -280,6 +301,21 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   });
   assert.equal(connexionApresVerrouillage.reponse.status, 401, "Le cinquième échec doit verrouiller temporairement le compte.");
 
+  const compteActivationExpiree = ouvrirD1Locale();
+  compteActivationExpiree.prepare(
+    "UPDATE utilisateurs SET code_activation_expire_le = datetime('now', '-1 second') WHERE identifiant = 'guera'",
+  ).run();
+  compteActivationExpiree.close();
+  const clientActivationExpiree = new ClientLocal();
+  const connexionActivationExpiree = await clientActivationExpiree.connexion("guera", codePour(codes, "guera"));
+  assert.equal(connexionActivationExpiree.reponse.status, 401,
+    "Une activation héritée avec une échéance explicite expirée doit rester refusée.");
+  const controleActivationExpiree = ouvrirD1Locale();
+  assert.equal(Reflect.get(controleActivationExpiree.prepare(
+    "SELECT COUNT(*) AS total FROM sessions WHERE utilisateur_id = 'usr-guera' AND revoquee = 0",
+  ).get(), "total"), 0, "Une activation expirée ne doit pas créer de session.");
+  controleActivationExpiree.close();
+
   const connexionProprietaire = await proprietaire.requete("/api/auth/connexion", {
     methode: "POST",
     corps: { identifiant: "proprietaire", mot_de_passe: codePour(codes, "proprietaire") },
@@ -309,10 +345,23 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(Reflect.get(pageProprietaire.donnees, "total"), 25);
   assert.equal(Reflect.get(pageProprietaire.donnees, "elements").length, 10);
 
+  const compteCentralLegacy = ouvrirD1Locale();
+  const etatCentralAvantActivation = compteCentralLegacy.prepare(
+    "SELECT doit_changer_mot_de_passe, code_activation_hash FROM utilisateurs WHERE id = 'usr-central'",
+  ).get();
+  assert.equal(Reflect.get(etatCentralAvantActivation, "doit_changer_mot_de_passe"), 1);
+  assert.equal(typeof Reflect.get(etatCentralAvantActivation, "code_activation_hash"), "string");
+  compteCentralLegacy.prepare(
+    "UPDATE utilisateurs SET code_activation_expire_le = NULL WHERE id = 'usr-central' AND code_activation_recuperation_id IS NULL",
+  ).run();
+  compteCentralLegacy.close();
+
   let administrateurCentral = new ClientLocal();
   const connexionCentrale = await administrateurCentral.connexion("central", codePour(codes, "central"));
   assert.equal(connexionCentrale.reponse.status, 200);
   assert.equal(Reflect.get(Reflect.get(connexionCentrale.donnees, "utilisateur"), "doit_changer_mot_de_passe"), true);
+  assert.equal(Reflect.get(Reflect.get(connexionCentrale.donnees, "utilisateur"), "activation_initiale"), true,
+    "Une activation héritée sans date d’expiration conserve son parcours initial limité.");
   const motDePasseCentral = nouveauMotDePasse();
   await administrateurCentral.changerMotDePasse(motDePasseCentral);
   const accesAvantMfaCentral = await administrateurCentral.requete("/api/central/controle/observations");
@@ -581,15 +630,10 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     ).get(idPropositionLocalite);
     assert.equal(Reflect.get(historique, "total"), 1, "L’approbation doit être documentée dans l’historique territorial.");
     assert.throws(() => baseTerritoire.prepare(
-      `INSERT INTO rattachements_territoriaux
-       (id, commune_id, departement_id, sous_prefecture_id, source_juridique, date_debut_validite)
-       VALUES ('rat-test-invalide', 'com-test-sila', 'dep-test-ouaddai', 'sp-test-ouaddai', 'Contrôle', '2026-10-22')`,
-    ).run(), /Rattachement territorial incohérent/u, "Un rattachement ne peut pas relier une commune à un département d’une autre province.");
-    assert.throws(() => baseTerritoire.prepare(
       `INSERT INTO localites
        (id, province_id, departement_id, nom, type_localite, mode_decoupage_urbain)
        VALUES ('loc-test-invalide', 'prov-sila', 'dep-test-ouaddai', 'Localité interdite', 'VILLAGE', 'AUCUN')`,
-    ).run(), /Localité incohérente/u, "Une localité doit relever du département de sa province.");
+    ).run(), /(?:Localité incohérente|Rattachement territorial de la localité incohérent)/u, "Une localité doit relever du département de sa province.");
     assert.throws(() => baseTerritoire.prepare(
       `INSERT INTO arrondissements (id, localite_id, nom)
        VALUES ('arr-test-invalide', 'loc-test-sans', 'Arrondissement interdit')`,
@@ -685,7 +729,9 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     date_enregistrement: "2026-10-22",
     membres: [],
   };
-  const creationMenageSila = await delegueSila.requete("/api/gestion/menages", { methode: "POST", corps: corpsMenageSila });
+  const creationMenageSila = await delegueSila.requete("/api/gestion/menages", {
+    methode: "POST", corps: corpsMenageSila, cleIdempotence: nouvelleCleImport(),
+  });
   assert.equal(creationMenageSila.reponse.status, 201);
   assert.equal(Reflect.get(creationMenageSila.donnees, "nombre_menages"), 1);
   const provinceForceeMenage = await delegueSila.requete("/api/gestion/menages", {
@@ -713,6 +759,7 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(typeof idMenageSila, "string");
   const menageOuaddai = await delegueOuaddaiGestion.requete("/api/gestion/menages", {
     methode: "POST",
+    cleIdempotence: nouvelleCleImport(),
     corps: {
       ...corpsMenageSila,
       departement_id: "dep-test-ouaddai",
@@ -745,7 +792,9 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     "departement_id,sous_prefecture_id,commune_id,localite_id,nom_chef_menage,sexe_chef,nombre_personnes,telephone,categorie_population_code,date_enregistrement\n" +
     "dep-test-sila,sp-test-sila,com-test-sila,loc-test-village,Ménage CSV synthétique,F,3,+235 66 00 20 03,AUTOCHTONE,2026-10-22",
   ], "menages-sila.csv", { type: "text/csv" }));
-  const resultatImportCsv = await delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: importCsv });
+  const resultatImportCsv = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: importCsv, cleIdempotence: nouvelleCleImport(),
+  });
   assert.equal(resultatImportCsv.reponse.status, 201, "L’import CSV doit fonctionner dans le Worker local.");
   assert.equal(Reflect.get(resultatImportCsv.donnees, "nombre_menages"), 1);
   const lotCinqCents = Array.from({ length: 500 }, (_, index) => ({
@@ -754,7 +803,7 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     telephone: `+235 62 00 ${String(index).padStart(4, "0")}`,
   }));
   const resultatLotCinqCents = await delegueSila.requete("/api/gestion/menages/importations", {
-    methode: "POST", corps: { menages: lotCinqCents },
+    methode: "POST", corps: { menages: lotCinqCents }, cleIdempotence: nouvelleCleImport(),
   });
   assert.equal(resultatLotCinqCents.reponse.status, 201, "Un lot de 500 ménages doit être validé par l’import atomique D1.");
   assert.equal(Reflect.get(resultatLotCinqCents.donnees, "nombre_menages"), 500);
@@ -824,7 +873,9 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   fichierExcel.append("fichier", new File([creerClasseurMenageExcel()], "menages.xlsx", {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   }));
-  const resultatExcel = await delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: fichierExcel });
+  const resultatExcel = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: fichierExcel, cleIdempotence: nouvelleCleImport(),
+  });
   assert.equal(resultatExcel.reponse.status, 201, "L’import d’un classeur Excel .xlsx doit fonctionner dans le Worker local.");
   assert.equal(Reflect.get(resultatExcel.donnees, "nombre_menages"), 1);
   const importAvecProvinceImposee = await delegueSila.requete("/api/gestion/menages/importations", {
@@ -832,6 +883,10 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
     corps: { menages: [{ ...corpsMenageSila, province_id: "prov-ouaddai" }] },
   });
   assert.equal(importAvecProvinceImposee.reponse.status, 403, "L’import ne peut pas remplacer la province issue de la session.");
+  const importSansCle = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: { menages: [corpsMenageSila] },
+  });
+  assert.equal(importSansCle.reponse.status, 400, "L’import exige une clé de demande indépendante.");
   const importCsvColonneInconnue = new FormData();
   importCsvColonneInconnue.append("fichier", new File([
     "departement_id,province_admin,nom_chef_menage,sexe_chef,nombre_personnes,categorie_population_code,date_enregistrement\n" +
@@ -848,12 +903,13 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   const importDoublons = await delegueSila.requete("/api/gestion/menages/importations", {
     methode: "POST",
     corps: { menages: [corpsDoublons("+235 66 00 40 01"), { ...corpsDoublons("+235 66 00 40 01"), nom_chef_menage: "Second ménage au téléphone partagé" }] },
+    cleIdempotence: nouvelleCleImport(),
   });
   assert.equal(importDoublons.reponse.status, 201);
   assert.equal(Reflect.get(importDoublons.donnees, "doublons_signales"), 1, "Un doublon de l’import est signalé sans fusion automatique.");
   const importConcurrent = await Promise.all([
-    delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: { menages: [corpsDoublons("+235 66 00 40 02")] } }),
-    delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: { menages: [{ ...corpsDoublons("+235 66 00 40 02"), nom_chef_menage: "Ménage concurrent doublon" }] } }),
+    delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: { menages: [corpsDoublons("+235 66 00 40 02")] }, cleIdempotence: nouvelleCleImport() }),
+    delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: { menages: [{ ...corpsDoublons("+235 66 00 40 02"), nom_chef_menage: "Ménage concurrent doublon" }] }, cleIdempotence: nouvelleCleImport() }),
   ]);
   assert.deepEqual(importConcurrent.map((resultat) => resultat.reponse.status), [201, 201], "Les deux imports concurrents doivent aboutir atomiquement.");
   const controleDoublonsConcurrent = ouvrirD1Locale();
@@ -870,6 +926,467 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   } finally {
     controleDoublonsConcurrent.close();
   }
+
+  const menageImportUnique = {
+    ...corpsDoublons("+235 66 00 40 10"),
+    nom_chef_menage: "Ménage unique importé pour l’acceptation",
+  };
+  const chargeImportUnique = { menages: [menageImportUnique] };
+  const cleImportUnique = nouvelleCleImport();
+  const importNouveau = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: chargeImportUnique, cleIdempotence: cleImportUnique,
+  });
+  assert.equal(importNouveau.reponse.status, 201, "Un ménage inédit doit être importé.");
+  const controleImportNouveau = ouvrirD1Locale();
+  try {
+    const etatNouveau = controleImportNouveau.prepare(
+      "SELECT statut FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004010'",
+    ).get();
+    assert.equal(Reflect.get(etatNouveau, "statut"), "ACTIF", "Un ménage sans correspondance reste actif après son premier import.");
+  } finally {
+    controleImportNouveau.close();
+  }
+  const rejeuImport = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: chargeImportUnique, cleIdempotence: cleImportUnique,
+  });
+  assert.equal(rejeuImport.reponse.status, 201, "Une répétition avec la même clé rejoue la réponse mémorisée.");
+  assert.deepEqual(rejeuImport.donnees, importNouveau.donnees, "Le rejeu retourne exactement le résultat du premier import.");
+  const controleRejeuImport = ouvrirD1Locale();
+  try {
+    assert.equal(Reflect.get(controleRejeuImport.prepare(
+      "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004010'",
+    ).get(), "total"), 1, "Un rejeu ne crée aucun ménage supplémentaire.");
+    assert.equal(Reflect.get(controleRejeuImport.prepare(
+      "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'IMPORTATION_MENAGES' AND entite_id = (SELECT id FROM menages WHERE telephone = '23566004010')",
+    ).get(), "total"), 1, "Un rejeu ne duplique pas le journal d’audit.");
+    const clePersistee = controleRejeuImport.prepare(
+      "SELECT cle, reponse_json FROM cles_idempotence WHERE utilisateur_id = 'usr-sila' AND route_api = '/api/gestion/menages/importations'",
+    ).all().find((ligne) => Reflect.get(ligne, "reponse_json").includes(importNouveau.donnees.codes_menage[0]));
+    assert.ok(clePersistee, "L’idempotence de l’import est persistée dans D1.");
+    assert.notEqual(Reflect.get(clePersistee, "cle"), cleImportUnique, "La clé fournie est hachée avant stockage.");
+    assert.equal(Reflect.get(clePersistee, "reponse_json").includes(menageImportUnique.nom_chef_menage), false,
+      "La réponse mémorisée ne contient pas les noms des ménages.");
+    assert.equal(Reflect.get(clePersistee, "reponse_json").includes("23566004010"), false,
+      "La réponse mémorisée ne contient pas le numéro de téléphone.");
+  } finally {
+    controleRejeuImport.close();
+  }
+  const conflitCleImport = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST",
+    corps: { menages: [{ ...menageImportUnique, nom_chef_menage: "Contenu modifié sous la même clé" }] },
+    cleIdempotence: cleImportUnique,
+  });
+  assert.equal(conflitCleImport.reponse.status, 409, "Une même clé ne peut pas être réutilisée avec un contenu différent.");
+
+  const menageConcurrentIdempotent = {
+    ...corpsDoublons("+235 66 00 40 12"),
+    nom_chef_menage: "Ménage concurrent avec clé commune",
+  };
+  const chargeConcurrente = { menages: [menageConcurrentIdempotent] };
+  const cleConcurrente = nouvelleCleImport();
+  const baseAvantConcurrence = ouvrirD1Locale();
+  const auditsAvantConcurrence = Reflect.get(baseAvantConcurrence.prepare(
+    "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'IMPORTATION_MENAGES'",
+  ).get(), "total");
+  baseAvantConcurrence.close();
+  const importConcurrentIdempotent = await Promise.all([
+    delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: chargeConcurrente, cleIdempotence: cleConcurrente }),
+    delegueSila.requete("/api/gestion/menages/importations", { methode: "POST", corps: chargeConcurrente, cleIdempotence: cleConcurrente }),
+  ]);
+  assert.deepEqual(importConcurrentIdempotent.map((resultat) => resultat.reponse.status), [201, 201],
+    "Deux demandes concurrentes ayant la même clé produisent un succès et un rejeu.");
+  assert.deepEqual(importConcurrentIdempotent[0]?.donnees, importConcurrentIdempotent[1]?.donnees,
+    "Les deux réponses concurrentes sont identiques.");
+  const controleConcurrenceIdempotente = ouvrirD1Locale();
+  try {
+    assert.equal(Reflect.get(controleConcurrenceIdempotente.prepare(
+      "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004012'",
+    ).get(), "total"), 1, "Une seule insertion subsiste après les deux appels concurrents.");
+    assert.equal(Reflect.get(controleConcurrenceIdempotente.prepare(
+      "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'IMPORTATION_MENAGES'",
+    ).get(), "total"), auditsAvantConcurrence + 1, "Une seule écriture d’audit est créée pour les appels concurrents.");
+    assert.equal(Reflect.get(controleConcurrenceIdempotente.prepare(
+      "SELECT COUNT(*) AS total FROM cles_idempotence WHERE cle = ?",
+    ).get(cleConcurrente), "total"), 0, "La clé brute n’est pas persistée dans D1.");
+  } finally {
+    controleConcurrenceIdempotente.close();
+  }
+
+  const cleNouvelleImportationIntentionnelle = nouvelleCleImport();
+  const importationIntentionnelle = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: chargeImportUnique, cleIdempotence: cleNouvelleImportationIntentionnelle,
+  });
+  assert.equal(importationIntentionnelle.reponse.status, 201,
+    "Une clé nouvelle permet une importation intentionnelle distincte, même si les données sont semblables.");
+  assert.equal(Reflect.get(importationIntentionnelle.donnees, "doublons_signales"), 1,
+    "La ressemblance déclenche une revue sans assimiler les ménages comme identiques.");
+  const controleRejeuIntentionnel = ouvrirD1Locale();
+  try {
+    const etatsRejeu = controleRejeuIntentionnel.prepare(
+      "SELECT statut, COUNT(*) AS nombre FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004010' GROUP BY statut ORDER BY statut",
+    ).all();
+    assert.deepEqual(etatsRejeu.map((ligne) => [ligne.statut, ligne.nombre]), [["DOUBLON_SUSPECTE", 2]],
+      "Deux demandes intentionnelles distinctes restent deux ménages conservés en revue, sans fusion ni approbation.");
+  } finally {
+    controleRejeuIntentionnel.close();
+  }
+  const baseDecisionDoublon = ouvrirD1Locale();
+  const signalementDistinct = baseDecisionDoublon.prepare(
+    `SELECT sd.id FROM signalements_doublons sd
+     INNER JOIN menages source ON source.id = sd.menage_source_id
+     WHERE sd.province_id = 'prov-sila' AND source.telephone = '23566004010'
+       AND sd.statut_traitement = 'EN_ATTENTE' ORDER BY sd.id LIMIT 1`,
+  ).get();
+  baseDecisionDoublon.close();
+  assert.ok(signalementDistinct?.id, "La répétition d’import doit laisser une proposition de rapprochement examinable.");
+  const decisionDistincteProvinciale = await delegueSila.requete(`/api/gestion/signalements-doublons/${signalementDistinct.id}/decision`, {
+    methode: "POST", corps: { decision: "CONFIRME_DISTINCT", observations: "Deux dossiers distincts confirmés pendant le test local." },
+  });
+  assert.equal(decisionDistincteProvinciale.reponse.status, 403,
+    "Un délégué ne peut pas statuer sur un signalement de doublon réservé à l’autorité centrale.");
+  const kpiAvantDecisionDistincte = await delegueSila.requete(
+    "/api/rapports/indicateurs-carte?date_debut=2026-01-01&date_fin=2026-12-31",
+  );
+  assert.equal(kpiAvantDecisionDistincte.reponse.status, 200, "Le délégué reçoit les indicateurs de sa province avant décision.");
+  assert.deepEqual(kpiAvantDecisionDistincte.donnees.provinces.map((province) => province.province_id), ["prov-sila"],
+    "La réponse de la carte ne contient pas la province du Ouaddaï pour le délégué de Sila.");
+  const kpiOuaddaiInterdit = await delegueSila.requete(
+    "/api/rapports/indicateurs-carte?province_id=prov-ouaddai&date_debut=2026-01-01&date_fin=2026-12-31",
+  );
+  assert.equal(kpiOuaddaiInterdit.reponse.status, 403, "Le délégué Sila ne peut pas demander les indicateurs du Ouaddaï.");
+  const projectionKpi = (donnees) => {
+    const province = donnees.provinces.find((ligne) => ligne.province_id === "prov-sila");
+    assert.ok(province, "L’agrégat Sila est présent.");
+    return {
+      distributions_realisees: province.distributions_realisees,
+      distributions_en_cours: province.distributions_en_cours,
+      menages_servis: province.menages_servis,
+      stocks_disponibles: province.stocks_disponibles,
+    };
+  };
+  const kpiAvantRevue = projectionKpi(kpiAvantDecisionDistincte.donnees);
+  assert.equal(JSON.stringify(kpiAvantDecisionDistincte.donnees).includes(menageImportUnique.nom_chef_menage), false,
+    "La réponse de la carte ne divulgue aucune donnée nominative de ménage.");
+  const decisionSansMotif = await administrateurCentral.requete(`/api/gestion/signalements-doublons/${signalementDistinct.id}/decision`, {
+    methode: "POST", corps: { decision: "CONFIRME_DISTINCT" },
+  });
+  assert.equal(decisionSansMotif.reponse.status, 400, "Une décision centrale sans justification est refusée.");
+  const baseAuditDecisionAtomique = ouvrirD1Locale();
+  baseAuditDecisionAtomique.exec(
+    `CREATE TRIGGER refus_audit_decision_doublon_test BEFORE INSERT ON journaux_audit
+     WHEN NEW.action = 'CONFIRME_DISTINCT'
+     BEGIN SELECT RAISE(ABORT, 'TEST_AUDIT_DECISION_DOUBLON'); END`,
+  );
+  baseAuditDecisionAtomique.close();
+  const decisionSansAudit = await administrateurCentral.requete(`/api/gestion/signalements-doublons/${signalementDistinct.id}/decision`, {
+    methode: "POST", corps: { decision: "CONFIRME_DISTINCT", observations: "Échec d’audit atomique synthétique." },
+  });
+  assert.equal(decisionSansAudit.reponse.status, 500, "Un échec du journal d’audit fait échouer la décision dans la même transaction.");
+  const controleRollbackDecision = ouvrirD1Locale();
+  try {
+    controleRollbackDecision.exec("DROP TRIGGER refus_audit_decision_doublon_test");
+    assert.equal(Reflect.get(controleRollbackDecision.prepare("SELECT statut_traitement FROM signalements_doublons WHERE id = ?").get(signalementDistinct.id), "statut_traitement"), "EN_ATTENTE");
+    assert.equal(Reflect.get(controleRollbackDecision.prepare("SELECT COUNT(*) AS total FROM menages WHERE id IN (SELECT menage_source_id FROM signalements_doublons WHERE id = ? UNION SELECT menage_suspect_id FROM signalements_doublons WHERE id = ?) AND statut = 'DOUBLON_SUSPECTE'").get(signalementDistinct.id, signalementDistinct.id), "total"), 2,
+      "Le refus du journal ne laisse ni décision ni transition partielle des ménages.");
+  } finally {
+    controleRollbackDecision.close();
+  }
+  const decisionDistincte = await administrateurCentral.requete(`/api/gestion/signalements-doublons/${signalementDistinct.id}/decision`, {
+    methode: "POST", corps: { decision: "CONFIRME_DISTINCT", observations: "Deux dossiers distincts confirmés pendant le test local." },
+  });
+  assert.equal(decisionDistincte.reponse.status, 200, `La décision centrale de ménages distincts reste disponible après l’import : ${JSON.stringify(decisionDistincte.donnees)}`);
+  const kpiApresDecisionDistincte = await delegueSila.requete(
+    "/api/rapports/indicateurs-carte?date_debut=2026-01-01&date_fin=2026-12-31",
+  );
+  assert.equal(kpiApresDecisionDistincte.reponse.status, 200);
+  assert.deepEqual(projectionKpi(kpiApresDecisionDistincte.donnees), kpiAvantRevue,
+    "Une décision de revue, sans preuve de distribution ni mouvement de stock, ne modifie aucun des quatre KPI.");
+  console.info(`UI-MAP 1.8 — KPI Sila avant/après décision distincte : ${JSON.stringify({ avant: kpiAvantRevue, apres: projectionKpi(kpiApresDecisionDistincte.donnees) })}`);
+  const controleDecisionDistincte = ouvrirD1Locale();
+  try {
+    const statutSignalementDistinct = controleDecisionDistincte.prepare(
+      "SELECT statut_traitement FROM signalements_doublons WHERE id = ?",
+    ).get(signalementDistinct.id);
+    assert.equal(Reflect.get(statutSignalementDistinct, "statut_traitement"), "CONFIRME_DISTINCT");
+    const etatsMenagesDistincts = controleDecisionDistincte.prepare(
+      "SELECT statut, statut_validation, COUNT(*) AS nombre FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004010' GROUP BY statut, statut_validation ORDER BY statut, statut_validation",
+    ).all();
+    assert.deepEqual(etatsMenagesDistincts.map((ligne) => [ligne.statut, ligne.statut_validation, ligne.nombre]), [["INACTIF", "A_VERIFIER", 2]],
+      "La confirmation distincte clôt le signalement et place les deux dossiers en vérification individuelle sans les activer.");
+    assert.equal(Reflect.get(controleDecisionDistincte.prepare(
+      "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'CONFIRME_DISTINCT' AND entite_id = ?",
+    ).get(signalementDistinct.id), "total"), 1, "La décision de revue reste auditée.");
+    const auditDecision = controleDecisionDistincte.prepare(
+      "SELECT utilisateur_id, cree_le, donnees_apres FROM journaux_audit WHERE action = 'CONFIRME_DISTINCT' AND entite_id = ?",
+    ).get(signalementDistinct.id);
+    assert.equal(Reflect.get(auditDecision, "utilisateur_id"), "usr-central");
+    assert.ok(Reflect.get(auditDecision, "cree_le"), "La date de décision est conservée dans l’audit.");
+    assert.match(Reflect.get(auditDecision, "donnees_apres"), /Deux dossiers distincts confirmés/u,
+      "La justification de la décision est conservée dans l’audit.");
+  } finally {
+    controleDecisionDistincte.close();
+  }
+
+  const validationParDelegue = await delegueSila.requete(`/api/gestion/menages/${await (async () => {
+    const base = ouvrirD1Locale();
+    try { return base.prepare("SELECT id FROM menages WHERE telephone = '23566004010' ORDER BY id LIMIT 1").get().id; }
+    finally { base.close(); }
+  })()}/validation`, { methode: "POST", corps: { decision: "VALIDER", observations: "Tentative de validation provinciale" } });
+  assert.equal(validationParDelegue.reponse.status, 403, "La validation individuelle est réservée à l’administration centrale.");
+  const idMenageAValider = (() => {
+    const base = ouvrirD1Locale();
+    try { return base.prepare("SELECT id FROM menages WHERE telephone = '23566004010' ORDER BY id LIMIT 1").get().id; }
+    finally { base.close(); }
+  })();
+  const validationParProprietaire = await proprietaire.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
+    methode: "POST", corps: { decision: "VALIDER", observations: "Tentative du compte technique" },
+  });
+  assert.equal(validationParProprietaire.reponse.status, 403, "Le propriétaire technique ne valide pas les ménages au titre de l’administration.");
+  const validationCentrale = await administrateurCentral.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
+    methode: "POST", corps: { decision: "VALIDER", observations: "Dossier distinct vérifié selon la procédure centrale." },
+  });
+  assert.equal(validationCentrale.reponse.status, 200, "L’administration centrale peut valider individuellement un dossier après examen.");
+  assert.equal(Reflect.get(validationCentrale.donnees, "statut"), "ACTIF");
+  assert.equal(Reflect.get(validationCentrale.donnees, "statut_validation"), "VALIDE");
+  const validationEnDouble = await administrateurCentral.requete(`/api/gestion/menages/${idMenageAValider}/validation`, {
+    methode: "POST", corps: { decision: "VALIDER", observations: "Deuxième décision centrale non autorisée." },
+  });
+  assert.equal(validationEnDouble.reponse.status, 409, "Une validation individuelle déjà consommée ne peut pas être rejouée.");
+
+  const reimportMemePreuve = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: chargeImportUnique, cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(reimportMemePreuve.reponse.status, 201);
+  assert.equal(Reflect.get(reimportMemePreuve.donnees, "doublons_signales"), 0,
+    "Un nouvel import avec les mêmes critères ne rouvre pas la revue distincte.");
+  assert.equal(Reflect.get(reimportMemePreuve.donnees, "menages_en_verification"), 1,
+    "Le nouveau dossier reste en vérification et n’est pas activé automatiquement.");
+  const controleMemePreuve = ouvrirD1Locale();
+  try {
+    assert.equal(Reflect.get(controleMemePreuve.prepare(
+      "SELECT COUNT(*) AS total FROM signalements_doublons WHERE province_id = 'prov-sila' AND statut_traitement = 'EN_ATTENTE' AND (menage_source_id IN (SELECT id FROM menages WHERE telephone = '23566004010') OR menage_suspect_id IN (SELECT id FROM menages WHERE telephone = '23566004010'))",
+    ).get(), "total"), 0, "La répétition des mêmes preuves ne crée pas un nouveau signalement.");
+    assert.equal(Reflect.get(controleMemePreuve.prepare(
+      "SELECT COUNT(*) AS total FROM menages WHERE telephone = '23566004010' AND statut_validation = 'A_VERIFIER'",
+    ).get(), "total"), 2, "Les dossiers non examinés individuellement restent non validés.");
+  } finally {
+    controleMemePreuve.close();
+  }
+
+  const sourceNouveauCritere = { ...corpsDoublons("+235 66 00 40 14"), nom_chef_menage: "Ménage preuve nouvelle A" };
+  const doublonAncienCritere = { ...sourceNouveauCritere, nom_chef_menage: "Ménage preuve nouvelle B" };
+  const importSourceCritere = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: { menages: [sourceNouveauCritere] }, cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(importSourceCritere.reponse.status, 201);
+  const importTelephoneSeulement = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: { menages: [doublonAncienCritere] }, cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(importTelephoneSeulement.reponse.status, 201);
+  const baseRevueCritere = ouvrirD1Locale();
+  const revueCriterePrecedente = baseRevueCritere.prepare(
+    `SELECT id FROM signalements_doublons WHERE province_id = 'prov-sila' AND statut_traitement = 'EN_ATTENTE'
+     AND (menage_source_id IN (SELECT id FROM menages WHERE telephone = '23566004014')
+       OR menage_suspect_id IN (SELECT id FROM menages WHERE telephone = '23566004014')) ORDER BY id LIMIT 1`,
+  ).get();
+  baseRevueCritere.close();
+  assert.ok(revueCriterePrecedente?.id);
+  const decisionCriterePrecedente = await administrateurCentral.requete(
+    `/api/gestion/signalements-doublons/${revueCriterePrecedente.id}/decision`,
+    { methode: "POST", corps: { decision: "CONFIRME_DISTINCT", observations: "Les deux noms ne désignent pas la même famille." } },
+  );
+  assert.equal(decisionCriterePrecedente.reponse.status, 200);
+  const importPreuveAdditionnelle = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: { menages: [sourceNouveauCritere] }, cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(importPreuveAdditionnelle.reponse.status, 201);
+  assert.equal(Reflect.get(importPreuveAdditionnelle.donnees, "doublons_signales"), 1,
+    "Un critère de rapprochement HMAC absent du dossier précédent ouvre une revue liée.");
+  const baseReouverture = ouvrirD1Locale();
+  const revueReouverte = baseReouverture.prepare(
+    `SELECT id, statut_traitement, reouverture_de_id, empreintes_preuve_json
+     FROM signalements_doublons WHERE province_id = 'prov-sila' AND reouverture_de_id = ?`,
+  ).get(revueCriterePrecedente.id);
+  assert.equal(revueReouverte?.statut_traitement, "EN_ATTENTE");
+  assert.equal(revueReouverte?.empreintes_preuve_json ? JSON.parse(revueReouverte.empreintes_preuve_json).length : 0, 2);
+  baseReouverture.close();
+  const decisionNouvelleRevue = await administrateurCentral.requete(
+    `/api/gestion/signalements-doublons/${revueReouverte.id}/decision`,
+    { methode: "POST", corps: { decision: "CONFIRME_DISTINCT", observations: "La preuve additionnelle ne change pas la distinction." } },
+  );
+  assert.equal(decisionNouvelleRevue.reponse.status, 200);
+  const referenceManuelle = "Référence documentaire synthétique 2026-10-23";
+  const reouvertureManuelle = await administrateurCentral.requete(
+    `/api/gestion/signalements-doublons/${revueReouverte.id}/reouverture`,
+    { methode: "POST", corps: { reference_preuve: referenceManuelle, date_preuve: "2026-10-23", observations: "Un document indépendant nouvellement reçu justifie une seconde revue." } },
+  );
+  assert.equal(reouvertureManuelle.reponse.status, 201, "Une référence nouvelle permet une réouverture explicitement motivée.");
+  const reouvertureManuelleRejouee = await administrateurCentral.requete(
+    `/api/gestion/signalements-doublons/${revueReouverte.id}/reouverture`,
+    { methode: "POST", corps: { reference_preuve: referenceManuelle, date_preuve: "2026-10-23", observations: "Même preuve renvoyée une seconde fois." } },
+  );
+  assert.equal(reouvertureManuelleRejouee.reponse.status, 409, "La même référence de preuve ne peut pas rouvrir une affaire deux fois.");
+  const controleReference = ouvrirD1Locale();
+  try {
+    assert.equal(Reflect.get(controleReference.prepare(
+      "SELECT COUNT(*) AS total FROM signalements_doublons WHERE id = ? AND empreinte_reference_preuve IS NOT NULL AND reouverture_de_id = ?",
+    ).get(Reflect.get(reouvertureManuelle.donnees, "id"), revueReouverte.id), "total"), 1);
+    assert.equal(JSON.stringify(controleReference.prepare("SELECT empreinte_reference_preuve, observations FROM signalements_doublons WHERE id = ?").get(Reflect.get(reouvertureManuelle.donnees, "id"))).includes(referenceManuelle), false,
+      "La valeur brute de la référence documentaire n’est pas conservée dans D1.");
+    assert.equal(Reflect.get(controleReference.prepare(
+      "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'REOUVERTURE_REVUE_DOUBLON' AND entite_id = ?",
+    ).get(Reflect.get(reouvertureManuelle.donnees, "id")), "total"), 1);
+  } finally {
+    controleReference.close();
+  }
+
+  const menageVraiDoublon = {
+    ...corpsDoublons("+235 66 00 40 13"),
+    nom_chef_menage: "Ménage à rapprocher sans fusion",
+    membres: [{ nom_complet: "Membre synthétique de test", sexe: "F", lien_parente: "ENFANT" }],
+  };
+  const premierMenageDoublonReel = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: { menages: [menageVraiDoublon] }, cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(premierMenageDoublonReel.reponse.status, 201);
+  const baseMenageDoublonReel = ouvrirD1Locale();
+  const idPremierMenageDoublonReel = Reflect.get(baseMenageDoublonReel.prepare(
+    "SELECT id FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004013'",
+  ).get(), "id");
+  baseMenageDoublonReel.close();
+  const listeHistoriqueDoublon = await delegueSila.requete("/api/gestion/listes-beneficiaires", {
+    methode: "POST", corps: { intitule: "Liste synthétique avant rapprochement" },
+  });
+  assert.equal(listeHistoriqueDoublon.reponse.status, 201);
+  const inscriptionHistoriqueDoublon = await delegueSila.requete(
+    `/api/gestion/listes-beneficiaires/${listeHistoriqueDoublon.donnees.id}/inscriptions`,
+    { methode: "POST", corps: { menage_ids: [idPremierMenageDoublonReel] } },
+  );
+  assert.equal(inscriptionHistoriqueDoublon.reponse.status, 200, "Le ménage source reçoit un lien historique avant la revue.");
+  const secondMenageDoublonReel = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST",
+    corps: { menages: [{ ...menageVraiDoublon, nom_chef_menage: "Ménage à rapprocher sans fusion — seconde saisie" }] },
+    cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(secondMenageDoublonReel.reponse.status, 201);
+  const baseAvantConfirmationDoublonReel = ouvrirD1Locale();
+  const signalementDoublonReel = baseAvantConfirmationDoublonReel.prepare(
+    `SELECT id, menage_source_id, menage_suspect_id FROM signalements_doublons
+     WHERE province_id = 'prov-sila' AND statut_traitement = 'EN_ATTENTE'
+       AND (menage_source_id = ? OR menage_suspect_id = ?) ORDER BY cree_le DESC, id LIMIT 1`,
+  ).get(idPremierMenageDoublonReel, idPremierMenageDoublonReel);
+  const historiqueAvantConfirmation = {
+    menages: Reflect.get(baseAvantConfirmationDoublonReel.prepare(
+      "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004013'",
+    ).get(), "total"),
+    membres: Reflect.get(baseAvantConfirmationDoublonReel.prepare(
+      "SELECT COUNT(*) AS total FROM membres_menage WHERE menage_id IN (SELECT id FROM menages WHERE telephone = '23566004013')",
+    ).get(), "total"),
+    inscriptions: Reflect.get(baseAvantConfirmationDoublonReel.prepare(
+      "SELECT COUNT(*) AS total FROM inscriptions_beneficiaires WHERE menage_id = ?",
+    ).get(idPremierMenageDoublonReel), "total"),
+    remises: Reflect.get(baseAvantConfirmationDoublonReel.prepare(
+      "SELECT COUNT(*) AS total FROM remises_distribution WHERE menage_id IN (SELECT id FROM menages WHERE telephone = '23566004013')",
+    ).get(), "total"),
+    mouvements: Reflect.get(baseAvantConfirmationDoublonReel.prepare(
+      "SELECT COUNT(*) AS total FROM mouvements_stock WHERE province_id = 'prov-sila'",
+    ).get(), "total"),
+  };
+  baseAvantConfirmationDoublonReel.close();
+  assert.ok(signalementDoublonReel?.id, "Le rapprochement confirmé reste lié aux deux dossiers existants.");
+  assert.equal(signalementDoublonReel.menage_source_id, idPremierMenageDoublonReel);
+  const confirmationDoublonReel = await administrateurCentral.requete(
+    `/api/gestion/signalements-doublons/${signalementDoublonReel.id}/decision`,
+    { methode: "POST", corps: { decision: "CONFIRME_DOUBLON", observations: "Les deux saisies correspondent au même ménage dans ce test synthétique." } },
+  );
+  assert.equal(confirmationDoublonReel.reponse.status, 200, "L’administration centrale peut confirmer un doublon sans fusionner les dossiers.");
+  const baseApresConfirmationDoublonReel = ouvrirD1Locale();
+  try {
+    const historiqueApresConfirmation = {
+      menages: Reflect.get(baseApresConfirmationDoublonReel.prepare(
+        "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004013'",
+      ).get(), "total"),
+      membres: Reflect.get(baseApresConfirmationDoublonReel.prepare(
+        "SELECT COUNT(*) AS total FROM membres_menage WHERE menage_id IN (SELECT id FROM menages WHERE telephone = '23566004013')",
+      ).get(), "total"),
+      inscriptions: Reflect.get(baseApresConfirmationDoublonReel.prepare(
+        "SELECT COUNT(*) AS total FROM inscriptions_beneficiaires WHERE menage_id = ?",
+      ).get(idPremierMenageDoublonReel), "total"),
+      remises: Reflect.get(baseApresConfirmationDoublonReel.prepare(
+        "SELECT COUNT(*) AS total FROM remises_distribution WHERE menage_id IN (SELECT id FROM menages WHERE telephone = '23566004013')",
+      ).get(), "total"),
+      mouvements: Reflect.get(baseApresConfirmationDoublonReel.prepare(
+        "SELECT COUNT(*) AS total FROM mouvements_stock WHERE province_id = 'prov-sila'",
+      ).get(), "total"),
+    };
+    assert.deepEqual(historiqueApresConfirmation, historiqueAvantConfirmation,
+      "La confirmation ne fusionne ni ne supprime les dossiers, membres, liens historiques ou remises et ne modifie pas le stock.");
+    assert.equal(historiqueApresConfirmation.menages, 2);
+    assert.equal(historiqueApresConfirmation.inscriptions, 1);
+    const etatsDoublonReel = baseApresConfirmationDoublonReel.prepare(
+      "SELECT statut, COUNT(*) AS nombre FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004013' GROUP BY statut",
+    ).all();
+    assert.deepEqual(etatsDoublonReel.map((ligne) => [ligne.statut, ligne.nombre]), [["DOUBLON_SUSPECTE", 2]]);
+    assert.equal(Reflect.get(baseApresConfirmationDoublonReel.prepare(
+      "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'CONFIRME_DOUBLON' AND entite_id = ?",
+    ).get(signalementDoublonReel.id), "total"), 1, "La décision de doublon est auditée une seule fois.");
+  } finally {
+    baseApresConfirmationDoublonReel.close();
+  }
+
+  const menageSourceRollback = {
+    ...corpsDoublons("+235 66 00 40 11"),
+    nom_chef_menage: "Ménage source pour rollback d’import",
+  };
+  const importSourceRollback = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST", corps: { menages: [menageSourceRollback] }, cleIdempotence: nouvelleCleImport(),
+  });
+  assert.equal(importSourceRollback.reponse.status, 201);
+  const controleAvantRollbackImport = ouvrirD1Locale();
+  const auditsAvantRollbackImport = Reflect.get(controleAvantRollbackImport.prepare(
+    "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'IMPORTATION_MENAGES'",
+  ).get(), "total");
+  controleAvantRollbackImport.exec(
+    `CREATE TRIGGER refus_audit_importation_test BEFORE INSERT ON journaux_audit
+     WHEN NEW.action = 'IMPORTATION_MENAGES'
+     BEGIN SELECT RAISE(ABORT, 'TEST_AUDIT_IMPORTATION'); END`,
+  );
+  controleAvantRollbackImport.close();
+  const cleRepriseRollback = nouvelleCleImport();
+  const chargeEchecImport = { menages: [{ ...menageSourceRollback, nom_chef_menage: "Ménage doublon dont l’import échoue" }] };
+  const importEnEchec = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST",
+    corps: chargeEchecImport,
+    cleIdempotence: cleRepriseRollback,
+  });
+  assert.equal(importEnEchec.reponse.status, 500, "L’échec simulé du journal doit faire échouer la requête d’import.");
+  const controleApresRollbackImport = ouvrirD1Locale();
+  try {
+    controleApresRollbackImport.exec("DROP TRIGGER refus_audit_importation_test");
+    const etatSourceRollback = controleApresRollbackImport.prepare(
+      "SELECT statut FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004011'",
+    ).get();
+    assert.equal(Reflect.get(etatSourceRollback, "statut"), "ACTIF",
+      "Le marquage du ménage source est annulé si l’audit final échoue.");
+    assert.equal(Reflect.get(controleApresRollbackImport.prepare(
+      "SELECT COUNT(*) AS total FROM menages WHERE province_id = 'prov-sila' AND telephone = '23566004011'",
+    ).get(), "total"), 1, "L’insertion du doublon échouée est entièrement annulée.");
+    assert.equal(Reflect.get(controleApresRollbackImport.prepare(
+      "SELECT COUNT(*) AS total FROM signalements_doublons WHERE province_id = 'prov-sila' AND menage_source_id IN (SELECT id FROM menages WHERE telephone = '23566004011')",
+    ).get(), "total"), 0, "Le signalement prévu est lui aussi annulé.");
+    assert.equal(Reflect.get(controleApresRollbackImport.prepare(
+      "SELECT COUNT(*) AS total FROM journaux_audit WHERE action = 'IMPORTATION_MENAGES'",
+    ).get(), "total"), auditsAvantRollbackImport, "Aucun audit partiel ne subsiste après l’échec du lot D1.");
+  } finally {
+    controleApresRollbackImport.close();
+  }
+  const nouvelEssaiApresRollback = await delegueSila.requete("/api/gestion/menages/importations", {
+    methode: "POST",
+    corps: chargeEchecImport,
+    cleIdempotence: cleRepriseRollback,
+  });
+  assert.equal(nouvelEssaiApresRollback.reponse.status, 201, "La même donnée peut être retentée après le rollback complet.");
+  assert.equal(Reflect.get(nouvelEssaiApresRollback.donnees, "doublons_signales"), 1);
 
   const provinceInterditeListe = await delegueSila.requete("/api/gestion/listes-beneficiaires", {
     methode: "POST", corps: { intitule: "Liste interprovinciale interdite", province_id: "prov-ouaddai" },
@@ -963,6 +1480,281 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   } finally {
     baseLocale.close();
   }
+
+  const emailsDelegues = [
+    `delegue-${randomBytes(10).toString("hex")}@example.com`,
+    `delegue-${randomBytes(10).toString("hex")}@example.com`,
+  ];
+  const inscrirePourTest = async (courriel) => {
+    const client = new ClientLocal();
+    await client.initialiserCsrf();
+    const motDePasse = nouveauMotDePasse();
+    const reponse = await client.requete("/api/inscriptions/delegues", {
+      methode: "POST",
+      corps: {
+        nom_complet: "Délégué de test vérifié",
+        province_id: "prov-ouaddai",
+        courriel,
+        telephone: "+235 66 00 00 00",
+        mot_de_passe: motDePasse,
+        confirmation_mot_de_passe: motDePasse,
+      },
+    });
+    return { client, reponse, motDePasse };
+  };
+  const demandesDelegues = await Promise.all(emailsDelegues.map(inscrirePourTest));
+  assert.deepEqual(demandesDelegues.map((demande) => demande.reponse.reponse.status), [202, 202],
+    "Deux demandes concurrentes peuvent être enregistrées sans réserver la province.");
+  const idsDemandes = demandesDelegues.map((demande) => Reflect.get(demande.reponse.donnees, "reference"));
+  assert.ok(idsDemandes.every((id) => typeof id === "string"));
+  const baseDemandesAvantVerification = ouvrirD1Locale();
+  const demandesStockees = baseDemandesAvantVerification.prepare(`SELECT id, statut, conflit_delegation
+    FROM inscriptions_delegues WHERE id IN (?, ?) ORDER BY id`).all(...idsDemandes);
+  assert.equal(demandesStockees.length, 2);
+  assert.ok(demandesStockees.every((demande) => demande.statut === "EMAIL_NON_VERIFIE" && demande.conflit_delegation === 1),
+    "La demande en conflit est conservée sans accorder ni réserver un rôle provincial.");
+  baseDemandesAvantVerification.close();
+
+  for (let index = 0; index < demandesDelegues.length; index += 1) {
+    const courriel = emailsDelegues[index];
+    const message = await dernierCourrielPour(courriel);
+    assert.ok(message && typeof message.text === "string", "Le prestataire local doit recevoir chaque e-mail de vérification.");
+    const code = message.text.match(/code de vérification SIGAD est\s*:\s*(\d{6})/iu)?.[1];
+    assert.ok(code, "Le message de test doit contenir un code à six chiffres.");
+    const client = demandesDelegues[index].client;
+    const id = idsDemandes[index];
+    const codeInvalide = code === "000000" ? "000001" : "000000";
+    const refusCode = await client.requete("/api/inscriptions/delegues/verifier-courriel", {
+      methode: "POST", jetonCsrf: client.jetonCsrf, corps: { inscription_id: id, code: codeInvalide },
+    });
+    assert.equal(refusCode.reponse.status, 400, "Un code incorrect est refusé.");
+    let codeAValider = code;
+    if (index === 0) {
+      const baseExpirationOtp = ouvrirD1Locale();
+      const expirationForcee = baseExpirationOtp.prepare(`UPDATE verifications_courriel
+        SET cree_le = datetime('now', '-10 minutes'), expire_le = datetime('now', '-1 second')
+        WHERE inscription_id = ? AND consomme_le IS NULL`).run(id);
+      assert.equal(expirationForcee.changes, 1, "Le code synthétique doit pouvoir être expiré pour le test local.");
+      baseExpirationOtp.close();
+      const refusCodeExpire = await client.requete("/api/inscriptions/delegues/verifier-courriel", {
+        methode: "POST", jetonCsrf: client.jetonCsrf, corps: { inscription_id: id, code },
+      });
+      assert.equal(refusCodeExpire.reponse.status, 400, "Un code OTP expiré est refusé.");
+      const renvoi = await client.requete("/api/inscriptions/delegues/renvoyer-code", {
+        methode: "POST", jetonCsrf: client.jetonCsrf, corps: { courriel },
+      });
+      assert.equal(renvoi.reponse.status, 202, "Une nouvelle demande peut recevoir un nouveau code après expiration.");
+      const nouveauMessage = await dernierCourrielPour(courriel);
+      assert.ok(nouveauMessage && typeof nouveauMessage.text === "string", "Le prestataire local doit recevoir le nouveau code.");
+      codeAValider = nouveauMessage.text.match(/code de vérification SIGAD est\s*:\s*(\d{6})/iu)?.[1];
+      assert.ok(codeAValider, "Le code renvoyé doit rester un code à six chiffres.");
+    }
+    const verification = await client.requete("/api/inscriptions/delegues/verifier-courriel", {
+      methode: "POST", jetonCsrf: client.jetonCsrf, corps: { inscription_id: id, code: codeAValider },
+    });
+    assert.equal(verification.reponse.status, 200, "Le code à usage unique vérifie l’adresse.");
+  }
+  const baseDemandesVerifiees = ouvrirD1Locale();
+  const verificationsTerminees = baseDemandesVerifiees.prepare(`SELECT COUNT(*) AS total FROM inscriptions_delegues
+    WHERE id IN (?, ?) AND statut = 'EN_ATTENTE_APPROBATION' AND courriel_verifie_le IS NOT NULL`).get(...idsDemandes);
+  assert.equal(verificationsTerminees.total, 2);
+  const comptesAvantApprobation = baseDemandesVerifiees.prepare("SELECT COUNT(*) AS total FROM utilisateurs WHERE courriel IN (?, ?)").get(...emailsDelegues);
+  assert.equal(comptesAvantApprobation.total, 0, "La vérification e-mail seule ne crée aucune session ni aucun compte actif.");
+  const empreintesOtp = baseDemandesVerifiees.prepare(`SELECT v.empreinte_code FROM verifications_courriel v
+    WHERE v.inscription_id IN (?, ?)`).all(...idsDemandes);
+  assert.ok(empreintesOtp.every((ligne) => /^[A-Za-z0-9_-]{43}$/u.test(ligne.empreinte_code)),
+    "D1 ne conserve que des empreintes HMAC et jamais les codes à six chiffres.");
+  baseDemandesVerifiees.close();
+
+  const connexionAvantApprobation = new ClientLocal();
+    const accesAvantApprobation = await connexionAvantApprobation.connexion(emailsDelegues[0], demandesDelegues[0].motDePasse);
+  assert.equal(accesAvantApprobation.reponse.status, 401, "Une demande en attente ne peut pas ouvrir une session.");
+  const demandeAvantDecision = await administrateurCentral.requete(
+    `/api/administration/comptes/delegues?statut=EN_ATTENTE_APPROBATION&limite=50&decalage=0`,
+  );
+  assert.equal(demandeAvantDecision.reponse.status, 200, "L’administration centrale peut consulter la file paginée.");
+  assert.ok(demandeAvantDecision.donnees.elements.some((element) => element.id === idsDemandes[0]));
+  const motifDecision = { motif: "Remplacement approuvé après examen du dossier." };
+  const decisionsConcurrentes = await Promise.all([
+    administrateurCentral.requete(`/api/administration/comptes/delegues/${idsDemandes[0]}/remplacer/usr-ouaddai`, {
+      methode: "POST", corps: { ...motifDecision, verification_identite_administrative: true },
+    }),
+    administrateurCentral.requete(`/api/administration/comptes/delegues/${idsDemandes[1]}/approuver`, {
+      methode: "POST", corps: { motif: "Demande concurrente sans transfert de responsabilité.", verification_identite_administrative: true },
+    }),
+  ]);
+  assert.deepEqual(decisionsConcurrentes.map((decision) => decision.reponse.status).sort(), [201, 409],
+    "Une seule demande peut devenir le délégué actif lors de deux décisions concurrentes.");
+  const idApprouve = decisionsConcurrentes[0].reponse.status === 201 ? idsDemandes[0] : idsDemandes[1];
+  const baseApresApprobation = ouvrirD1Locale();
+  const deleguesOuaddaiActifs = baseApresApprobation.prepare(`SELECT COUNT(*) AS total FROM utilisateurs
+    WHERE province_id = 'prov-ouaddai' AND role = 'DELEGUE_PROVINCIAL' AND statut = 'ACTIF'`).get();
+  assert.equal(deleguesOuaddaiActifs.total, 1, "L’index D1 préserve l’unicité du délégué actif par province.");
+  const ancienDelegueRemplace = baseApresApprobation.prepare("SELECT statut FROM utilisateurs WHERE id = 'usr-ouaddai'").get();
+  assert.equal(ancienDelegueRemplace.statut, "SUSPENDU", "Le remplacement suspend l’ancien compte sans le supprimer.");
+  const nouveauDelegue = baseApresApprobation.prepare(`SELECT u.id, u.courriel, u.statut, u.doit_changer_mot_de_passe
+    FROM utilisateurs u INNER JOIN inscriptions_delegues i ON i.utilisateur_cree_id = u.id WHERE i.id = ?`).get(idApprouve);
+  const idNouvelUtilisateur = nouveauDelegue?.id;
+  assert.ok(idNouvelUtilisateur);
+  assert.equal(nouveauDelegue?.statut, "ACTIF");
+  assert.equal(nouveauDelegue?.doit_changer_mot_de_passe, 1);
+  const activations = baseApresApprobation.prepare("SELECT COUNT(*) AS total FROM decisions_comptes WHERE inscription_id = ? AND action = 'REMPLACEMENT_DELEGUE'").get(idApprouve);
+  assert.equal(activations.total, 1, "Le remplacement est inscrit dans l’historique des décisions.");
+  baseApresApprobation.close();
+
+  const activationDelegue = await dernierCourrielPour(nouveauDelegue.courriel);
+  assert.ok(activationDelegue, "Une invitation d’activation doit être remise après l’approbation.");
+  const reponseApprobation = decisionsConcurrentes.find((decision) => decision.reponse.status === 201);
+  assert.equal(Object.hasOwn(reponseApprobation.donnees, "code_activation"), false, "L’API ne retourne jamais le code d’activation.");
+
+  const creationConsultation = await administrateurCentral.requete("/api/administration/comptes/consultation", {
+    methode: "POST",
+    corps: {
+      nom_complet: "Responsable de consultation synthétique",
+      institution: "Institution de test",
+      fonction: "Analyste",
+      courriel: `consultation-${randomBytes(10).toString("hex")}@example.com`,
+      perimetre: "PROVINCIAL",
+      provinces: ["prov-sila"],
+      motif: "Création d’un compte consultatif de test.",
+    },
+  });
+  assert.equal(creationConsultation.reponse.status, 201, "L’administration peut créer une invitation consultative.");
+  const identifiantConsultation = creationConsultation.donnees.identifiant;
+  const baseCompteConsultation = ouvrirD1Locale();
+  const ligneConsultation = baseCompteConsultation.prepare(`SELECT u.id, u.courriel, cc.id AS compte_id
+    FROM utilisateurs u INNER JOIN comptes_consultation cc ON cc.utilisateur_id = u.id WHERE u.identifiant = ?`).get(identifiantConsultation);
+  baseCompteConsultation.close();
+  assert.ok(ligneConsultation);
+  const invitationConsultation = await dernierCourrielPour(ligneConsultation.courriel);
+  const codeActivationConsultation = invitationConsultation?.text?.match(/Code d’activation\s*:\s*([^\s]+)/iu)?.[1];
+  assert.ok(codeActivationConsultation);
+  const clientConsultation = new ClientLocal();
+  const connexionInvitation = await clientConsultation.connexion(identifiantConsultation, codeActivationConsultation);
+  assert.equal(connexionInvitation.reponse.status, 200);
+  assert.equal(Reflect.get(connexionInvitation.donnees.utilisateur, "doit_changer_mot_de_passe"), true);
+  let motDePasseConsultation = nouveauMotDePasse();
+  await clientConsultation.changerMotDePasse(motDePasseConsultation);
+  await configurerMfaTest(clientConsultation, identifiantConsultation);
+  const sessionConsultation = await clientConsultation.requete("/api/auth/session");
+  assert.equal(sessionConsultation.reponse.status, 200);
+  assert.equal(sessionConsultation.donnees.utilisateur.role, "CONSULTATION_INSTITUTIONNELLE");
+  assert.equal(sessionConsultation.donnees.utilisateur.perimetre_consultation, "PROVINCIAL");
+  assert.deepEqual(sessionConsultation.donnees.utilisateur.provinces_autorisees, ["prov-sila"]);
+  const profilConsultation = await clientConsultation.requete("/api/compte");
+  assert.equal(profilConsultation.reponse.status, 200);
+  const tentativeEscaladeProfil = await clientConsultation.requete("/api/compte", {
+    methode: "PATCH",
+    corps: {
+      nom_complet: sessionConsultation.donnees.utilisateur.nom_complet,
+      telephone: "+235 66 11 22 33",
+      role: "ADMIN_CENTRAL",
+      province_id: "prov-ouaddai",
+      statut: "ACTIF",
+    },
+  });
+  assert.ok([200, 400].includes(tentativeEscaladeProfil.reponse.status), "Le profil peut être mis à jour sans accepter de champs d’autorisation.");
+  const sessionApresTentativeEscalade = await clientConsultation.requete("/api/auth/session");
+  assert.equal(sessionApresTentativeEscalade.donnees.utilisateur.role, "CONSULTATION_INSTITUTIONNELLE");
+  assert.deepEqual(sessionApresTentativeEscalade.donnees.utilisateur.provinces_autorisees, ["prov-sila"]);
+  const nouveauCourrielConsultation = `consultation-modifie-${randomBytes(10).toString("hex")}@example.com`;
+  const changementCourrielRefuse = await clientConsultation.requete("/api/compte/courriel", {
+    methode: "POST", corps: { nouveau_courriel: nouveauCourrielConsultation, mot_de_passe_actuel: "MotDePasseIncorrect-12Aa" },
+  });
+  assert.equal(changementCourrielRefuse.reponse.status, 401, "Le changement d’adresse exige le mot de passe actuel.");
+  const demandeChangementCourriel = await clientConsultation.requete("/api/compte/courriel", {
+    methode: "POST", corps: { nouveau_courriel: nouveauCourrielConsultation, mot_de_passe_actuel: motDePasseConsultation },
+  });
+  assert.equal(demandeChangementCourriel.reponse.status, 202, "Le changement d’adresse commence par une vérification e-mail.");
+  const messageNouveauCourriel = await dernierCourrielPour(nouveauCourrielConsultation);
+  const codeNouveauCourriel = messageNouveauCourriel?.text?.match(/code de vérification SIGAD est\s*:\s*(\d{6})/iu)?.[1];
+  assert.ok(codeNouveauCourriel, "Le prestataire local reçoit le code sans l’écrire en clair dans D1.");
+  const codeNouveauCourrielInvalide = codeNouveauCourriel === "000000" ? "000001" : "000000";
+  const refusCodeNouveauCourriel = await clientConsultation.requete("/api/compte/courriel/verifier", {
+    methode: "POST", corps: { code: codeNouveauCourrielInvalide },
+  });
+  assert.equal(refusCodeNouveauCourriel.reponse.status, 400, "Un code e-mail incorrect est refusé.");
+  const confirmationNouveauCourriel = await clientConsultation.requete("/api/compte/courriel/verifier", {
+    methode: "POST", corps: { code: codeNouveauCourriel },
+  });
+  assert.equal(confirmationNouveauCourriel.reponse.status, 200, "Le code valide confirme la nouvelle adresse.");
+  const profilApresCourriel = await clientConsultation.requete("/api/compte");
+  assert.equal(profilApresCourriel.donnees.compte.courriel, nouveauCourrielConsultation);
+  const avertissementAncienCourriel = await dernierCourrielPour(ligneConsultation.courriel);
+  assert.match(avertissementAncienCourriel?.subject ?? "", /Modification de l’adresse e-mail SIGAD/u,
+    "L’ancienne adresse reçoit un avis après le changement.");
+  const nouveauMotDePasseConsultation = nouveauMotDePasse();
+  const changementMotDePasseRefuse = await clientConsultation.requete("/api/compte/mot-de-passe", {
+    methode: "POST", corps: {
+      mot_de_passe_actuel: "MotDePasseIncorrect-12Aa",
+      nouveau_mot_de_passe: nouveauMotDePasseConsultation,
+      confirmation_mot_de_passe: nouveauMotDePasseConsultation,
+    },
+  });
+  assert.equal(changementMotDePasseRefuse.reponse.status, 401, "Un mot de passe erroné ne modifie pas le compte.");
+  const changementMotDePasseConfirme = await clientConsultation.requete("/api/compte/mot-de-passe", {
+    methode: "POST", corps: {
+      mot_de_passe_actuel: motDePasseConsultation,
+      nouveau_mot_de_passe: nouveauMotDePasseConsultation,
+      confirmation_mot_de_passe: nouveauMotDePasseConsultation,
+    },
+  });
+  assert.equal(changementMotDePasseConfirme.reponse.status, 200, "Le mot de passe peut être changé après vérification du mot de passe actuel et MFA.");
+  motDePasseConsultation = nouveauMotDePasseConsultation;
+  assert.equal((await clientConsultation.requete("/api/auth/session")).donnees.utilisateur.role, "CONSULTATION_INSTITUTIONNELLE");
+  const exportDansPerimetreConsultation = await clientConsultation.requete("/api/rapports/RAPPORT_MENSUEL_PROVINCIAL/export", {
+    methode: "POST", corps: { format: "CSV", archiver: false, filtres: { province_id: "prov-sila" } },
+  });
+  assert.equal(exportDansPerimetreConsultation.reponse.status, 200, "Un compte consultatif peut exporter un rapport agrégé dans son périmètre.");
+  const contenuExportConsultation = exportDansPerimetreConsultation.corpsTexte;
+  assert.match(contenuExportConsultation, /sep=;/u);
+  assert.doesNotMatch(contenuExportConsultation, /Ouaddaï/u, "Un export consultatif de Sila ne contient pas de données d’Ouaddaï.");
+  const rapportsAvantRefusConsultation = ouvrirD1Locale();
+  const totalRapportsConsultationAvantRefus = rapportsAvantRefusConsultation.prepare(
+    "SELECT COUNT(*) AS total FROM rapports_generes WHERE genere_par = ?",
+  ).get(sessionConsultation.donnees.utilisateur.id).total;
+  rapportsAvantRefusConsultation.close();
+  const exportHorsPerimetreConsultation = await clientConsultation.requete("/api/rapports/RAPPORT_MENSUEL_PROVINCIAL/export", {
+    methode: "POST", corps: { format: "CSV", archiver: false, filtres: { province_id: "prov-ouaddai" } },
+  });
+  assert.equal(exportHorsPerimetreConsultation.reponse.status, 403, "Un compte de Sila ne peut pas exporter le Ouaddaï.");
+  const exportPersonnelInterdit = await clientConsultation.requete("/api/rapports/LISTE_BENEFICIAIRES/export", {
+    methode: "POST", corps: { format: "CSV", archiver: false, filtres: { province_id: "prov-sila" } },
+  });
+  assert.equal(exportPersonnelInterdit.reponse.status, 403, "Un compte consultatif ne peut pas exporter la liste nominative des ménages.");
+  const rapportsApresRefusConsultation = ouvrirD1Locale();
+  assert.equal(rapportsApresRefusConsultation.prepare(
+    "SELECT COUNT(*) AS total FROM rapports_generes WHERE genere_par = ?",
+  ).get(sessionConsultation.donnees.utilisateur.id).total, totalRapportsConsultationAvantRefus,
+  "Les exports refusés ne créent ni rapport ni trace d’export autorisé.");
+  rapportsApresRefusConsultation.close();
+  const mutationsAvantConsultation = ouvrirD1Locale();
+  const nombrePartenairesAvantConsultation = mutationsAvantConsultation.prepare("SELECT COUNT(*) AS total FROM partenaires").get().total;
+  mutationsAvantConsultation.close();
+  const mutationConsultationInterdite = await clientConsultation.requete("/api/gestion/partenaires", {
+    methode: "POST", corps: {},
+  });
+  assert.equal(mutationConsultationInterdite.reponse.status, 403, "Un compte de consultation ne peut pas créer une ressource métier.");
+  const mutationsApresConsultation = ouvrirD1Locale();
+  assert.equal(mutationsApresConsultation.prepare("SELECT COUNT(*) AS total FROM partenaires").get().total,
+    nombrePartenairesAvantConsultation, "Une mutation refusée ne change aucune donnée métier.");
+  mutationsApresConsultation.close();
+  const revocationSessionsConsultation = await administrateurCentral.requete(`/api/administration/comptes/consultation/${ligneConsultation.compte_id}/revoquer-sessions`, {
+    methode: "POST", corps: { motif: "Révocation ciblée des sessions de test." },
+  });
+  assert.equal(revocationSessionsConsultation.reponse.status, 200);
+  const sessionApresRevocationExplicite = await clientConsultation.requete("/api/auth/session");
+  assert.equal(sessionApresRevocationExplicite.reponse.status, 401, "La révocation administrative invalide les sessions sans suspendre le compte.");
+  const clientConsultationReconnecte = new ClientLocal();
+  const defiConsultation = await clientConsultationReconnecte.connexion(identifiantConsultation, motDePasseConsultation);
+  await terminerConnexionMfaTest(clientConsultationReconnecte, identifiantConsultation, defiConsultation);
+  assert.equal((await clientConsultationReconnecte.requete("/api/auth/session")).reponse.status, 200);
+  const suspensionConsultation = await administrateurCentral.requete(`/api/administration/comptes/consultation/${ligneConsultation.compte_id}/suspendre`, {
+    methode: "POST", corps: { motif: "Suspension du compte de test." },
+  });
+  assert.equal(suspensionConsultation.reponse.status, 200);
+  const sessionSuspendueConsultation = await clientConsultationReconnecte.requete("/api/auth/session");
+  assert.equal(sessionSuspendueConsultation.reponse.status, 401, "La suspension invalide immédiatement la session consultative.");
 
   const baseObligationInitiale = ouvrirD1Locale();
   baseObligationInitiale.prepare("UPDATE utilisateurs SET doit_changer_mot_de_passe = 1 WHERE identifiant = 'central'").run();

@@ -80,11 +80,13 @@ async function ouvrirSessions(base) {
   const comptes = {};
   for (const identifiant of ["sila", "ouaddai", "central"]) {
     const motDePasse = nouveauMotDePasse();
+    const empreinte = await hacherMotDePasse(motDePasse);
     base.prepare(
-      `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = NULL,
+      `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = ?,
+       code_activation_expire_le = datetime('now', '+24 hours'),
        doit_changer_mot_de_passe = 1, statut = 'ACTIF', tentatives_echouees = 0,
        verrouille_jusqua = NULL WHERE identifiant = ?`,
-    ).run(await hacherMotDePasse(motDePasse), identifiant);
+    ).run(empreinte, empreinte, identifiant);
     const client = new ClientLocal();
     await client.connexion(identifiant, motDePasse);
     comptes[identifiant] = client;
@@ -141,11 +143,11 @@ function preparerReferentiel(base, suffixe) {
     base.prepare("INSERT INTO categories_population (id, code, libelle) VALUES (?, ?, ?)")
       .run(`cat-p6-${suffixe}`, `P6-${suffixe}`, "Catégorie synthétique de test");
     const insererArticle = base.prepare(
-      "INSERT INTO articles (id, code_article, designation, categorie_id, unite_mesure_id, perissable, actif) VALUES (?, ?, ?, 'cat-alimentaire', 'unit-kg', 1, 1)",
+      "INSERT INTO articles (id, code_article, designation, categorie_id, unite_mesure_id, perissable, actif) VALUES (?, ?, ?, 'cat-alimentaire', ?, 1, 1)",
     );
-    insererArticle.run(ids.articleRiz, `P6-RIZ-${suffixe}`, "Riz synthétique Phase 6",);
-    insererArticle.run(ids.articleCentral, `P6-CENTRAL-${suffixe}`, "Farine issue d’un approvisionnement central synthétique",);
-    insererArticle.run(ids.articleRollback, `P6-ROLLBACK-${suffixe}`, "Article de test de retour transactionnel",);
+    insererArticle.run(ids.articleRiz, `P6-RIZ-${suffixe}`, "Riz synthétique Phase 6", "unit-kg");
+    insererArticle.run(ids.articleCentral, `P6-CENTRAL-${suffixe}`, "Farine issue d’un approvisionnement central synthétique", "unit-litre");
+    insererArticle.run(ids.articleRollback, `P6-ROLLBACK-${suffixe}`, "Article de test de retour transactionnel", "unit-kg");
     const insererLot = base.prepare(
       `INSERT INTO lots_stock (id, numero_lot, article_id, entrepot_id, province_id, source_type,
        source_reference_id, date_peremption, etat_qualite, quantite_initiale, quantite_physique, quantite_reservee)
@@ -333,11 +335,37 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
     assert.equal(reservationEndommage, 0, "Aucun lot endommagé ne doit être réservé.");
     assert.ok(snapshot?.snapshot_plan_json.includes(ids.siteSila), "Le snapshot doit conserver la zone humanitaire ciblée.");
     baseControle.close();
+
+    const kpiApresReservation = await central.requete(`/api/rapports/indicateurs-carte?article_id=${encodeURIComponent(ids.articleRiz)}`);
+    assert.equal(kpiApresReservation.reponse.status, 200, JSON.stringify(kpiApresReservation.donnees));
+    const stockReserve = kpiApresReservation.donnees.provinces.find((province) => province.province_id === "prov-sila")?.stocks_disponibles;
+    assert.equal(stockReserve?.valeur, 57, "Le stock cartographique retire les 6 kg réservés et exclut 100 kg impropres.");
+    assert.equal(stockReserve?.etat, "DISPONIBLE");
+    assert.equal(stockReserve?.unite_code, "KG");
+    console.info("UI-MAP 1.6 — stock après réservation: attendu 57 kg, obtenu 57 kg; état DISPONIBLE.");
+    const kpiStockLitres = await central.requete(`/api/rapports/indicateurs-carte?article_id=${encodeURIComponent(ids.articleCentral)}`);
+    assert.equal(kpiStockLitres.reponse.status, 200, JSON.stringify(kpiStockLitres.donnees));
+    const stockLitres = kpiStockLitres.donnees.provinces.find((province) => province.province_id === "prov-sila")?.stocks_disponibles;
+    assert.equal(stockLitres?.valeur, 7, "Le stock du second article exclut ses 3 litres réservés et n’additionne aucun kilogramme.");
+    assert.equal(stockLitres?.unite_code, "LITRE");
+    assert.equal(stockLitres?.unite_libelle, "Litre");
+    console.info("UI-MAP 1.6 — unités hétérogènes: riz 57 KG et farine 7 LITRE après réservation, agrégats séparés par article.");
   });
 
   await t.test("Remise complète, dépassement, idempotence et conflit de contenu", async () => {
     const execution = await sila.requete(`/api/distributions/${brouillon.id}/execution`, { methode: "POST", cleIdempotence: creerCle("execution-p6"), corps: {} });
     assert.equal(execution.reponse.status, 200, JSON.stringify(execution.donnees));
+    const kpiEnExecution = await central.requete("/api/rapports/indicateurs-carte?date_debut=2026-10-01&date_fin=2026-10-31");
+    assert.equal(kpiEnExecution.reponse.status, 200, JSON.stringify(kpiEnExecution.donnees));
+    const silaEnExecution = kpiEnExecution.donnees.provinces.find((province) => province.province_id === "prov-sila");
+    assert.equal(silaEnExecution?.distributions_realisees.valeur, 0);
+    assert.equal(silaEnExecution?.distributions_en_cours.valeur, 1, "Une distribution passée à EN_EXECUTION est comptée une fois.");
+    assert.equal(silaEnExecution?.menages_servis.valeur, 0, "Un plan démarré sans remise positive ne prouve aucun ménage servi.");
+    const kpiExecutionHorsPeriode = await central.requete("/api/rapports/indicateurs-carte?date_debut=2020-01-01&date_fin=2020-01-31");
+    assert.equal(kpiExecutionHorsPeriode.reponse.status, 200);
+    assert.equal(kpiExecutionHorsPeriode.donnees.provinces.find((province) => province.province_id === "prov-sila")?.distributions_en_cours.valeur,
+      1, "Le KPI en cours est une photographie et ne varie pas selon la période historique.");
+    console.info("UI-MAP 1.6 — distribution en exécution: attendu 0 réalisée / 1 en cours / 0 ménage servi, valeurs identiques à l’API; période historique: 1 en cours.");
     const allocationsA = await sila.requete(`/api/distributions/${brouillon.id}/menages/${menageA.id}/allocations`);
     assert.equal(allocationsA.reponse.status, 200);
     const allocationRizA = allocationsA.donnees.find((allocation) => allocation.article_id === ids.articleRiz);
@@ -457,6 +485,13 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
       },
     });
     assert.equal(retour.reponse.status, 200, JSON.stringify(retour.donnees));
+    const kpiEnCorrection = await central.requete("/api/rapports/indicateurs-carte?date_debut=2026-10-01&date_fin=2026-10-31");
+    assert.equal(kpiEnCorrection.reponse.status, 200);
+    const silaEnCorrection = kpiEnCorrection.donnees.provinces.find((province) => province.province_id === "prov-sila");
+    assert.equal(silaEnCorrection?.distributions_realisees.valeur, 0);
+    assert.equal(silaEnCorrection?.distributions_en_cours.valeur, 1, "Le retour en correction ne clôt pas l’opération déjà démarrée.");
+    assert.equal(silaEnCorrection?.menages_servis.valeur, 2, "Deux ménages avec remise positive restent comptés malgré la correction documentaire.");
+    console.info("UI-MAP 1.6 — retour pour correction: attendu 0 réalisée / 1 en cours / 2 ménages uniques servis, valeurs identiques à l’API.");
     const fermeturePrematuree = await central.requete(`/api/central/distributions/${brouillon.id}/cloture`, {
       methode: "POST", cleIdempotence: creerCle("cloture-prematuree-p6"), corps: { observations_finales: null },
     });
@@ -533,6 +568,55 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
     assert.equal(fermeture.reponse.status, 200, JSON.stringify(fermeture.donnees));
     assert.equal(observationInformation.donnees.statut, "OUVERTE", "Une observation informative reste ouverte sans bloquer la clôture.");
     assert.equal(fermeture.donnees.statut, "CLOTUREE_CENTRAL");
+    const kpiCloture = await central.requete(`/api/rapports/indicateurs-carte?date_debut=2026-10-01&date_fin=2026-10-31&article_id=${encodeURIComponent(ids.articleRiz)}`);
+    assert.equal(kpiCloture.reponse.status, 200, JSON.stringify(kpiCloture.donnees));
+    const silaCloture = kpiCloture.donnees.provinces.find((province) => province.province_id === "prov-sila");
+    const ouaddaiCloture = kpiCloture.donnees.provinces.find((province) => province.province_id === "prov-ouaddai");
+    assert.equal(silaCloture?.distributions_realisees.valeur, 1);
+    assert.equal(silaCloture?.distributions_en_cours.valeur, 0);
+    assert.equal(silaCloture?.menages_servis.valeur, 2, "Le ménage servi deux fois ne compte qu’une fois et la remise partielle reste une preuve.");
+    assert.equal(silaCloture?.stocks_disponibles.valeur, 59, "Le stock net après 4 kg remis et 2 kg de réservation libérés vaut 59 kg.");
+    assert.equal(silaCloture?.stocks_disponibles.unite_code, "KG");
+    assert.equal(ouaddaiCloture?.distributions_realisees.valeur, 0);
+    assert.equal(ouaddaiCloture?.distributions_en_cours.valeur, 0);
+    assert.equal(ouaddaiCloture?.menages_servis.valeur, 0);
+    assert.equal(ouaddaiCloture?.stocks_disponibles.valeur, 20, "Le lot distinct du Ouaddaï reste disponible dans son propre périmètre.");
+    const baseKpiRevision = ouvrirD1Locale();
+    const menageServiPourRevision = baseKpiRevision.prepare(
+      `SELECT m.id, m.statut, m.statut_validation FROM menages m
+       INNER JOIN remises_distribution rd ON rd.menage_id = m.id AND rd.distribution_id = ?
+       INNER JOIN lignes_remise lr ON lr.remise_id = rd.id AND lr.quantite_remise > 0
+       ORDER BY rd.date_remise, rd.id LIMIT 1`,
+    ).get(brouillon.id);
+    assert.ok(menageServiPourRevision?.id, "Le scénario fermé doit conserver au moins un ménage avec remise positive.");
+    const statutInitialMenageServi = menageServiPourRevision.statut;
+    const validationInitialeMenageServi = menageServiPourRevision.statut_validation;
+    baseKpiRevision.prepare("UPDATE menages SET statut = 'DOUBLON_SUSPECTE', statut_validation = 'A_VERIFIER' WHERE id = ? AND province_id = 'prov-sila'")
+      .run(menageServiPourRevision.id);
+    baseKpiRevision.close();
+    try {
+      const kpiApresMiseEnRevision = await central.requete(
+        `/api/rapports/indicateurs-carte?date_debut=2026-10-01&date_fin=2026-10-31&article_id=${encodeURIComponent(ids.articleRiz)}`,
+      );
+      assert.equal(kpiApresMiseEnRevision.reponse.status, 200);
+      const silaApresMiseEnRevision = kpiApresMiseEnRevision.donnees.provinces.find((province) => province.province_id === "prov-sila");
+      assert.equal(silaApresMiseEnRevision?.menages_servis.valeur, 2,
+        "Le seul changement du statut administratif en revue ne retire ni n’ajoute une preuve de remise au KPI.");
+      assert.equal(silaApresMiseEnRevision?.distributions_realisees.valeur, 1,
+        "Le marquage d’un ménage en revue ne modifie pas le décompte de clôtures.");
+    } finally {
+      const baseRestaurerKpi = ouvrirD1Locale();
+      baseRestaurerKpi.prepare("UPDATE menages SET statut = ?, statut_validation = ? WHERE id = ? AND province_id = 'prov-sila'")
+        .run(statutInitialMenageServi, validationInitialeMenageServi, menageServiPourRevision.id);
+      baseRestaurerKpi.close();
+    }
+    const kpiHorsPeriode = await central.requete(`/api/rapports/indicateurs-carte?date_debut=2020-01-01&date_fin=2020-01-31`);
+    assert.equal(kpiHorsPeriode.reponse.status, 200);
+    const silaHorsPeriode = kpiHorsPeriode.donnees.provinces.find((province) => province.province_id === "prov-sila");
+    assert.equal(silaHorsPeriode?.distributions_realisees.valeur, 0);
+    assert.equal(silaHorsPeriode?.menages_servis.valeur, 0);
+    assert.equal(silaHorsPeriode?.distributions_en_cours.valeur, 0, "Une opération clôturée n’est plus dans la photographie en cours.");
+    console.info("UI-MAP 1.6 — clôture Sila: attendus 1 réalisée / 0 en cours / 2 ménages / 59 kg; Ouaddaï: 0 / 0 / 0 / 20 kg; valeurs identiques à l’API.");
     const detailFinal = await central.requete(`/api/distributions/${brouillon.id}`);
     assert.equal(detailFinal.donnees.corrections[0].statut, "VALIDEE_CENTRAL");
     const baseControle = ouvrirD1Locale();
@@ -555,6 +639,15 @@ test("Cycle de distribution provinciale avec isolation, FEFO, atomicité, remise
     const cloture = baseControle.prepare("SELECT COUNT(*) AS total FROM clotures_distribution WHERE distribution_id = ?").get(brouillon.id).total;
     assert.ok(historique >= 6, "Chaque transition importante doit conserver son historique.");
     assert.equal(cloture, 1);
+    const definitionStatut = baseControle.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'distributions_provinciales'").get().sql;
+    assert.doesNotMatch(definitionStatut, /'ANNULEE'/u, "Le schéma ne représente actuellement aucun statut d’annulation de distribution.");
+    assert.throws(
+      () => baseControle.prepare("UPDATE distributions_provinciales SET statut = 'ANNULEE' WHERE id = ?").run(brouillon.id),
+      /TRANSITION_STATUT_DISTRIBUTION_INVALIDE|CHECK constraint failed/iu,
+      "La tentative synthétique d’annulation est rejetée par D1 et ne doit pas être comptabilisée comme un statut métier pris en charge.",
+    );
+    assert.equal(baseControle.prepare("SELECT statut FROM distributions_provinciales WHERE id = ?").get(brouillon.id).statut,
+      "CLOTUREE_CENTRAL", "Le rejet de la valeur d’annulation ne modifie pas la distribution clôturée.");
     baseControle.close();
   });
 

@@ -4,10 +4,14 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { codeMfaInutilise } from "../integration/mfa-test-helper.mjs";
 
-export type IdentifiantE2E = "central" | "sila";
+export type IdentifiantE2E = "central" | "sila" | "proprietaire";
 
 function cheminMotDePasse(identifiant: IdentifiantE2E): string {
-  const chemin = identifiant === "central" ? process.env.SIGAD_E2E_PASSWORD_FILE : process.env.SIGAD_E2E_SILA_PASSWORD_FILE;
+  const chemin = identifiant === "central"
+    ? process.env.SIGAD_E2E_PASSWORD_FILE
+    : identifiant === "sila"
+      ? process.env.SIGAD_E2E_SILA_PASSWORD_FILE
+      : process.env.SIGAD_E2E_PROPRIETAIRE_PASSWORD_FILE;
   if (!chemin) throw new Error(`Le fichier temporaire de mot de passe du compte ${identifiant} est requis.`);
   return chemin;
 }
@@ -23,17 +27,28 @@ export async function enregistrerMotDePasseE2E(identifiant: IdentifiantE2E, motD
 }
 
 export async function connecterDansLeNavigateur(page: Page, identifiant: IdentifiantE2E): Promise<void> {
-  await page.goto("/");
-  await expect(page.getByLabel("Identifiant")).toBeVisible();
-  await page.getByLabel("Identifiant").fill(identifiant);
-  await page.getByLabel("Mot de passe").fill(await lireMotDePasse(identifiant));
+  const champIdentifiant = page.locator("#identifiant");
+  if (!await champIdentifiant.isVisible()) await page.goto("/");
+  await expect(champIdentifiant).toBeVisible();
+  await champIdentifiant.fill(identifiant);
+  const champMotDePasse = page.getByLabel("Mot de passe", { exact: true });
+  const motDePasse = await lireMotDePasse(identifiant);
+  await champMotDePasse.fill(motDePasse);
+  await expect(champIdentifiant).toHaveValue(identifiant);
+  await expect(champMotDePasse).toHaveValue(motDePasse);
+  const reponseConnexionAttendue = page.waitForResponse((reponse) =>
+    new URL(reponse.url()).pathname === "/api/auth/connexion", { timeout: 30_000 });
   await page.getByRole("button", { name: "Se connecter" }).click();
+  const reponseConnexion = await reponseConnexionAttendue;
+  if (!reponseConnexion.ok()) {
+    throw new Error(`La connexion locale du compte de test ${identifiant} a été refusée (HTTP ${reponseConnexion.status()}).`);
+  }
 
   const champMfa = page.getByLabel("Code d’authentification ou code de récupération");
-  if (identifiant === "central") await expect(champMfa).toBeVisible();
+  if (identifiant !== "sila") await expect(champMfa).toBeVisible();
   if (await champMfa.isVisible()) {
-    if (identifiant !== "central") throw new Error("Le défi MFA est inattendu pour un compte provincial.");
-    await champMfa.fill(await codeMfaInutilise("central"));
+    if (identifiant === "sila") throw new Error("Le défi MFA est inattendu pour un compte provincial.");
+    await champMfa.fill(await codeMfaInutilise(identifiant));
     const verificationAttendue = page.waitForResponse((reponse) =>
       new URL(reponse.url()).pathname === "/api/auth/mfa/verifier");
     await page.getByRole("button", { name: "Vérifier le code" }).click();
@@ -44,7 +59,8 @@ export async function connecterDansLeNavigateur(page: Page, identifiant: Identif
   const navigation = page.getByRole("navigation", { name: "Navigation principale" });
   const titreChangement = page.getByRole("heading", { name: "Créer un nouveau mot de passe" });
   const titreConfigurationMfa = page.getByRole("heading", { name: "Configurer l’authentification à deux facteurs" });
-  await expect(titreChangement.or(titreConfigurationMfa).or(navigation)).toBeVisible();
+  const boutonMenuMobile = page.getByRole("button", { name: "Ouvrir le menu principal" });
+  await expect(titreChangement.or(titreConfigurationMfa).or(navigation).or(boutonMenuMobile)).toBeVisible();
   if (await titreChangement.isVisible()) {
     const nouveauMotDePasse = `E2E-${randomBytes(18).toString("base64url")}Aa9`;
     await page.getByLabel("Nouveau mot de passe", { exact: true }).fill(nouveauMotDePasse);
@@ -53,7 +69,7 @@ export async function connecterDansLeNavigateur(page: Page, identifiant: Identif
     await enregistrerMotDePasseE2E(identifiant, nouveauMotDePasse);
   }
 
-  if (identifiant === "central") await expect(titreConfigurationMfa.or(navigation)).toBeVisible();
+  if (identifiant !== "sila") await expect(titreConfigurationMfa.or(navigation).or(boutonMenuMobile)).toBeVisible();
   if (await titreConfigurationMfa.isVisible()) {
     const secret = await page.locator(".secret-mfa code").textContent();
     if (!secret) throw new Error("Le secret d’enrôlement TOTP n’est pas affiché.");
@@ -64,15 +80,43 @@ export async function connecterDansLeNavigateur(page: Page, identifiant: Identif
     await page.getByRole("button", { name: "J’ai enregistré mes codes" }).click();
   }
 
+  if (await boutonMenuMobile.isVisible()) await boutonMenuMobile.click();
   await expect(navigation).toBeVisible();
 }
 
 export async function ouvrirModule(page: Page, nom: string): Promise<void> {
+  const destinations: Record<string, { groupe: string; element: string }> = {
+    "Tableau de bord": { groupe: "Tableau de bord", element: "Vue d’ensemble" },
+    "Opérations centrales": { groupe: "Opérations & aide", element: "Opérations centrales" },
+    "Approvisionnements": { groupe: "Opérations & aide", element: "Approvisionnements" },
+    "Articles et stocks": { groupe: "Opérations & aide", element: "Articles et stocks" },
+    "Distributions provinciales": { groupe: "Opérations & aide", element: "Distributions provinciales" },
+    "Gestion des bénéficiaires": { groupe: "Bénéficiaires", element: "Registre des ménages" },
+    "Rapports et tableaux de bord": { groupe: "Suivi & contrôle", element: "Rapports et exports" },
+  };
+  if (nom === "Contrôle central" || nom === "Contrôle provincial" || nom === "Contrôle et notifications") {
+    await ouvrirElementNavigation(page, "Suivi & contrôle", "Contrôles et audits");
+    return;
+  }
+  const destination = destinations[nom];
+  if (!destination) throw new Error(`Destination de navigation E2E inconnue : ${nom}`);
+  await ouvrirElementNavigation(page, destination.groupe, destination.element);
+}
+
+export async function ouvrirElementNavigation(page: Page, groupe: string, element: string): Promise<void> {
   const navigation = page.getByRole("navigation", { name: "Navigation principale" });
-  await navigation.getByRole("button", { name: nom }).click();
+  if (!await navigation.isVisible()) {
+    const boutonMenuMobile = page.getByRole("button", { name: "Ouvrir le menu principal" });
+    if (await boutonMenuMobile.isVisible()) await boutonMenuMobile.click();
+  }
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole("button", { name: groupe, exact: true }).click();
+  await navigation.getByRole("menuitem", { name: element, exact: true }).click();
 }
 
 export async function deconnecterDansLeNavigateur(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Se déconnecter" }).click();
+  const boutonDeconnexion = page.getByRole("menuitem", { name: "Se déconnecter" });
+  if (!await boutonDeconnexion.isVisible()) await page.locator(".sigad-preview__profil-declencheur").click();
+  await boutonDeconnexion.click();
   await expect(page.getByLabel("Identifiant")).toBeVisible();
 }

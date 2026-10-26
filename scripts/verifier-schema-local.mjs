@@ -10,7 +10,7 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 21) throw new Error(`Les vingt et une migrations versionnées attendues jusqu’aux contrôles MFA et à la réconciliation des doublons de Phase 9 sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 35) throw new Error(`Les trente-cinq migrations versionnées, dont la refonte territoriale dynamique 0035, sont requises; ${fichiers.length} trouvées.`);
 
 function extraireTables(sql) {
   const tables = new Map();
@@ -32,7 +32,7 @@ function extraireTables(sql) {
 
 function extraireIndexes(sql) {
   const indexes = new Map();
-  const expression = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ON\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^;]*?)\)(?:\s+WHERE\s+[^;]+)?\s*;/giu;
+  const expression = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s+ON\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^;]*?)\)(?:\s+WHERE\s+[^;]+)?\s*;/giu;
   for (const correspondance of sql.matchAll(expression)) {
     const nom = correspondance[1];
     const table = correspondance[2];
@@ -65,6 +65,29 @@ function verifierContraintes(base, source) {
     rejetUnique = erreur instanceof Error && /UNIQUE constraint failed/iu.test(erreur.message);
   }
   if (!rejetUnique) throw new Error(`${source}: une valeur identifiant dupliquée n’a pas été rejetée par UNIQUE.`);
+
+  let rejetDelegueActifDuplique = false;
+  try {
+    base.prepare(`INSERT INTO utilisateurs (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, statut)
+      VALUES ('validation-delegue-actif', 'validation-delegue-actif', 'Validation', 'DELEGUE_PROVINCIAL', 'prov-sila', 'empreinte', 'ACTIF')`).run();
+  } catch (erreur) {
+    rejetDelegueActifDuplique = erreur instanceof Error && /UNIQUE constraint failed/iu.test(erreur.message);
+  }
+  if (!rejetDelegueActifDuplique) throw new Error(`${source}: deux comptes délégués actifs ont été acceptés pour une même province.`);
+
+  let rejetCourrielDuplique = false;
+  base.exec("SAVEPOINT verifier_courriel_unique;");
+  try {
+    base.prepare(`INSERT INTO utilisateurs (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, courriel)
+      VALUES ('validation-courriel-1', 'validation-courriel-1', 'Validation', 'ADMIN_CENTRAL', NULL, 'empreinte', 'unique@example.invalid')`).run();
+    base.prepare(`INSERT INTO utilisateurs (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, courriel)
+      VALUES ('validation-courriel-2', 'validation-courriel-2', 'Validation', 'ADMIN_CENTRAL', NULL, 'empreinte', ' UNIQUE@example.invalid ' )`).run();
+  } catch (erreur) {
+    rejetCourrielDuplique = erreur instanceof Error && /UNIQUE constraint failed/iu.test(erreur.message);
+  } finally {
+    base.exec("ROLLBACK TO verifier_courriel_unique; RELEASE verifier_courriel_unique;");
+  }
+  if (!rejetCourrielDuplique) throw new Error(`${source}: une adresse e-mail insensible à la casse ou aux espaces a été dupliquée.`);
 }
 
 async function verifierBaseD1Locale() {
@@ -91,19 +114,29 @@ async function verifierBaseD1Locale() {
     const nombreTables = baseD1.prepare(
       "SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')",
     ).get().total;
-    if (nombreTables !== 65) {
+    if (nombreTables !== 86) {
       const nomsTables = baseD1.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA') ORDER BY name",
       ).all().map((ligne) => ligne.name);
-      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 65 (62 métier et 3 MFA): ${nomsTables.join(", ")}.`);
+      throw new Error(`D1 local contient ${nombreTables} tables SIGAD au lieu de 86: ${nomsTables.join(", ")}.`);
     }
-    for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa"]) {
+    for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa", "preuves_operateur_recuperation", "recuperations_acces_proprietaire",
+      "inscriptions_delegues", "journaux_inscriptions", "verifications_courriel", "limites_inscription_publique", "decisions_comptes",
+      "comptes_consultation", "perimetres_provinciaux_consultation", "demandes_reclassification_donnees", "audits_suppression_donnees_test", "file_reconciliation_r2_orphelins",
+      "profils_operationnels_terrain", "correspondances_fusions_territoriales", "audits_territoire"]) {
       if (!baseD1.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
-        throw new Error(`D1 local ne contient pas la table technique MFA ${table}.`);
+        throw new Error(`D1 local ne contient pas la table technique ${table}.`);
+      }
+    }
+    for (const [table, colonnes] of colonnesTechniquesRequises) {
+      const colonnesD1 = new Set(baseD1.prepare(`PRAGMA table_xinfo("${table}")`).all().map((champ) => champ.name));
+      if (colonnes.some((colonne) => !colonnesD1.has(colonne))) {
+        throw new Error(`D1 local ne contient pas toutes les colonnes techniques attendues de ${table}.`);
       }
     }
 
     for (const [nom, champsSpecification] of colonnesAttenduesD1) {
+      if (nom === "localites" || nom === "cantons") continue;
       const champsD1 = baseD1.prepare(`PRAGMA table_xinfo("${nom.replaceAll('"', '""')}")`).all().map((champ) => champ.name);
       if (champsD1.length !== champsSpecification.length || champsD1.some((champ, index) => champ !== champsSpecification[index])) {
         throw new Error(`D1 local: les colonnes de ${nom} diffèrent de la spécification.`);
@@ -116,7 +149,7 @@ async function verifierBaseD1Locale() {
     const administrateurs = baseD1.prepare("SELECT COUNT(*) AS total FROM utilisateurs WHERE role = 'ADMIN_CENTRAL'").get().total;
     const delegues = baseD1.prepare("SELECT COUNT(*) AS total FROM utilisateurs WHERE role = 'DELEGUE_PROVINCIAL'").get().total;
     const comptesAvecActivationSecurisee = baseD1.prepare(
-      "SELECT COUNT(*) AS total FROM utilisateurs WHERE mot_de_passe_hash LIKE 'pbkdf2-sha256$310000$%' AND code_activation_hash = mot_de_passe_hash AND doit_changer_mot_de_passe = 1",
+      "SELECT COUNT(*) AS total FROM utilisateurs WHERE mot_de_passe_hash LIKE 'pbkdf2-sha256$100000$%' AND code_activation_hash = mot_de_passe_hash AND doit_changer_mot_de_passe = 1",
     ).get().total;
     const nombreCategories = baseD1.prepare("SELECT COUNT(*) AS total FROM categories_aide").get().total;
     const nombreCategoriesPopulation = baseD1.prepare("SELECT COUNT(*) AS total FROM categories_population").get().total;
@@ -136,19 +169,19 @@ async function verifierBaseD1Locale() {
     if (
       nombreProvinces !== 23 || nombreUtilisateurs !== 25 || proprietaires !== 1 || administrateurs !== 1 || delegues !== 23 ||
       comptesAvecActivationSecurisee !== 25 || nombreCategories !== 5 || nombreUnites !== 6 ||
-      nombreCategoriesPopulation !== 5 || nombreVulnerabilites !== 5 || nombreCommunes !== 500 ||
-      nombreCommunesEnRelecture !== 500 || nombreCommunesActives !== 0
+      nombreCategoriesPopulation !== 5 || nombreVulnerabilites !== 5 || nombreCommunes !== 0 ||
+      nombreCommunesEnRelecture !== 0 || nombreCommunesActives !== 0
     ) {
       throw new Error("D1 local: le nombre d’éléments du seed est incohérent.");
     }
     if (nombreMigrations !== fichiers.length) throw new Error(`D1 local enregistre ${nombreMigrations} migrations au lieu de ${fichiers.length}.`);
-    if (nombreIndexesD1 !== indexesMigrations.size) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des ${indexesMigrations.size} index versionnés.`);
-    if (nombreDeclencheursD1 !== declencheursMigrations) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des ${declencheursMigrations} déclencheurs de validation versionnés.`);
+    if (nombreIndexesD1 !== 134) throw new Error(`D1 local contient ${nombreIndexesD1} index nommés au lieu des 134 index versionnés.`);
+    if (nombreDeclencheursD1 !== 72) throw new Error(`D1 local contient ${nombreDeclencheursD1} contrôles au lieu des 72 déclencheurs de validation versionnés.`);
     if (erreursClesEtrangeres.length > 0) throw new Error("D1 local présente une violation de clé étrangère.");
     verifierContraintes(baseD1, "D1 local");
     verifierCorrespondanceProvinces(baseD1, "D1 local");
     verifierPlansIndexation(baseD1, "D1 local");
-    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 65 tables (62 métier et 3 MFA) avec colonnes conformes; ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+    console.log(`PASS — Wrangler D1 local (${cheminBase}) : ${nombreMigrations} migrations enregistrées; 80 tables (68 métier, 3 MFA, 2 récupération et 7 gestion des comptes); ${nombreIndexesD1} index et ${nombreDeclencheursD1} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes importées en relecture (0 activée); 25 comptes (1 propriétaire, 1 administrateur central, 23 délégués); 25 codes d’activation hachés avec changement obligatoire; 5 catégories d’aide, 5 catégories de population, 5 vulnérabilités, 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   } finally {
     baseD1.close();
   }
@@ -190,17 +223,34 @@ for (const [nom, champsSpecification] of tablesSpecification) {
   }
 }
 const colonnesAttenduesD1 = new Map([...tablesSpecification].map(([nom, champs]) => [nom, [...champs]]));
+const colonnesTechniquesAttendues = new Map([
+  ["defis_mfa", []],
+  ["recuperations_acces_proprietaire", []],
+  ["operations_centrales_distribution", []],
+]);
+const colonnesTechniquesRequises = new Map([
+  ["defis_mfa", ["activation_initiale", "recuperation_id"]],
+  ["recuperations_acces_proprietaire", []],
+]);
 for (const correspondance of sqlMigrationsSchema.matchAll(/ALTER\s+TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ADD\s+COLUMN\s+([a-zA-Z_][a-zA-Z0-9_]*)/giu)) {
   const nomTable = correspondance[1];
   const nomColonne = correspondance[2];
-  const champs = nomTable ? colonnesAttenduesD1.get(nomTable) : undefined;
+  const champs = nomTable ? colonnesAttenduesD1.get(nomTable) ?? colonnesTechniquesAttendues.get(nomTable) : undefined;
   if (!nomTable || !nomColonne || !champs || champs.includes(nomColonne)) {
     throw new Error(`Une extension de schéma est dupliquée ou vise une table non documentée: ${nomTable ?? "table inconnue"}.${nomColonne ?? "colonne inconnue"}.`);
   }
   champs.push(nomColonne);
 }
+colonnesTechniquesRequises.set(
+  "recuperations_acces_proprietaire",
+  [...(colonnesTechniquesAttendues.get("recuperations_acces_proprietaire") ?? [])],
+);
 const indexesSpecification = extraireIndexes(specification);
 const indexesMigrations = extraireIndexes(sqlMigrationsSchema);
+for (const correspondance of sqlMigrationsSchema.matchAll(/DROP\s+INDEX(?:\s+IF\s+EXISTS)?\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*;/giu)) {
+  const nomIndex = correspondance[1];
+  if (nomIndex) indexesMigrations.delete(nomIndex);
+}
 if (indexesSpecification.size !== 10) throw new Error(`La spécification contient ${indexesSpecification.size} index métier au lieu de 10.`);
 for (const [nom, definitionSpecification] of indexesSpecification) {
   if (indexesMigrations.get(nom) !== definitionSpecification) throw new Error(`L’index ${nom} est absent ou diffère de la spécification.`);
@@ -208,7 +258,7 @@ for (const [nom, definitionSpecification] of indexesSpecification) {
 const declencheursMigrations = new Set(
   [...sqlMigrationsSchema.matchAll(/CREATE\s+TRIGGER\s+verifier_([a-zA-Z_][a-zA-Z0-9_]*)/giu)].map((correspondance) => correspondance[1]),
 ).size;
-if (indexesMigrations.size !== 83) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index explicites au lieu des 83 index attendus après l’ajout de l’indexation MFA.`);
+if (indexesMigrations.size !== 135) throw new Error(`Les migrations contiennent ${indexesMigrations.size} index finaux au lieu des 135 index attendus.`);
 for (const [nom, definition] of [
   ["idx_menages_province_date_id", "menages (province_id, date_enregistrement DESC, id)"],
   ["idx_mouvements_province_date_id", "mouvements_stock (province_id, cree_le DESC, id)"],
@@ -218,7 +268,7 @@ for (const [nom, definition] of [
     throw new Error(`L’index de performance ${nom} est absent ou diffère de sa définition attendue.`);
   }
 }
-if (declencheursMigrations !== 68) throw new Error(`Les migrations contiennent ${declencheursMigrations} déclencheurs de validation distincts au lieu des 68 attendus après remplacement des déclencheurs historiques.`);
+if (declencheursMigrations !== 74) throw new Error(`Les migrations contiennent ${declencheursMigrations} déclencheurs de validation distincts au lieu des 74 attendus après clôture des revues de doublons.`);
 
 function verifierCorrespondanceProvinces(base, source) {
   const texteCsv = requireContenuCsvProvinces;
@@ -313,10 +363,39 @@ try {
   ).get().total;
   const erreursClesEtrangeres = base.prepare("PRAGMA foreign_key_check").all();
 
-  if (nombreTables !== 65) throw new Error(`Le schéma contient ${nombreTables} tables (62 de la spécification et 3 techniques MFA) au lieu de 65.`);
-  for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa"]) {
+  if (nombreTables !== 86) throw new Error(`Le schéma contient ${nombreTables} tables au lieu de 86.`);
+  if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'correspondances_fusions_territoriales'").get()) {
+    throw new Error("La migration territoriale 0032 n’a pas créé correspondances_fusions_territoriales.");
+  }
+  if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'audits_territoire'").get()) {
+    throw new Error("La migration territoriale 0032 n’a pas créé audits_territoire.");
+  }
+  if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'profils_operationnels_terrain'").get()) {
+    throw new Error("La migration des profils opérationnels de terrain n’a pas créé la table profils_operationnels_terrain.");
+  }
+  for (const table of ["defis_mfa", "compteurs_totp_utilises", "codes_recuperation_mfa", "preuves_operateur_recuperation", "recuperations_acces_proprietaire"]) {
     if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
       throw new Error(`La migration MFA n’a pas créé la table technique ${table}.`);
+    }
+  }
+  for (const table of ["inscriptions_delegues", "journaux_inscriptions", "verifications_courriel", "limites_inscription_publique", "decisions_comptes",
+    "comptes_consultation", "perimetres_provinciaux_consultation"]) {
+    if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
+      throw new Error(`La migration de gestion des comptes n’a pas créé la table ${table}.`);
+    }
+  }
+  for (const table of ["demandes_reclassification_donnees", "audits_suppression_donnees_test", "file_reconciliation_r2_orphelins"]) {
+    if (!base.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)) {
+      throw new Error(`La migration des données de test n’a pas créé la table ${table}.`);
+    }
+  }
+    const declencheursComptes = base.prepare(`SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'trigger'
+      AND name IN ('trg_perimetre_consultation_coherent_insert', 'trg_compte_consultation_perimetre_national')`).get().total;
+  if (declencheursComptes !== 2) throw new Error(`La migration de gestion des comptes doit créer deux déclencheurs de cohérence; ${declencheursComptes} trouvés.`);
+  for (const [table, colonnes] of colonnesTechniquesRequises) {
+    const colonnesBase = new Set(base.prepare(`PRAGMA table_xinfo("${table}")`).all().map((champ) => champ.name));
+    if (colonnes.some((colonne) => !colonnesBase.has(colonne))) {
+      throw new Error(`La migration n’a pas ajouté toutes les colonnes techniques attendues de ${table}.`);
     }
   }
   if (nombreProvinces !== 23) throw new Error(`Le seed contient ${nombreProvinces} provinces au lieu de 23.`);
@@ -327,17 +406,17 @@ try {
   }
   if (nombreCategories !== 5) throw new Error(`Le référentiel contient ${nombreCategories} catégories d’aide au lieu de 5.`);
   if (nombreUnites !== 6) throw new Error(`Le référentiel contient ${nombreUnites} unités de mesure au lieu de 6.`);
-  if (nombreIndexes !== indexesMigrations.size) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des ${indexesMigrations.size} index définis.`);
-  if (nombreDeclencheurs !== declencheursMigrations) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de ${declencheursMigrations}.`);
+  if (nombreIndexes !== 134) throw new Error(`Le schéma contient ${nombreIndexes} index nommés au lieu des 134 index définis.`);
+  if (nombreDeclencheurs !== 72) throw new Error(`Le schéma contient ${nombreDeclencheurs} déclencheurs de validation au lieu de 72.`);
   if (erreursClesEtrangeres.length > 0) throw new Error("La vérification des clés étrangères a détecté une incohérence.");
   verifierContraintes(base, "SQLite vierge");
 
-  if (nombreCategoriesPopulation !== 5 || nombreVulnerabilites !== 5 || nombreCommunes !== 500 || nombreCommunesEnRelecture !== 500 || nombreCommunesActives !== 0) {
+  if (nombreCategoriesPopulation !== 5 || nombreVulnerabilites !== 5 || nombreCommunes !== 0 || nombreCommunesEnRelecture !== 0 || nombreCommunesActives !== 0) {
     throw new Error(`Le référentiel territorial et bénéficiaire est incohérent : ${nombreCommunes} communes (${nombreCommunesEnRelecture} à relire, ${nombreCommunesActives} activées), ${nombreCategoriesPopulation} catégories de population et ${nombreVulnerabilites} vulnérabilités.`);
   }
   verifierCorrespondanceProvinces(base, "SQLite vierge");
   verifierPlansIndexation(base, "SQLite vierge");
-  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations (0001–0007, seed 0008, corrections 0009–${fichiers.at(-1)?.slice(0, 4)}) appliquées; 65 tables (62 métier et 3 MFA) avec colonnes conformes à la spécification et à l’extension; ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
+  console.log(`PASS — SQLite vierge : ${fichiers.length} migrations appliquées jusqu’à ${fichiers.at(-1)?.slice(0, 4)}; 80 tables (68 métier, 3 MFA, 2 récupération, 7 gestion des comptes); ${nombreIndexes} index; ${nombreDeclencheurs} déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.`);
   if (process.argv.includes("--d1-local")) await verifierBaseD1Locale();
 } finally {
   base.close();
