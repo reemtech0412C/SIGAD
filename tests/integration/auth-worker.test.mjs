@@ -2098,11 +2098,16 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   const auditApprobation = ouvrirD1Locale();
   const journalApprobation = auditApprobation.prepare(`SELECT action, acteur_id, acteur_role, cible_id, motif
     FROM evenements_audit WHERE request_id = ?`).get(approbationReussie.reponse.headers.get("X-Request-ID"));
+  const indexApprobationReussie = demandesApprobationConcurrentes.indexOf(approbationReussie);
+  const motifApprobationReussie = indexApprobationReussie === 0
+    ? "Approbation centrale de l’appareil synthétique."
+    : "Rejeu concurrent de l’approbation centrale.";
   assert.equal(journalApprobation.action, "APPROBATION_APPAREIL");
   assert.equal(journalApprobation.acteur_id, "usr-central");
   assert.equal(journalApprobation.acteur_role, "ADMIN_CENTRAL");
   assert.equal(journalApprobation.cible_id, inscriptionAppareil.donnees.id);
-  assert.equal(journalApprobation.motif, "Approbation centrale de l’appareil synthétique.");
+  assert.equal(journalApprobation.motif, motifApprobationReussie,
+    "L’événement d’audit doit reprendre le motif de la requête concurrente qui a effectivement réussi.");
   assert.equal(auditApprobation.prepare("SELECT COUNT(*) AS total FROM evenements_audit WHERE action = 'APPROBATION_APPAREIL' AND cible_id = ?")
     .get(inscriptionAppareil.donnees.id).total, 1, "Le rejeu concurrent ne crée pas de second événement.");
   auditApprobation.close();
