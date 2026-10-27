@@ -843,7 +843,10 @@ async function approuverInscription(c: Context<EnvironnementApplication>, inscri
     const executions = await c.env.DB.batch(commandes);
     const decalage = remplacementId ? 2 : 0;
     if (remplacementId && (executions[0]?.meta.changes ?? 0) < 1) return c.json({ erreur: "Le délégué actuel a changé. Actualisez la liste et réessayez." }, 409);
-    if (executions[decalage]?.meta.changes !== 1 || executions[decalage + 1]?.meta.changes !== 1) {
+    // La projection ombre déclenchée par l'insertion d'un compte ajoute des
+    // écritures SQLite internes; meta.changes peut donc dépasser les lignes de
+    // premier niveau. Seule une absence de changement indique un échec.
+    if ((executions[decalage]?.meta.changes ?? 0) < 1 || (executions[decalage + 1]?.meta.changes ?? 0) < 1) {
       return c.json({ erreur: "La demande ou la province a changé. Aucune nouvelle délégation n’a été accordée." }, 409);
     }
   } catch {

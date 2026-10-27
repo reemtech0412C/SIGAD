@@ -349,6 +349,7 @@ try {
     "rapports-worker.test.mjs",
     "operations-centrales-worker.test.mjs",
     "donnees-test-worker.test.mjs",
+    "b26-shadow-reconciliation-worker.test.mjs",
     "caracterisation-roles-worker.test.mjs",
     "audit-unifie-worker.test.mjs",
   ];

@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hacherMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
-import { configurerMfaTest } from "./mfa-test-helper.mjs";
+import { configurerMfaTest, terminerConnexionMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
@@ -91,8 +91,7 @@ class ClientLocal {
       methode: "POST", corps: { identifiant, mot_de_passe: motDePasse },
     });
     assert.equal(resultat.reponse.status, 200);
-    if (resultat.donnees?.mfa_requis) throw new Error("Le compte de test exige déjà un défi MFA inattendu.");
-    return resultat;
+    return terminerConnexionMfaTest(this, identifiant, resultat);
   }
 }
 
@@ -107,6 +106,7 @@ function rolesPermis(politique) {
 test("Matrice API : chaque route est protégée et chaque refus ne modifie aucune donnée", async () => {
   const base = ouvrirD1Locale();
   const clients = new Map();
+  const motsDePasseParCompte = new Map();
   let clientSila;
   try {
     const deleguesOuaddaiIssusDesTestsPrecedents = base.prepare(`SELECT id FROM utilisateurs
@@ -119,6 +119,7 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
     const identifiants = ["proprietaire", "central", "sila", "ouaddai"];
     for (const identifiant of identifiants) {
       const motDePasse = `Matrice-${randomBytes(24).toString("base64url")}Aa9`;
+      motsDePasseParCompte.set(identifiant, motDePasse);
       base.prepare(
         `UPDATE utilisateurs SET mot_de_passe_hash = ?, code_activation_hash = NULL, doit_changer_mot_de_passe = 0,
           statut = 'ACTIF', tentatives_echouees = 0, verrouille_jusqua = NULL,
@@ -140,7 +141,7 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
 
     const matrice = routesDeLaMatrice();
     const anonyme = new ClientLocal();
-    const empreinteAvant = empreinteEtat(base);
+    let empreinteAvant = empreinteEtat(base);
     let routesAnonymesVerifiees = 0;
     let refusRoleVerifies = 0;
     for (const route of matrice) {
@@ -215,6 +216,8 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
     });
     assert.equal(propositionHorsProvince.reponse.status, 403,
       "Un délégué ne peut pas proposer une localité dans une autre province.");
+    assert.equal(empreinteEtat(base), empreinteAvant,
+      "Les refus de la matrice et des contrôles géographiques ne doivent modifier aucune donnée avant les fixtures temporaires.");
 
     const idSila = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = 'sila'").get().id;
     const idCentral = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = 'central'").get().id;
@@ -228,6 +231,11 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
       VALUES (?, ?, 'RESPONSABLE_STOCK', 'prov-sila', 'ACTIF', ?)`)
       .run(idProfilTerrainTemporaire, idSila, idCentral);
     try {
+      assert.equal((await clientSila.requete("/api/auth/session")).reponse.status, 401,
+        "Un changement d’affectation invalide la session qui porte l’ancien rôle.");
+      clientSila = new ClientLocal();
+      await clientSila.connecter("sila", motsDePasseParCompte.get("sila"));
+      clients.set("DELEGUE_PROVINCIAL", clientSila);
       const roleTerrainCorpsMalforme = await clientSila.requete("/api/territoire/propositions/localites", {
         methode: "POST",
         corpsBrut: "{",
@@ -237,6 +245,9 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
     } finally {
       base.prepare("DELETE FROM profils_operationnels_terrain WHERE id = ?").run(idProfilTerrainTemporaire);
     }
+    clientSila = new ClientLocal();
+    await clientSila.connecter("sila", motsDePasseParCompte.get("sila"));
+    clients.set("DELEGUE_PROVINCIAL", clientSila);
 
     const idProprietaire = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = 'proprietaire'").get().id;
     const compteConsultationExistant = base.prepare(
@@ -249,7 +260,11 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
       VALUES (?, ?, 'Institution de test', 'Observateur', 'NATIONAL', 'ACTIF', ?)`)
       .run(idCompteConsultationTemporaire, idProprietaire, idProprietaire);
     try {
-      const propositionConsultative = await clients.get("PROPRIETAIRE").requete(
+      assert.equal((await clients.get("PROPRIETAIRE").requete("/api/auth/session")).reponse.status, 401,
+        "L’ajout d’un profil consultatif invalide la session qui portait l’ancien rôle propriétaire.");
+      const clientConsultationTemporaire = new ClientLocal();
+      await clientConsultationTemporaire.connecter("proprietaire", motsDePasseParCompte.get("proprietaire"));
+      const propositionConsultative = await clientConsultationTemporaire.requete(
         "/api/territoire/propositions/localites",
         { methode: "POST", corps: {} },
       );
@@ -260,6 +275,8 @@ test("Matrice API : chaque route est protégée et chaque refus ne modifie aucun
     } finally {
       base.prepare("DELETE FROM comptes_consultation WHERE id = ?").run(idCompteConsultationTemporaire);
     }
+
+    empreinteAvant = empreinteEtat(base);
 
     for (const actionProtegee of [
       { methode: "POST", chemin: "/api/central/referentiel-territorial/propositions/LOCALITE/absente/decision" },
