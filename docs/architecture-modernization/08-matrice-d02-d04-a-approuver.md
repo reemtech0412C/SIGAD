@@ -9,6 +9,13 @@
 - Le registre de backend évalue les politiques en observation; il n’est pas la source de décision. L’accès continue d’être décidé par le middleware et les contrôles de services existants. Les tables B2.2 restent en mode ombre.
 - D-02/D-04 détaillés non approuvés ⇒ aucun basculement de exigerPermission, aucune nouvelle permission, aucun changement à D-12.
 
+## État technique de la réconciliation — 2026-10-27
+
+- La migration additive 0042 projette en transaction les créations, changements d’identité/périmètre, suspensions/réactivations et suppressions Legacy vers les tables B2.2; toute erreur de projection annule l’écriture source. Les sessions sont invalidées pour un changement de rôle ou de portée; la suspension conserve le motif B2.5 `COMPTE_NON_ACTIF`. Un compte consultatif `INVITE` est projeté suspendu jusqu’à son activation.
+- Sur la fixture D1 locale uniquement, les 25 comptes préexistants ont été réconciliés (25/25, zéro écart). Le test Worker injecte volontairement une divergence de rôle Shadow; Legacy continue de refuser la route propriétaire. Cette divergence de test n’est pas un écart de données résiduel.
+- Les tests comparant rôle et portée Shadow/Legacy ne constituent pas encore un moteur de décision parallèle complet: les tables B2.2 ne modélisent pas la propriété de toutes les ressources, l’état courant session/appareil ni chaque action. Ces dimensions restent à éprouver avec un comparateur en lecture seule avant toute bascule.
+- Les 80 divergences de la matrice et les 13 sondes HTTP `400` non concluantes restent inchangées et non approuvées. B2.2 demeure hors enforcement. Les commandes et résultats de cette mise à jour sont consignés dans [`evidence/b2-6-shadow-reconciliation-2026-10-27.md`](evidence/b2-6-shadow-reconciliation-2026-10-27.md).
+
 ## Matrice des rôles et des domaines
 
 Les cibles ci-dessous sont des recommandations à approuver. « Portée » décrit la source attendue de l’autorisation et non un champ supposé déjà disponible dans le modèle.
