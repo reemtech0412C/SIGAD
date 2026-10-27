@@ -1,5 +1,8 @@
 import type { UtilisateurSession } from "../../bindings";
-import { creerInstructionAudit } from "../../core/audit/service.ts";
+import { creerInstructionAuditConditionnelle } from "../../core/audit/service.ts";
+
+type ResultatTransitionAppareil = "ABSENT" | "ETAT_INVALIDE" | "APPROBATION_PROPRE_INTERDITE" | "CONFLIT" | "TRANSITIONNE" | "REVOQUE";
+type ActionAppareil = "APPROBATION_APPAREIL" | "SUSPENSION_APPAREIL" | "REVOCATION_APPAREIL";
 
 export async function listerAppareils(db: D1Database, utilisateurId?: string) {
   const filtre = utilisateurId ? "WHERE a.utilisateur_id = ?" : "";
@@ -22,22 +25,84 @@ export async function revoquerAppareil(
   adresseIp: string | null,
   requestId: string,
   proprietaireAppareilId?: string,
-): Promise<"ABSENT" | "DEJA_REVOQUE" | "REVOQUE"> {
-  const requete = proprietaireAppareilId
-    ? db.prepare("SELECT id, statut FROM appareils WHERE id = ? AND utilisateur_id = ?")
-    : db.prepare("SELECT id, statut FROM appareils WHERE id = ?");
-  const appareil = await (proprietaireAppareilId
-    ? requete.bind(appareilId, proprietaireAppareilId)
-    : requete.bind(appareilId)).first<{ id: string; statut: string }>();
+): Promise<ResultatTransitionAppareil> {
+  const resultat = await transitionnerAppareil(db, appareilId, "REVOCATION_APPAREIL", acteur, motif, adresseIp, requestId,
+    proprietaireAppareilId ? { proprietaireId: proprietaireAppareilId } : undefined);
+  return resultat === "TRANSITIONNE" ? "REVOQUE" : resultat;
+}
+
+export async function approuverAppareil(
+  db: D1Database,
+  appareilId: string,
+  acteur: UtilisateurSession,
+  motif: string,
+  adresseIp: string | null,
+  requestId: string,
+): Promise<ResultatTransitionAppareil> {
+  return transitionnerAppareil(db, appareilId, "APPROBATION_APPAREIL", acteur, motif, adresseIp, requestId);
+}
+
+export async function suspendreAppareil(
+  db: D1Database,
+  appareilId: string,
+  acteur: UtilisateurSession,
+  motif: string,
+  adresseIp: string | null,
+  requestId: string,
+): Promise<ResultatTransitionAppareil> {
+  return transitionnerAppareil(db, appareilId, "SUSPENSION_APPAREIL", acteur, motif, adresseIp, requestId);
+}
+
+async function transitionnerAppareil(
+  db: D1Database,
+  appareilId: string,
+  action: ActionAppareil,
+  acteur: UtilisateurSession,
+  motif: string,
+  adresseIp: string | null,
+  requestId: string,
+  options?: { proprietaireId?: string },
+): Promise<ResultatTransitionAppareil> {
+  const appareil = await db.prepare(`SELECT id, utilisateur_id, statut FROM appareils WHERE id = ?${options?.proprietaireId ? " AND utilisateur_id = ?" : ""}`)
+    .bind(...(options?.proprietaireId ? [appareilId, options.proprietaireId] : [appareilId]))
+    .first<{ id: string; utilisateur_id: string; statut: string }>();
   if (!appareil) return "ABSENT";
-  if (appareil.statut === "REVOQUE") return "DEJA_REVOQUE";
-  await db.batch([
-    db.prepare(`UPDATE appareils SET statut = 'REVOQUE', revoque_le = datetime('now'), motif_revocation = ?
-      WHERE id = ? AND statut <> 'REVOQUE'`).bind(motif, appareilId),
-    db.prepare(`UPDATE sessions SET revoquee = 1, motif_revocation = 'APPAREIL_REVOQUE'
-      WHERE appareil_id = ? AND revoquee = 0`).bind(appareilId),
-    creerInstructionAudit(db, { utilisateur: acteur, action: "REVOCATION_APPAREIL", entiteType: "APPAREIL", entiteId: appareilId,
-      adresseIp, requestId, motif, donneesAvant: JSON.stringify({ statut: appareil.statut }), donneesApres: JSON.stringify({ statut: "REVOQUE" }) }),
-  ]);
-  return "REVOQUE";
+  if (action === "APPROBATION_APPAREIL" && appareil.utilisateur_id === acteur.id) return "APPROBATION_PROPRE_INTERDITE";
+
+  const statutCible = action === "APPROBATION_APPAREIL" ? "AUTORISE"
+    : action === "SUSPENSION_APPAREIL" ? "SUSPENDU" : "REVOQUE";
+  const statutAttendu = action === "APPROBATION_APPAREIL" ? "EN_ATTENTE"
+    : action === "SUSPENSION_APPAREIL" ? "AUTORISE" : appareil.statut;
+  if ((action === "APPROBATION_APPAREIL" && appareil.statut !== "EN_ATTENTE")
+    || (action === "SUSPENSION_APPAREIL" && appareil.statut !== "AUTORISE")
+    || (action === "REVOCATION_APPAREIL" && appareil.statut === "REVOQUE")) return "ETAT_INVALIDE";
+
+  const miseAJour = action === "APPROBATION_APPAREIL"
+    ? db.prepare(`UPDATE appareils SET statut = 'AUTORISE', autorise_par = ?, autorise_le = datetime('now')
+        WHERE id = ? AND statut = 'EN_ATTENTE' AND utilisateur_id <> ?`).bind(acteur.id, appareilId, acteur.id)
+    : action === "SUSPENSION_APPAREIL"
+      ? db.prepare("UPDATE appareils SET statut = 'SUSPENDU' WHERE id = ? AND statut = 'AUTORISE'").bind(appareilId)
+      : db.prepare(`UPDATE appareils SET statut = 'REVOQUE', revoque_le = datetime('now'), motif_revocation = ?
+          WHERE id = ? AND statut = ? AND statut <> 'REVOQUE'`).bind(motif, appareilId, statutAttendu);
+
+  const commandes = [
+    miseAJour,
+    creerInstructionAuditConditionnelle(db, {
+      utilisateur: acteur,
+      action,
+      entiteType: "APPAREIL",
+      entiteId: appareilId,
+      adresseIp,
+      requestId,
+      motif,
+      donneesAvant: JSON.stringify({ statut: appareil.statut }),
+      donneesApres: JSON.stringify({ statut: statutCible }),
+    }, "changes() = 1"),
+    db.prepare(`UPDATE sessions SET revoquee = 1, motif_revocation = ?
+      WHERE appareil_id = ? AND revoquee = 0
+        AND EXISTS (SELECT 1 FROM appareils WHERE id = ? AND statut IN ('SUSPENDU', 'REVOQUE'))`)
+      .bind(action === "SUSPENSION_APPAREIL" ? "APPAREIL_SUSPENDU" : "APPAREIL_REVOQUE", appareilId, appareilId),
+  ];
+  const resultats = await db.batch(commandes);
+  return (resultats[0]?.meta.changes ?? 0) === 1 ? "TRANSITIONNE" : "CONFLIT";
 }

@@ -18,7 +18,7 @@ import { hacherMotDePasse, verifierMotDePasse, genererJetonAleatoire } from "../
 import { envoyerCourriel, envoyerCodeVerification, courrielEstConfigure } from "../services/courriel.service";
 import { empreinteCodeVerification, empreinteLimite, genererCodeSixChiffres, verifierLimiteAction } from "../services/verification-courriel.service";
 import { verifierTransitionCompte, type EtatCompte } from "../modules/identite/etat-compte.ts";
-import { listerAppareils, revoquerAppareil } from "../modules/identite/appareils.ts";
+import { approuverAppareil, listerAppareils, revoquerAppareil, suspendreAppareil } from "../modules/identite/appareils.ts";
 
 const routesPublics = new Hono<EnvironnementApplication>();
 const routesCompte = new Hono<EnvironnementApplication>();
@@ -690,6 +690,26 @@ function exigerAdministration(c: Context<EnvironnementApplication>): boolean {
 routesAdministration.get("/appareils", async (c) => {
   if (!exigerAdministration(c)) return c.json({ erreur: "Accès refusé." }, 403);
   return c.json({ elements: await listerAppareils(c.env.DB) });
+});
+
+routesAdministration.post("/appareils/:id/approuver", async (c) => {
+  if (!exigerAdministration(c)) return c.json({ erreur: "Accès refusé." }, 403);
+  const resultat = analyserCorps(await lireJson(c), schemaDecisionCompte);
+  if (!resultat.success) return erreurSchema(c, resultat.message);
+  const etat = await approuverAppareil(c.env.DB, c.req.param("id"), c.get("utilisateur"), resultat.data.motif,
+    ipRequete(c), c.get("requestId"));
+  if (etat !== "TRANSITIONNE") return c.json({ erreur: "L’appareil est absent, son état ne permet pas l’approbation ou l’approbation propre est interdite." }, 409);
+  return c.json({ message: "L’appareil a été approuvé." });
+});
+
+routesAdministration.post("/appareils/:id/suspendre", async (c) => {
+  if (!exigerAdministration(c)) return c.json({ erreur: "Accès refusé." }, 403);
+  const resultat = analyserCorps(await lireJson(c), schemaDecisionCompte);
+  if (!resultat.success) return erreurSchema(c, resultat.message);
+  const etat = await suspendreAppareil(c.env.DB, c.req.param("id"), c.get("utilisateur"), resultat.data.motif,
+    ipRequete(c), c.get("requestId"));
+  if (etat !== "TRANSITIONNE") return c.json({ erreur: "L’appareil est absent ou son état ne permet pas la suspension." }, 409);
+  return c.json({ message: "L’appareil a été suspendu et ses sessions invalidées." });
 });
 
 routesAdministration.post("/appareils/:id/revoquer", async (c) => {

@@ -53,6 +53,15 @@ export function creerInstructionAudit(db: D1Database, entree: EntreeAudit): D1Pr
   return preparerInstructionAudit(db, entree);
 }
 
+export function creerInstructionAuditConditionnelle(
+  db: D1Database,
+  entree: EntreeAudit,
+  conditionSql: string,
+  parametresCondition: unknown[] = [],
+): D1PreparedStatement {
+  return preparerInstructionAudit(db, entree, conditionSql, parametresCondition);
+}
+
 export function creerInstructionAuditInscriptionAppareil(
   db: D1Database,
   entree: EntreeAudit,
