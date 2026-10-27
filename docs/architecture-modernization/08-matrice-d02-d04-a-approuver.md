@@ -1,11 +1,11 @@
 # B2.6 — Matrice D-02 / D-04 proposée pour approbation
 
-**Statut : proposition non approuvée.** Aucun droit opérationnel n’a été changé dans cette revue. Les principes D-02 et D-04 sont approuvés, mais la matrice détaillée demeure à décider. Cette matrice ne confère aucune autorisation.
+**Statut : principes approuvés, règles opérationnelles détaillées en attente.** Aucun droit opérationnel n’a été changé. Les recommandations ci-dessous ne confèrent aucune autorisation.
 
 ## État de preuve et limite de B2.6
 
-- La caractérisation B1.1 contient 216 routes × 7 rôles = 1 512 cas. Les snapshots et le registre sont contrôlés par tests; les 80 écarts et les 13 sondes initialement en HTTP 400 sont répertoriés ci-dessous.
-- Le catalogue actuel couvre 229 routes. Les 13 routes d’identité/appareils ajoutées depuis B1.1 ne sont pas dans les snapshots 7 × 216; les tests B2.5 de cycle de vie ne remplacent pas une caractérisation rôle × route complète.
+- La caractérisation B1.1 reste inchangée: 216 routes × 7 rôles = 1 512 cas. Les 13 routes d’identité/appareils sont maintenant caractérisées séparément: 7 × 13 = 91 cas; total vérifié: 229 × 7 = 1 603.
+- Les 13 réponses HTTP 400 de l’ancienne sonde demeurent enregistrées comme non concluantes. Les tests Worker valides sur les mêmes domaines contrôlent les décisions, sans requalifier ces 400 comme preuve d’autorisation.
 - Le registre de backend évalue les politiques en observation; il n’est pas la source de décision. L’accès continue d’être décidé par le middleware et les contrôles de services existants. Les tables B2.2 restent en mode ombre.
 - D-02/D-04 détaillés non approuvés ⇒ aucun basculement de exigerPermission, aucune nouvelle permission, aucun changement à D-12.
 
@@ -75,7 +75,7 @@ Ces 13 routes existent dans le catalogue 229, mais ne figurent pas dans les snap
 | Appareils et sessions du compte (6 routes) | Les sept rôles sont déclarés; la portée annoncée provient de la session et de D1. | Conserver l’auto-service uniquement sur appareils/sessions appartenant au compte authentifié; preuve de possession exigée à l’enregistrement; révocation n’agit que sur la propre session/appareil. | Tester les sept rôles sur leurs propres ressources puis usurpation d’identifiant, appareil non approuvé, session révoquée et rejeu; aucun secret ni métadonnée d’un autre compte. |
 | Administration technique Propriétaire (3 routes) | PROPRIETAIRE uniquement; portée technique nationale. | Conservation recommandée pour inventaire et révocation de comptes/appareils, dans le pouvoir d’administration de D-02; l’API ne doit exposer ni ménages ni coordonnées personnelles superflues. | Tester absence de PII bénéficiaire, audit des révocations, interdiction d’auto-approuver un appareil et effet immédiat sur sessions/appareils. |
 
-La matrice actuelle documente ADMIN_CENTRAL comme approbateur des appareils et empêche l’approbation de soi-même; l’autorité provinciale est préparée mais demeure désactivée (D-04). Ces 13 routes restent à caractériser rôle × route sur HEAD avant enforcement, même si leurs tests B2.5 ciblés existent.
+La matrice actuelle réserve les décisions centrales d’appareils à ADMIN_CENTRAL; l’approbation personnelle est refusée et l’autorité provinciale demeure désactivée (D-04). Les 13 routes sont désormais caractérisées sur le Worker local; les résultats ci-dessous remplacent le statut antérieur « à caractériser ».
 
 ## Décisions à approuver
 
@@ -93,14 +93,14 @@ La matrice actuelle documente ADMIN_CENTRAL comme approbateur des appareils et e
 | Condition | État | Preuve exigée pour fermeture |
 |---|---|---|
 | Approbation détaillée D-02/D-04 | **En attente** | Choix explicite des options ci-dessus et approbation des listes rôle × action × ressource, y compris exceptions PII. |
-| Baseline de routes | **Partielle: 216/229** | Caractériser et faire réviser les 13 routes nouvelles pour les sept rôles (91 cas), sans mise à jour globale aveugle des snapshots. |
+| Baseline de routes | **Complète: 229/229, 1 603 cas** | Les 216 snapshots B1.1 sont inchangés; 91 cas sont dans un répertoire B2.6 séparé et contrôlés par test. |
 | Couverture des 80 écarts | **Classés, aucune cible autorisée** | Approbation route par route/profil des 80 couples; l’option de refus doit être explicite pour les routes maintenues fermées. |
-| Sondes 400 | **Résultats valides antérieurs disponibles** | Réexécuter les sondes Worker sur HEAD après rétablissement du runner local; conserver leurs statuts et assertions de contenu. |
+| Sondes 400 | **13 anciennes réponses restent non concluantes** | Les sondes Worker valides actuelles établissent les contrôles correspondants; garder les anciennes 400 comme historique, jamais comme preuve d’autorisation. |
 | Couverture technique | **Fichiers disponibles** | Tests de non-authentifié, rôle manquant, affectation, propriété, état compte/session/appareil, auto-approbation, audit, pagination/compteurs et stabilité des 1 512 cas. |
 | Bascule par module | **Non commencée** | Activer un module à la fois dans l’ordre de la feuille de route, tests caractérisation/intégration/e2e verts, drapeau de retour en observation démontré. |
-| Vérification complète | **Non exécutée dans cette revue** | Après tout changement de code autorisé: tests ciblés puis npm run verify complet et enregistrement du code de sortie. |
+| Vérification complète | **PASS le 27-10-2026** | `npm run verify` exit 0; voir `evidence/verify-20261027T062431172Z.txt`. |
 
-## Vérifications exécutées sur HEAD e4feae4 (2026-10-27)
+## Tentatives initiales sur HEAD e4feae4 (historique)
 
 | Commande | Résultat |
 |---|---|
@@ -109,8 +109,60 @@ La matrice actuelle documente ADMIN_CENTRAL comme approbateur des appareils et e
 | npm run test:security-matrix | Exit 0; 229 routes synchronisées. |
 | SIGAD_INTEGRATION_TESTS=caracterisation-roles-worker.test.mjs npm run test:integration — deux tentatives | Toutes deux exit 1 قبل تشغيل الاختبار: Wrangler 4.151.3 يطبع Resource location: local ثم fetch failed؛ لا يوجد سجل جاهزية Worker. التنظيف يتعثر كذلك بـEPERM عند unlink لملف codes-activation.json المؤقت في run-auth-worker.mjs. الدليلان: verify-20261027T051713405Z.txt وverify-20261027T051816731Z.txt. لم يحدث تعديل على ملفات المنتج؛ محاولة الغلاف الأولى كتبت سجلها قبل فحص البصمات، لذلك أبلغ ذلك التشغيل عن هذا السجل وحده. |
 
-السبب الدقيق لفشل fetch وسبب رفض Windows unlink غير مثبتين؛ السجلات تثبت فقط فشل بدء Wrangler المحلي وخطأ التنظيف. لم تُجرَ محاولة ثالثة أو تعديل للتهيئة. لم يُشغّل npm run verify كاملًا لعدم وجود تعديل برمجي، كما أن تكامل Worker لم يبدأ.
+Les journaux de cette section sont historiques: le Temp utilisateur documenté en B2.3-A a permis ensuite de lancer Wrangler localement; aucune ressource Staging/Production n’a été visée.
 
 ## الحكم
 
-**B2.6 غير مكتملة ومحجوبة قبل enforcement.** أُنجزت مصفوفة القرار ونجحت فحوص الوحدة والكتالوج، ولم تتغير أي صلاحية. قبل التنفيذ يلزم اعتماد D-02/D-04 بالتفصيل، استكمال characterization للـ13 مسارًا الجديد، ثم تكرار اختبارات Worker والبوابة الكاملة في بيئة Wrangler محلية سليمة. لا انتقال إلى Phase 3 ولا تغيير في D-12.
+**B2.6 techniquement caractérisée, mais non clôturée pour l’enforcement.** Les 91 nouveaux cas, les 1 512 cas de référence, les contrôles géographiques/appareils et `npm run verify` sont vérifiés. Les 80 écarts restent à arbitrer par règle; aucun droit n’a changé. Pas de basculement B2.2, Phase 3 ni changement D-12.
+
+## Caractérisation finale et préparation (27-10-2026)
+
+Le run complet `evidence/verify-20261027T062431172Z.txt` a réussi en 463 s sur Worker/D1 Wrangler locaux. Résultats: TypeScript 0; 179 tests unitaires 0; matrice 229 routes 0; schéma 41 migrations jusqu’à 0041 et migration 0022 en mémoire 0; intégration Worker 0; empreintes des fichiers avant/après 0 changement automatique. Les tables B2.2 sont restées en mode ombre.
+
+| Rôle | Action et ressource (routes caractérisées) | Portée géographique et sensibilité | Comportement actuel observé (7 × 13) | Cible / effet d’approbation | Test d’acceptation |
+|---|---|---|---|---|---|
+| ADMIN_CENTRAL; autres rôles refusés | Lire/approuver/suspendre/révoquer un appareil (4 routes `/api/administration/comptes/appareils…`) | Compétence centrale nationale; appareil et compte relus en D1; métadonnées de compte/appareil sensibles, aucune PII bénéficiaire | Central: 200; autres rôles: 403 sur ces routes | Conserver l’autorité centrale; aucune délégation provinciale activée; pas de droit nouveau | Test Worker valide, approbation personnelle refusée, délégué refusé, événements audités |
+| Les 7 rôles | Défi/enregistrement/liste/révocation d’appareil et révocation de session (6 routes `/api/compte/appareils…`, `/api/compte/sessions…`) | Compte authentifié et propriété D1; sans extension géographique; données de sécurité personnelles | Tous: 200, sauf inscription: 201 | Conserver l’auto-service limité au compte propre | Clé/signature valide, appareil en attente, seconde session, refus d’usurpation; aucun 400 |
+| PROPRIETAIRE; autres rôles refusés | Inventaire/révocation technique d’appareil et révocation de compte (3 routes `/api/proprietaire/…`) | Portée technique plateforme; compte cible relu en D1; aucun accès bénéficiaire implicite | Propriétaire: 200; autres rôles: 403 | Conserver les fonctions de plateforme; aucune dérogation à une approbation métier | Fixtures locales, contrôle des rôles, événement d’audit et invalidation attendue |
+
+Les sept snapshots d’extension contiennent chacun 13 résultats; aucune des 91 requêtes ne retourne 400. Le test unitaire vérifie la correspondance politique/résultat et l’intégrité séparée des snapshots B1.1. La suite Worker répète l’isolation géographique: les lectures de terrain autorisées retournent seulement les lignes/comptes dans l’affectation; les identifiants hors portée retournent 404 sans lignes ni total; l’administration centrale garde son périmètre national. Les sondes valides renvoient 403 pour les référentiels de distribution interdits, 404 pour les ressources géographiques hors portée, 200 pour export consultatif non sensible et 403 pour export sensible. Les 13 anciens 400 sont: pour chacun des trois rôles terrain, `GET /api/distributions/referentiels`, `GET /api/territoire/arrondissements`, `GET /api/territoire/carres`, `GET /api/territoire/quartiers`, plus `CONSULTATION_INSTITUTIONNELLE POST /api/rapports/:type/export`; ils restent étiquetés non concluants dans les snapshots. Les 80 écarts B1.1 demeurent ouverts et aucune permission n’a changé.
+
+Le premier run complet a révélé une assertion non déterministe dans le test de concurrence d’approbation: l’événement doit reprendre le motif de la requête qui gagne, laquelle n’est pas nécessairement la première. Le test vérifie maintenant le motif associé à la réponse 200. Le run Worker ciblé et le run complet suivants ont réussi. Aucun code d’application, politique d’accès, migration ou donnée réelle n’a été modifié.
+
+### Décisions encore à approuver
+
+| Principe déjà approuvé, applicable sans ouverture de droit | Garde-fou vérifiable |
+|---|---|
+| Le propriétaire gère la plateforme sans accès nominatif bénéficiaire par défaut; l’accès central aux PII est explicite par action/ressource/but. | Refus par défaut et tests négatifs dédiés; toute exception nécessite une ligne approuvée et un audit. |
+| Les rôles terrain, stocks et délégations restent bornés à l’affectation réelle; le client ne peut pas élargir la province. | Source de portée issue de la session et des relations D1; tests de propriété, query forgée, compteurs et pagination. |
+| Collecte, vérification et approbation sont séparées; aucun acteur ne s’auto-approuve. | Tests d’auto-approbation et séparation d’acteur, sans changement de circuit D-12. |
+| Consultation reste en lecture seule et exclut les rapports sensibles sans autorisation distincte. | Export non sensible permis; export bénéficiaire sensible refusé; aucune permission de mutation métier. |
+| Toute action sensible doit rester auditable. | Acteur/cible/request_id et événement vérifiés pour les mutations de compte/appareil existantes. |
+
+Les principes ci-dessus sont approuvés comme contraintes de conception; ils ne changent pas les décisions des routes existantes. Les options de la table suivante sont les arbitrages opérationnels encore attendus.
+
+| Sujet et état actuel | Option recommandée | Effet précis si approuvée | Décideur |
+|---|---|---|---|
+| 21 lectures A1: 3 rôles terrain × 7 routes opérationnelles; actuel 200 | Autoriser par rôle/action et ressource/dossier assigné; refuser si affectation absente | Retirer les lectures génériques; seuls les dossiers assignés peuvent rester accessibles | Propriétaire fonctionnel D-04 |
+| 24 lectures A2: 3 rôles terrain × 8 référentiels; actuel 200 | Référentiels minimum utiles; séparation de la permission d’accès aux ménages/stocks | Peut réduire la visibilité du catalogue; n’élargit jamais la portée opérationnelle | Propriétaire fonctionnel D-04 |
+| 20 lectures A3: stock × RESPONSABLE_STOCK/SUPERVISEUR; actuel 200 | Responsable stock sur entrepôt/opération affectés; superviseur seulement avec affectation explicite | Peut fermer des lectures générales; ne crée aucun accès nominatif | Propriétaire fonctionnel D-04 |
+| 5 rapports A4 consultation; actuel 200 | Rapports agrégés/non sensibles, portée institutionnelle | Maintient les vues non sensibles; refuse les rapports individuels par défaut | Propriétaire fonctionnel D-02 |
+| 2 lectures ménages B1/B2; actuel 403 malgré l’attente historique | Maintenir le refus; toute exception nominative doit nommer route/action/ressource/but et audit | Aucun accès nouveau; une exception approuvée serait un changement de permission explicite | Propriétaire fonctionnel D-02 |
+| 7 notifications/opérations B3 consultation; actuel 403 | Garder opérations/documents refusés; décider séparément des notifications propres | Pas d’accès opérationnel; notification propre en lecture/accusé seulement si approuvée | Propriétaire fonctionnel D-02 |
+| Consolidation B4 délégué; actuel 403 | Maintenir refus jusqu’à définition du rôle provincial, sans acte d’approbation | Une éventuelle ouverture est lecture seule, limitée à sa province; D-12 reste inchangé | Propriétaires fonctionnels D-04; D-12 si workflow concerné |
+| 13 anciennes sondes 400; décision non prouvée par ces codes | S’appuyer sur les sondes Worker valides; garder les 400 historiques | Aucun changement de droit; toute exception nouvelle exige une requête valide et une réponse déterminante | Propriétaires fonctionnels de chaque règle |
+
+**Changement de permissions autorisé dans ce travail: aucun.** Les recommandations des lignes A1–B4 décrivent des réductions ou limites proposées, pas des ordres de modification. Aucun chemin bloqué n’est ouvert par la seule présence d’une ancienne documentation permissive.
+
+### Conditions de transfert de B2.2 vers l’enforcement
+
+| Porte | État | Preuve exigée avant bascule |
+|---|---|---|
+| Matrice D-02/D-04 détaillée | Ouverte | Approbation par rôle × action × ressource × portée, couvrant les 80 écarts, les exceptions de PII et les refus à conserver. |
+| Réconciliation de comptes/affectations | Ouverte | Stratégie pour comptes historiques, créations et modifications; divergences shadow/legacy expliquées et corrigées ou explicitement acceptées; aucune divergence d’autorité non expliquée. |
+| Comparaison legacy/shadow | Pas une source d’accès actuellement | Rejouer les 1 603 décisions, tests de propriété, géographie, état compte/session/appareil; examiner chaque écart et prouver zéro élargissement non autorisé. |
+| Mise à jour synchronisée | À concevoir avant transition | Changements de rôle/niveau écrits et réconciliés sans fenêtre d’accès stale; événement d’audit acteur/cible/request_id. |
+| Bascule et retour | Non commencés | Activation module par module, désactivée par défaut, résultat différentiel surveillé et retour au moteur historique testé avant progression. |
+| D-12 et référentiel B2.3-B | Inchangés / bloqué pour import officiel | Aucun changement de workflow; référence juridique et autorité géographique approuvées avant d’utiliser le nouveau référentiel pour les décisions d’accès. |
+
+**Conclusion:** la caractérisation B2.6 est techniquement prête pour arbitrage de la matrice, mais B2.6 n’est pas close pour enforcement. Les tables B2.2 ne sont toujours pas une source d’autorisation. La Phase 3 n’est pas commencée.
