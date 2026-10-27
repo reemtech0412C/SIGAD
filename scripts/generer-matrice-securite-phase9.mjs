@@ -131,6 +131,9 @@ for (const fichier of chemins) {
         } else {
           roles = "Session authentifiée; changement initial et déconnexion exigent CSRF";
         }
+      } else if (variable === "routesAdministration" && routeComplete.includes("/appareils")) {
+        roles = "ADMIN_CENTRAL uniquement; approbation motivée sans auto-approbation; suspension et révocation invalidant les sessions liées";
+        province = "Portée centrale nationale; délégué provincial non autorisé avant validation de D-04; propriétaire résolu depuis l’appareil en base";
       } else if (variable === "routesStocks" && mutation && /^\/api\/stocks\/(categories-aide|unites-mesure|conditionnements|articles)/u.test(routeComplete)) {
         roles = "PROPRIETAIRE ou ADMIN_CENTRAL uniquement";
       } else if (variable === "routesStocks" && mutation) {

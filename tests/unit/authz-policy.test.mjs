@@ -28,8 +28,8 @@ function decisionCaractérisée(politique, role) {
 }
 
 test("catalogue: routes uniques, portée explicite et échec fermé sans politique", () => {
-  assert.equal(CATALOGUE_POLITIQUES_API.length, 227);
-  assert.equal(new Set(CATALOGUE_POLITIQUES_API.map(({ methode, chemin }) => cle(methode, chemin))).size, 227);
+  assert.equal(CATALOGUE_POLITIQUES_API.length, 229);
+  assert.equal(new Set(CATALOGUE_POLITIQUES_API.map(({ methode, chemin }) => cle(methode, chemin))).size, 229);
   for (const politique of CATALOGUE_POLITIQUES_API) {
     assert.match(politique.permission, /^API:(GET|POST|PUT|PATCH|DELETE):\/api\//u);
     assert.ok(politique.portee.trim(), `${politique.methode} ${politique.chemin} doit déclarer sa portée.`);

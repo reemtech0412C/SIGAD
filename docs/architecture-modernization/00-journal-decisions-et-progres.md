@@ -44,7 +44,7 @@
 
 ### Décisions et orientations
 
-D-01/02/03/04/13 ont été approuvées le 2026-10-26; D-02/03/04/13 fixent le sens d'architecture mais leurs matrices/autorités restent à détailler avant enforcement ou géographie. D-12 reste ouverte; D-05/06/07/08/09/10/11/14 gardent le statut indiqué dans `05-decisions-a-valider.md`.
+D-01/02/03/04/13 ont été approuvées le 2026-10-26; D-02/03/04/13 fixent le sens d'architecture mais leurs matrices/autorités restent à détailler avant enforcement ou géographie. D-07 est approuvée partiellement le 2026-10-27 pour le cycle de vie des appareils : enregistrement avec preuve cryptographique en attente, approbation centrale sans auto-approbation, suspension/révocation auditées et quarantaine des opérations tardives; l'approbation provinciale reste désactivée jusqu'à la matrice D-04. MFA/PIN et tolérance d'horloge demeurent ouverts pour B4.5/B4.6. D-12 reste ouverte; D-05/06/08/09/10/11/14 gardent le statut indiqué dans `05-decisions-a-valider.md`.
 
 ## 3. Journal des commandes et résultats (preuves — session du 2026-10-26)
 

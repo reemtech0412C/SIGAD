@@ -27,8 +27,21 @@ export const CATALOGUE_POLITIQUES_API = [
       "ADMIN_CENTRAL"
     ],
     "rolesConditionnels": [],
-    "portee": "Périmètre central; province de délégation relue en D1; remplacement et unicité protégés par transaction et index partiel",
+    "portee": "Portée centrale nationale; délégué provincial non autorisé avant validation de D-04; propriétaire résolu depuis l’appareil en base",
     "csrf": false
+  },
+  {
+    "permission": "API:POST:/api/administration/comptes/appareils/:id/approuver",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/administration/comptes/appareils/:id/approuver",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Portée centrale nationale; délégué provincial non autorisé avant validation de D-04; propriétaire résolu depuis l’appareil en base",
+    "csrf": true
   },
   {
     "permission": "API:POST:/api/administration/comptes/appareils/:id/revoquer",
@@ -40,7 +53,20 @@ export const CATALOGUE_POLITIQUES_API = [
       "ADMIN_CENTRAL"
     ],
     "rolesConditionnels": [],
-    "portee": "Périmètre central; province de délégation relue en D1; remplacement et unicité protégés par transaction et index partiel",
+    "portee": "Portée centrale nationale; délégué provincial non autorisé avant validation de D-04; propriétaire résolu depuis l’appareil en base",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/administration/comptes/appareils/:id/suspendre",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/administration/comptes/appareils/:id/suspendre",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Portée centrale nationale; délégué provincial non autorisé avant validation de D-04; propriétaire résolu depuis l’appareil en base",
     "csrf": true
   },
   {

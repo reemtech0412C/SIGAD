@@ -142,6 +142,21 @@ class ClientLocal {
   }
 }
 
+async function enregistrerAppareilTest(client, utilisateurId, nom) {
+  const paire = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const cle = await webcrypto.subtle.exportKey("jwk", paire.publicKey);
+  const defi = await client.requete("/api/compte/appareils/defis", { methode: "POST", corps: { cle_publique_jwk: cle } });
+  assert.equal(defi.reponse.status, 200);
+  const message = new TextEncoder().encode(`SIGAD-DEVICE-REGISTER:${utilisateurId}:${defi.donnees.id}:${defi.donnees.defi}`);
+  const signature = Buffer.from(await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, paire.privateKey, message)).toString("base64url");
+  const inscription = await client.requete("/api/compte/appareils", {
+    methode: "POST", corps: { defi_id: defi.donnees.id, plateforme: "ANDROID", nom, signature },
+  });
+  assert.equal(inscription.reponse.status, 201, JSON.stringify(inscription.donnees));
+  assert.equal(inscription.donnees.statut, "EN_ATTENTE");
+  return inscription.donnees;
+}
+
 function ouvrirD1Locale() {
   const dossierEtat = process.env.SIGAD_D1_STATE_DIR ?? resolve(racine, ".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
   const candidats = readdirSync(dossierEtat).filter((nom) => nom.endsWith(".sqlite") && nom !== "metadata.sqlite");
@@ -1748,6 +1763,12 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.ok(activationDelegue, "Une invitation d’activation doit être remise après l’approbation.");
   const reponseApprobation = decisionsConcurrentes.find((decision) => decision.reponse.status === 201);
   assert.equal(Object.hasOwn(reponseApprobation.donnees, "code_activation"), false, "L’API ne retourne jamais le code d’activation.");
+  const codeActivationDelegue = activationDelegue.text.match(/Code d’activation\s*:\s*([^\s]+)/iu)?.[1];
+  assert.ok(codeActivationDelegue, "Le message d’invitation contient le code nécessaire à l’activation du compte synthétique.");
+  const delegueApprouvePourTest = new ClientLocal();
+  const connexionDelegueApprouve = await delegueApprouvePourTest.connexion(reponseApprobation.donnees.identifiant, codeActivationDelegue);
+  assert.equal(connexionDelegueApprouve.reponse.status, 200);
+  await delegueApprouvePourTest.changerMotDePasse(nouveauMotDePasse());
 
   const creationConsultation = await administrateurCentral.requete("/api/administration/comptes/consultation", {
     methode: "POST",
@@ -1999,6 +2020,45 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(appareilsCentral.reponse.status, 200);
   assert.ok(appareilsCentral.donnees.elements.some((element) => element.id === inscriptionAppareil.donnees.id));
 
+  const approbationPropreProprietaire = await proprietaire.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/approuver`, {
+    methode: "POST", corps: { motif: "Tentative d’approbation propre de l’appareil." },
+  });
+  assert.equal(approbationPropreProprietaire.reponse.status, 403, "Le titulaire ne peut pas accéder à l’API d’approbation centrale.");
+
+  const appareilEnAttenteAutorevocation = await enregistrerAppareilTest(
+    proprietaire, connexionProprietaire.donnees.utilisateur.id, "Android synthétique révocable par son titulaire",
+  );
+  const revocationPropreAppareil = await proprietaire.requete(`/api/compte/appareils/${encodeURIComponent(appareilEnAttenteAutorevocation.id)}/revoquer`, {
+    methode: "POST",
+  });
+  assert.equal(revocationPropreAppareil.reponse.status, 200, "Le titulaire peut révoquer son appareil en attente.");
+  const auditRevocationPropre = ouvrirD1Locale();
+  const journalRevocationPropre = auditRevocationPropre.prepare("SELECT action, acteur_id FROM evenements_audit WHERE request_id = ?")
+    .get(revocationPropreAppareil.reponse.headers.get("X-Request-ID"));
+  assert.equal(journalRevocationPropre.action, "REVOCATION_APPAREIL");
+  assert.equal(journalRevocationPropre.acteur_id, connexionProprietaire.donnees.utilisateur.id);
+  auditRevocationPropre.close();
+
+  const appareilCentralPropre = ouvrirD1Locale();
+  appareilCentralPropre.prepare(`INSERT INTO appareils
+    (id, utilisateur_id, plateforme, nom, empreinte_cle, cle_publique_jwk, statut)
+    VALUES ('appareil-central-propre-test', 'usr-central', 'ANDROID', 'Fixture synthétique centrale', ?,
+      '{"kty":"EC","crv":"P-256","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","y":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}', 'EN_ATTENTE')`)
+    .run("d".repeat(64));
+  appareilCentralPropre.close();
+  const approbationPropreCentrale = await administrateurCentral.requete("/api/administration/comptes/appareils/appareil-central-propre-test/approuver", {
+    methode: "POST", corps: { motif: "Vérification du refus d’auto-approbation centrale." },
+  });
+  assert.equal(approbationPropreCentrale.reponse.status, 409, "Un administrateur central ne peut pas approuver son propre appareil.");
+  const controleAutoApprobation = ouvrirD1Locale();
+  assert.equal(controleAutoApprobation.prepare("SELECT statut FROM appareils WHERE id = 'appareil-central-propre-test'").get().statut, "EN_ATTENTE");
+  controleAutoApprobation.close();
+
+  const tentativeApprobationDelegue = await delegueApprouvePourTest.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/approuver`, {
+    methode: "POST", corps: { motif: "Tentative provinciale avant approbation de D-04." },
+  });
+  assert.equal(tentativeApprobationDelegue.reponse.status, 403, "L’approbation par un délégué reste désactivée jusqu’à D-04.");
+
   const appareilAutreCompteDb = ouvrirD1Locale();
   appareilAutreCompteDb.prepare(`INSERT INTO appareils
     (id, utilisateur_id, plateforme, nom, empreinte_cle, cle_publique_jwk, statut, autorise_par, autorise_le)
@@ -2017,19 +2077,87 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
 
   const sessionProprietaireCourante = listeSessionsProprietaire.donnees.elements.find((element) => element.session_courante === 1);
   assert.ok(sessionProprietaireCourante);
+  const liaisonAppareilEnAttente = ouvrirD1Locale();
+  assert.throws(() => liaisonAppareilEnAttente.prepare("UPDATE sessions SET appareil_id = ?, type = 'MOBILE' WHERE id = ?")
+    .run(inscriptionAppareil.donnees.id, sessionProprietaireCourante.id), /SESSION_APPAREIL_NON_AUTORISE/u,
+  "Une session mobile ne peut pas être liée à un appareil en attente.");
+  liaisonAppareilEnAttente.close();
+
+  const demandesApprobationConcurrentes = await Promise.all([
+    administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/approuver`, {
+      methode: "POST", corps: { motif: "Approbation centrale de l’appareil synthétique." },
+    }),
+    administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/approuver`, {
+      methode: "POST", corps: { motif: "Rejeu concurrent de l’approbation centrale." },
+    }),
+  ]);
+  assert.deepEqual(demandesApprobationConcurrentes.map((resultat) => resultat.reponse.status).sort(), [200, 409],
+    "Une seule approbation concurrente doit réussir; le rejeu est refusé.");
+  const approbationReussie = demandesApprobationConcurrentes.find((resultat) => resultat.reponse.status === 200);
+  assert.ok(approbationReussie);
+  const auditApprobation = ouvrirD1Locale();
+  const journalApprobation = auditApprobation.prepare(`SELECT action, acteur_id, acteur_role, cible_id, motif
+    FROM evenements_audit WHERE request_id = ?`).get(approbationReussie.reponse.headers.get("X-Request-ID"));
+  assert.equal(journalApprobation.action, "APPROBATION_APPAREIL");
+  assert.equal(journalApprobation.acteur_id, "usr-central");
+  assert.equal(journalApprobation.acteur_role, "ADMIN_CENTRAL");
+  assert.equal(journalApprobation.cible_id, inscriptionAppareil.donnees.id);
+  assert.equal(journalApprobation.motif, "Approbation centrale de l’appareil synthétique.");
+  assert.equal(auditApprobation.prepare("SELECT COUNT(*) AS total FROM evenements_audit WHERE action = 'APPROBATION_APPAREIL' AND cible_id = ?")
+    .get(inscriptionAppareil.donnees.id).total, 1, "Le rejeu concurrent ne crée pas de second événement.");
+  auditApprobation.close();
+
   const baseAppareil = ouvrirD1Locale();
-  baseAppareil.prepare(`UPDATE appareils SET statut = 'AUTORISE', autorise_par = 'usr-central', autorise_le = datetime('now') WHERE id = ?`)
-    .run(inscriptionAppareil.donnees.id);
-  baseAppareil.prepare(`UPDATE sessions SET appareil_id = ?, type = 'MOBILE' WHERE id = ? AND utilisateur_id = 'usr-proprietaire'`)
+  assert.equal(baseAppareil.prepare("SELECT statut, autorise_par FROM appareils WHERE id = ?").get(inscriptionAppareil.donnees.id).statut, "AUTORISE");
+  baseAppareil.prepare("UPDATE sessions SET appareil_id = ?, type = 'MOBILE' WHERE id = ? AND utilisateur_id = 'usr-proprietaire'")
     .run(inscriptionAppareil.donnees.id, sessionProprietaireCourante.id);
   baseAppareil.close();
-  const revocationAppareil = await administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/revoquer`, {
-    methode: "POST", corps: { motif: "Révocation contrôlée de l’appareil synthétique." },
+  assert.equal((await proprietaire.requete("/api/auth/session")).reponse.status, 200,
+    "Une session liée à un appareil approuvé conserve son accès.");
+
+  const suspensionAppareil = await administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/suspendre`, {
+    methode: "POST", corps: { motif: "Suspension contrôlée de l’appareil synthétique." },
   });
-  assert.equal(revocationAppareil.reponse.status, 200);
-  assert.equal((await proprietaire.requete("/api/auth/session")).reponse.status, 401, "La révocation de l’appareil coupe la session mobile associée.");
-  const auditAppareil = ouvrirD1Locale();
-  const journalAppareil = auditAppareil.prepare(`SELECT action, acteur_id, acteur_role, request_id, cible_type, cible_id, motif
+  assert.equal(suspensionAppareil.reponse.status, 200);
+  assert.equal((await proprietaire.requete("/api/auth/session")).reponse.status, 401,
+    "La suspension invalide la session mobile et bloque la requête suivante.");
+  const auditSuspensionAppareil = ouvrirD1Locale();
+  const journalSuspension = auditSuspensionAppareil.prepare("SELECT action, acteur_id, acteur_role, cible_id, motif FROM evenements_audit WHERE request_id = ?")
+    .get(suspensionAppareil.reponse.headers.get("X-Request-ID"));
+  assert.equal(journalSuspension.action, "SUSPENSION_APPAREIL");
+  assert.equal(journalSuspension.acteur_id, "usr-central");
+  assert.equal(journalSuspension.acteur_role, "ADMIN_CENTRAL");
+  assert.equal(journalSuspension.cible_id, inscriptionAppareil.donnees.id);
+  assert.equal(journalSuspension.motif, "Suspension contrôlée de l’appareil synthétique.");
+  assert.equal(auditSuspensionAppareil.prepare("SELECT statut FROM appareils WHERE id = ?").get(inscriptionAppareil.donnees.id).statut, "SUSPENDU");
+  assert.equal(auditSuspensionAppareil.prepare("SELECT revoquee, motif_revocation FROM sessions WHERE id = ?").get(sessionProprietaireCourante.id).motif_revocation,
+    "APPAREIL_SUSPENDU");
+  auditSuspensionAppareil.close();
+
+  const reapprobationSuspension = await administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/approuver`, {
+    methode: "POST", corps: { motif: "Réapprobation non permise depuis une suspension." },
+  });
+  assert.equal(reapprobationSuspension.reponse.status, 409, "Une réactivation ne contourne pas l’état suspendu.");
+
+  const demandesRevocationConcurrentes = await Promise.all([
+    administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/revoquer`, {
+      methode: "POST", corps: { motif: "Révocation contrôlée de l’appareil synthétique." },
+    }),
+    administrateurCentral.requete(`/api/administration/comptes/appareils/${encodeURIComponent(inscriptionAppareil.donnees.id)}/revoquer`, {
+      methode: "POST", corps: { motif: "Rejeu concurrent de révocation." },
+    }),
+  ]);
+  assert.deepEqual(demandesRevocationConcurrentes.map((resultat) => resultat.reponse.status).sort(), [200, 404],
+    "Une seule révocation concurrente doit réussir; le rejeu est refusé.");
+  const revocationAppareil = demandesRevocationConcurrentes.find((resultat) => resultat.reponse.status === 200);
+  assert.ok(revocationAppareil);
+  assert.equal((await proprietaire.requete("/api/auth/session")).reponse.status, 401,
+    "La session liée reste invalide après révocation.");
+  const controleRestaurerAppareilRevoque = ouvrirD1Locale();
+  assert.throws(() => controleRestaurerAppareilRevoque.prepare("UPDATE sessions SET appareil_id = ?, type = 'MOBILE' WHERE id = ?")
+    .run(inscriptionAppareil.donnees.id, sessionProprietaireCourante.id), /SESSION_APPAREIL_NON_AUTORISE/u,
+  "Un appareil révoqué ne peut pas être réassocié à une session.");
+  const journalAppareil = controleRestaurerAppareilRevoque.prepare(`SELECT action, acteur_id, acteur_role, cible_type, cible_id, motif
     FROM evenements_audit WHERE request_id = ?`).get(revocationAppareil.reponse.headers.get("X-Request-ID"));
   assert.equal(journalAppareil.action, "REVOCATION_APPAREIL");
   assert.equal(journalAppareil.acteur_id, "usr-central");
@@ -2037,9 +2165,10 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(journalAppareil.cible_type, "APPAREIL");
   assert.equal(journalAppareil.cible_id, inscriptionAppareil.donnees.id);
   assert.equal(journalAppareil.motif, "Révocation contrôlée de l’appareil synthétique.");
-  assert.equal(auditAppareil.prepare("SELECT statut FROM appareils WHERE id = ?").get(inscriptionAppareil.donnees.id).statut, "REVOQUE");
-  assert.equal(auditAppareil.prepare("SELECT revoquee, motif_revocation FROM sessions WHERE id = ?").get(sessionProprietaireCourante.id).motif_revocation, "APPAREIL_REVOQUE");
-  auditAppareil.close();
+  assert.equal(controleRestaurerAppareilRevoque.prepare("SELECT statut FROM appareils WHERE id = ?").get(inscriptionAppareil.donnees.id).statut, "REVOQUE");
+  assert.equal(controleRestaurerAppareilRevoque.prepare("SELECT revoquee, motif_revocation FROM sessions WHERE id = ?").get(sessionProprietaireCourante.id).motif_revocation,
+    "APPAREIL_SUSPENDU", "La session conserve le premier motif d’invalidation enregistré lors de la suspension.");
+  controleRestaurerAppareilRevoque.close();
 
   const revocationToutesSessions = await administrateurCentral.requete("/api/compte/sessions/revoquer-toutes", { methode: "POST" });
   assert.equal(revocationToutesSessions.reponse.status, 200);
