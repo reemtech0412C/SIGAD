@@ -1,0 +1,59 @@
+SIGAD B2.6 preflight characterization
+Revision: e4feae43f6f7abfbd7045206cd8e1189bd57beca
+Command: SIGAD_INTEGRATION_TESTS=caracterisation-roles-worker.test.mjs npm run test:integration
+Start: 2026-10-27T06:17:11.1642541+01:00
+
+> sigad-tchad@3.0.0 test:integration
+> node scripts/verify.mjs --integration-only
+
+
+[VERIFY] DÉBUT Intégration Wrangler locale — 2026-10-27T05:17:16.543Z (27/10/2026 06:17:16 Africa/Ndjamena)
+Seed initial sécurisé généré pour le développement local.
+Seed SQL conservé hors du dépôt : C:\Users\Lenovo\AppData\Local\Packages\sandbox.{6a0ca65e-a07c-419a-9677-e410813713e4}\AC\Temp\sigad-verify-ONag2r\sigad-acceptation-worker-1yumSk\seed-initial.sql
+Codes d’activation conservés hors du dépôt : C:\Users\Lenovo\AppData\Local\Packages\sandbox.{6a0ca65e-a07c-419a-9677-e410813713e4}\AC\Temp\sigad-verify-ONag2r\sigad-acceptation-worker-1yumSk\codes-activation.json
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mA fetch request failed, likely due to a connectivity issue.[0m
+
+  
+  Common causes:
+    - No internet connection or network connectivity problems
+    - Firewall or VPN blocking the request
+    - Network proxy configuration issues
+  
+  Please check your network connection and try again.
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mfetch failed[0m
+
+
+[32mIf you think this is a bug then please create an issue at https://github.com/cloudflare/workers-sdk/issues/new/choose[0m
+🪵  Logs were written to "C:\Users\Lenovo\AppData\Local\Packages\sandbox.{6a0ca65e-a07c-419a-9677-e410813713e4}\AC\Temp\sigad-verify-ONag2r\sigad-acceptation-worker-1yumSk\appdata\xdg\.wrangler\logs\wrangler-2026-10-27_05-17-22_887.log"
+La commande Node s’est terminée avec le code 1.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+[Error: EPERM: operation not permitted, unlink 'C:\Users\Lenovo\AppData\Local\Packages\sandbox.{6a0ca65e-a07c-419a-9677-e410813713e4}\AC\Temp\sigad-verify-ONag2r\sigad-acceptation-worker-1yumSk\codes-activation.json'] {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'unlink',
+  path: 'C:\\Users\\Lenovo\\AppData\\Local\\Packages\\sandbox.{6a0ca65e-a07c-419a-9677-e410813713e4}\\AC\\Temp\\sigad-verify-ONag2r\\sigad-acceptation-worker-1yumSk\\codes-activation.json'
+}
+
+Node.js v24.19.0
+[VERIFY] FIN Intégration Wrangler locale — 2026-10-27T05:17:33.615Z (27/10/2026 06:17:33 Africa/Ndjamena) — exit=1
+
+[VERIFY] Tracked/non-ignored files changed: 1
+docs/architecture-modernization/evidence/b2-6-characterization-20261027.txt
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
+[VERIFY] Evidence: docs/architecture-modernization/evidence/verify-20261027T051713405Z.txt
+Exit code: 1 End: 2026-10-27T06:17:35.7779133+01:00
