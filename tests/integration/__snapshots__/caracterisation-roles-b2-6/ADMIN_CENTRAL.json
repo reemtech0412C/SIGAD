@@ -1,0 +1,93 @@
+[
+  {
+    "methode": "GET",
+    "chemin": "/api/administration/comptes/appareils",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/appareils/:id/approuver",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/appareils/:id/revoquer",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/administration/comptes/appareils/:id/suspendre",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/compte/appareils",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/appareils",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 201,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/appareils/:id/revoquer",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/appareils/defis",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/sessions/:id/revoquer",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/appareils",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/appareils/:id/revoquer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/utilisateurs/:id/revoquer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/compte/sessions/revoquer-toutes",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  }
+]

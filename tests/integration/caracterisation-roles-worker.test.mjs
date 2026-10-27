@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, webcrypto } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { dirname, join, resolve } from "node:path";
@@ -11,6 +11,7 @@ import { codeMfaInutilise, configurerMfaTest, terminerConnexionMfaTest } from ".
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
 const dossierSnapshots = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles");
+const dossierSnapshotsB2_6 = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles-b2-6");
 const roles = [
   "PROPRIETAIRE",
   "ADMIN_CENTRAL",
@@ -45,9 +46,11 @@ function routesDeLaMatrice() {
   const baseline = JSON.parse(readFileSync(join(dossierSnapshots, "PROPRIETAIRE.json"), "utf8"));
   assert.equal(baseline.length, 216, "La baseline B1.1 doit conserver ses 216 routes historiques.");
   const routesBaseline = new Set(baseline.map(({ methode, chemin }) => `${methode} ${chemin}`));
-  const routes = matrice.filter(({ methode, chemin }) => routesBaseline.has(`${methode} ${chemin}`));
-  assert.equal(routes.length, 216, "La matrice courante doit conserver les 216 routes de la baseline B1.1.");
-  return routes;
+  const historiques = matrice.filter(({ methode, chemin }) => routesBaseline.has(`${methode} ${chemin}`));
+  const extension = matrice.filter(({ methode, chemin }) => !routesBaseline.has(`${methode} ${chemin}`));
+  assert.equal(historiques.length, 216, "La matrice courante doit conserver les 216 routes de la baseline B1.1.");
+  assert.equal(extension.length, 13, "La matrice B2.6 doit ajouter exactement les 13 routes postérieures à B1.1.");
+  return { historiques, extension, toutes: [...historiques, ...extension] };
 }
 
 function cheminConcrete(chemin, provinceId) {
@@ -178,10 +181,59 @@ async function corpsCaracterisation(route, role, compte) {
   if (route.chemin === "/api/auth/mfa/reinitialiser/:utilisateurId" && role === "PROPRIETAIRE") {
     return { code: await codeMfaInutilise(compte.identifiant) };
   }
+  if (route.chemin.startsWith("/api/administration/comptes/appareils/")
+    || route.chemin === "/api/proprietaire/appareils/:id/revoquer"
+    || route.chemin === "/api/proprietaire/utilisateurs/:id/revoquer") {
+    return { motif: "Sonde synthétique B2.6; cible inexistante." };
+  }
   return {};
 }
 
-test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", async () => {
+async function creerDefiAppareil(client) {
+  const paire = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const clePubliqueJwk = await webcrypto.subtle.exportKey("jwk", paire.publicKey);
+  const resultat = await client.requete("/api/compte/appareils/defis", {
+    methode: "POST",
+    corps: { cle_publique_jwk: clePubliqueJwk },
+  });
+  assert.equal(resultat.reponse.status, 200, "Un défi d’appareil local valide doit être émis.");
+  return { paire, clePubliqueJwk, defi: resultat.donnees, reponse: resultat };
+}
+
+async function inscrireAppareilCaracterisation(client, compte, preuve, role) {
+  const message = new TextEncoder().encode(
+    `SIGAD-DEVICE-REGISTER:${compte.id}:${preuve.defi.id}:${preuve.defi.defi}`,
+  );
+  const signature = Buffer.from(await webcrypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" }, preuve.paire.privateKey, message,
+  )).toString("base64url");
+  return client.requete("/api/compte/appareils", {
+    methode: "POST",
+    corps: {
+      defi_id: preuve.defi.id,
+      plateforme: "ANDROID",
+      nom: `Sonde locale B2.6 ${role}`,
+      signature,
+    },
+    cleIdempotence: `b26-device-register-${role.toLowerCase()}-0001`,
+  });
+}
+
+function creerAppareilFixture(base, utilisateurId, statut, autorisePar) {
+  const id = `b26-device-${randomBytes(8).toString("hex")}`;
+  const clePubliqueJwk = JSON.stringify({
+    kty: "EC", crv: "P-256",
+    x: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    y: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  });
+  base.prepare(`INSERT INTO appareils
+    (id, utilisateur_id, plateforme, nom, empreinte_cle, cle_publique_jwk, statut, autorise_par, autorise_le)
+    VALUES (?, ?, 'ANDROID', 'Appareil synthétique B2.6', ?, ?, ?, ?, CASE WHEN ? = 'AUTORISE' THEN datetime('now') ELSE NULL END)`)
+    .run(id, utilisateurId, randomBytes(32).toString("hex"), clePubliqueJwk, statut, autorisePar, statut);
+  return id;
+}
+
+test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", async () => {
   const base = ouvrirD1Locale();
   const clients = new Map();
   const profilsAjoutes = [];
@@ -244,11 +296,40 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
       clients.set(compte.roleCaractérisation, await preparerCompte(base, compte));
     }
 
-    const matrice = routesDeLaMatrice();
+    const { historiques, extension, toutes: matrice } = routesDeLaMatrice();
+    const cleRoute = ({ methode, chemin }) => `${methode} ${chemin}`;
+    const routesHistoriques = new Set(historiques.map(cleRoute));
+    const routesExtension = new Set(extension.map(cleRoute));
     const observations = new Map(roles.map((role) => [role, []]));
-    const routesDeconnexion = matrice.filter((route) => route.methode === "POST" && route.chemin === "/api/auth/deconnexion");
-    const routesOrdinaires = matrice.filter((route) => !routesDeconnexion.includes(route));
+    const routesDeconnexion = historiques.filter((route) => route.methode === "POST" && route.chemin === "/api/auth/deconnexion");
+    const routesRevoquerToutes = extension.filter((route) => route.methode === "POST" && route.chemin === "/api/compte/sessions/revoquer-toutes");
+    const routesOrdinaires = matrice.filter((route) =>
+      !routesDeconnexion.includes(route) && !routesRevoquerToutes.includes(route));
     assert.equal(routesDeconnexion.length, 1, "La route de déconnexion doit être unique dans la matrice.");
+    assert.equal(routesRevoquerToutes.length, 1, "La révocation globale des sessions doit être sondée une fois par rôle.");
+
+    const appareilsPersonnels = new Map();
+    const preuvesEnregistrement = new Map();
+    const comptesCiblesB2_6 = new Map();
+    for (const compte of comptes) {
+      const role = compte.roleCaractérisation;
+      appareilsPersonnels.set(role, creerAppareilFixture(base, compte.id, "EN_ATTENTE", null));
+      preuvesEnregistrement.set(role, await creerDefiAppareil(clients.get(role)));
+    }
+    const appareilsAdministratifs = {
+      approuver: creerAppareilFixture(base, delegueSila.id, "EN_ATTENTE", null),
+      revoquer: creerAppareilFixture(base, delegueSila.id, "AUTORISE", central.id),
+      suspendre: creerAppareilFixture(base, delegueSila.id, "AUTORISE", central.id),
+      proprietaire: creerAppareilFixture(base, delegueSila.id, "AUTORISE", central.id),
+    };
+    const identifiantCibleB2_6 = `usr-b26-${randomBytes(8).toString("hex")}`;
+    const loginCibleB2_6 = `b26-cible-${randomBytes(8).toString("hex")}`;
+    await base.prepare(`INSERT INTO utilisateurs
+      (id, identifiant, nom_complet, role, province_id, mot_de_passe_hash, doit_changer_mot_de_passe, statut)
+      VALUES (?, ?, 'Compte synthétique cible B2.6', 'ADMIN_CENTRAL', NULL, ?, 0, 'ACTIF')`)
+      .run(identifiantCibleB2_6, loginCibleB2_6,
+        await hacherMotDePasse(`B26-Target-${randomBytes(24).toString("base64url")}Aa9`));
+    comptesCiblesB2_6.set("POST /api/proprietaire/utilisateurs/:id/revoquer", identifiantCibleB2_6);
 
     for (const role of roles) {
       const compte = comptes.find((element) => element.roleCaractérisation === role);
@@ -257,16 +338,82 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
       for (let index = 0; index < routesOrdinaires.length; index += 1) {
         const route = routesOrdinaires[index];
         let resultat;
+        let chemin = cheminConcrete(route.chemin, compte.province_id ?? "prov-sila");
+        let corps = route.methode === "GET" ? undefined : await corpsCaracterisation(route, role, compte);
+        const cle = cleRoute(route);
         try {
-          resultat = await client.requete(cheminConcrete(route.chemin, compte.province_id ?? "prov-sila"), {
-            methode: route.methode,
-            ...(route.methode === "GET" ? {} : {
-              corps: await corpsCaracterisation(route, role, compte),
-              cleIdempotence: `role-char-${role}-${String(index).padStart(3, "0")}-0001`,
-            }),
-          });
+          if (cle === "POST /api/compte/appareils") {
+            resultat = await inscrireAppareilCaracterisation(client, compte, preuvesEnregistrement.get(role), role);
+          } else if (cle === "POST /api/compte/appareils/:id/revoquer") {
+            chemin = route.chemin.replace(":id", encodeURIComponent(appareilsPersonnels.get(role)));
+            resultat = await client.requete(chemin, { methode: route.methode, corps: {}, cleIdempotence: `b26-self-device-${role.toLowerCase()}-0001` });
+          } else if (cle === "POST /api/compte/appareils/defis") {
+            resultat = (await creerDefiAppareil(client)).reponse;
+          } else if (cle === "POST /api/compte/sessions/:id/revoquer") {
+            const sessionSecondaire = new ClientLocal();
+            await sessionSecondaire.connecter(client.identifiantConnexion, client.motDePasseConnexion);
+            const sessions = await client.requete("/api/compte/sessions");
+            assert.equal(sessions.reponse.status, 200, `${role}: la liste privée des sessions doit être accessible avant révocation.`);
+            const cibleSession = sessions.donnees?.elements?.find((element) => element.session_courante === 0);
+            assert.ok(cibleSession, `${role}: le test doit disposer d’une seconde session pour caractériser sa révocation.`);
+            chemin = route.chemin.replace(":id", encodeURIComponent(cibleSession.id));
+            resultat = await client.requete(chemin, { methode: route.methode, corps: {}, cleIdempotence: `b26-session-${role.toLowerCase()}-0001` });
+          } else {
+            const appareilsParRoute = new Map([
+              ["POST /api/administration/comptes/appareils/:id/approuver", appareilsAdministratifs.approuver],
+              ["POST /api/administration/comptes/appareils/:id/revoquer", appareilsAdministratifs.revoquer],
+              ["POST /api/administration/comptes/appareils/:id/suspendre", appareilsAdministratifs.suspendre],
+              ["POST /api/proprietaire/appareils/:id/revoquer", appareilsAdministratifs.proprietaire],
+            ]);
+            if (appareilsParRoute.has(cle)) {
+              chemin = route.chemin.replace(":id", encodeURIComponent(appareilsParRoute.get(cle)));
+            } else if (comptesCiblesB2_6.has(cle)) {
+              chemin = route.chemin.replace(":id", encodeURIComponent(comptesCiblesB2_6.get(cle)));
+            }
+            resultat = await client.requete(chemin, {
+              methode: route.methode,
+              ...(route.methode === "GET" ? {} : {
+                corps,
+                cleIdempotence: `role-char-${role}-${String(index).padStart(3, "0")}-0001`,
+              }),
+            });
+          }
         } catch (erreur) {
           throw new Error(`Sonde HTTP sans réponse pour ${role} ${route.methode} ${route.chemin}.`, { cause: erreur });
+        }
+        if (routesExtension.has(cle)) {
+          assert.notEqual(resultat.reponse.status, 400,
+            `${role} ${cle}: une réponse 400 ne caractérise pas le contrôle d’autorisation; corrigez la sonde.`);
+          if (cle === "GET /api/administration/comptes/appareils") {
+            assert.equal(resultat.reponse.status, role === "ADMIN_CENTRAL" ? 200 : 403,
+              `${role} ${cle}: la liste centrale reste réservée à l’administration centrale.`);
+          }
+          if (cle === "GET /api/proprietaire/appareils") {
+            assert.equal(resultat.reponse.status, role === "PROPRIETAIRE" ? 200 : 403,
+              `${role} ${cle}: la liste de plateforme reste propriétaire seulement.`);
+          }
+          if (cle === "GET /api/compte/appareils") assert.equal(resultat.reponse.status, 200,
+            `${role} ${cle}: le titulaire ne lit que ses appareils.`);
+          if (cle === "POST /api/compte/appareils") assert.equal(resultat.reponse.status, 201,
+            `${role} ${cle}: une preuve valide inscrit un appareil en attente.`);
+          if (cle === "POST /api/compte/appareils/defis") assert.equal(resultat.reponse.status, 200,
+            `${role} ${cle}: une clé valide reçoit un défi.`);
+          if (cle === "POST /api/compte/appareils/:id/revoquer") assert.equal(resultat.reponse.status, 200,
+            `${role} ${cle}: le titulaire révoque son appareil.`);
+          if (cle === "POST /api/compte/sessions/:id/revoquer") assert.equal(resultat.reponse.status, 200,
+            `${role} ${cle}: la seconde session propre est révoquée.`);
+          if (cle.startsWith("POST /api/administration/comptes/appareils/") && role === "ADMIN_CENTRAL") {
+            assert.equal(resultat.reponse.status, 200, `${role} ${cle}: le fixture valide doit prouver l’accès central autorisé.`);
+          }
+          if (cle.startsWith("POST /api/proprietaire/") && role === "PROPRIETAIRE") {
+            assert.equal(resultat.reponse.status, 200, `${role} ${cle}: le fixture valide doit prouver le comportement propriétaire courant.`);
+          }
+          if (cle.startsWith("POST /api/administration/comptes/appareils/") && role !== "ADMIN_CENTRAL") {
+            assert.equal(resultat.reponse.status, 403, `${role} ${cle}: l’autorité centrale ne doit pas être contournée.`);
+          }
+          if (cle.startsWith("POST /api/proprietaire/") && role !== "PROPRIETAIRE") {
+            assert.equal(resultat.reponse.status, 403, `${role} ${cle}: la route de plateforme reste propriétaire seulement.`);
+          }
         }
         const attendu = attendrePolicy(route.politique, role, route.methode);
         observations.get(role).push({
@@ -295,20 +442,48 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
       });
     }
 
+    for (const role of roles) {
+      const clientRevocationGlobale = new ClientLocal();
+      await clientRevocationGlobale.connecter(clients.get(role).identifiantConnexion, clients.get(role).motDePasseConnexion);
+      const route = routesRevoquerToutes[0];
+      const resultat = await clientRevocationGlobale.requete(route.chemin, {
+        methode: route.methode,
+        corps: {},
+        cleIdempotence: `b26-revoke-all-${role.toLowerCase()}-0001`,
+      });
+      assert.notEqual(resultat.reponse.status, 400,
+        `${role} ${route.methode} ${route.chemin}: une réponse 400 ne prouve pas le contrôle d’accès.`);
+      assert.equal(resultat.reponse.status, 200, `${role}: la révocation globale des sessions retourne le résultat attendu.`);
+      observations.get(role).push({
+        methode: route.methode,
+        chemin: route.chemin,
+        attendu: attendrePolicy(route.politique, role, route.methode),
+        statut: resultat.reponse.status,
+        observation: classeStatut(resultat.reponse.status),
+      });
+    }
+
     const discrepancesPotentielles = [];
     const sondesInconclusives = [];
     const accesSansPolitiqueExplicite = [];
     for (const role of roles) {
       const lignes = observations.get(role);
-      assert.equal(lignes.length, 216, `La couverture du rôle ${role} doit contenir 216 routes.`);
+      assert.equal(lignes.length, 229, `La couverture du rôle ${role} doit contenir 229 routes.`);
       const fichierSnapshot = join(dossierSnapshots, `${role}.json`);
-      const contenu = `${JSON.stringify(lignes, null, 2)}\n`;
-      if (process.env.SIGAD_UPDATE_ROLE_SNAPSHOT === "1") {
-        mkdirSync(dossierSnapshots, { recursive: true });
-        writeFileSync(fichierSnapshot, contenu, { encoding: "utf8", flag: "w", mode: 0o600 });
+      const historique = lignes.filter((ligne) => routesHistoriques.has(cleRoute(ligne)));
+      const nouvelleCaracterisation = lignes.filter((ligne) => routesExtension.has(cleRoute(ligne)));
+      assert.equal(historique.length, 216, `${role}: l’extension ne doit pas modifier la couverture B1.1.`);
+      assert.equal(nouvelleCaracterisation.length, 13, `${role}: les 13 routes ajoutées doivent être caractérisées.`);
+      assert.deepEqual(JSON.parse(readFileSync(fichierSnapshot, "utf8")), historique,
+        `Baseline B1.1 modifiée pour ${role}; les 216 résultats historiques doivent rester inchangés.`);
+      const fichierSnapshotB2_6 = join(dossierSnapshotsB2_6, `${role}.json`);
+      const contenuB2_6 = `${JSON.stringify(nouvelleCaracterisation, null, 2)}\n`;
+      if (process.env.SIGAD_UPDATE_B2_6_ROLE_SNAPSHOT === "1") {
+        mkdirSync(dossierSnapshotsB2_6, { recursive: true });
+        writeFileSync(fichierSnapshotB2_6, contenuB2_6, { encoding: "utf8", flag: "w", mode: 0o600 });
       } else {
-        assert.deepEqual(JSON.parse(readFileSync(fichierSnapshot, "utf8")), lignes,
-          `تغير توصيف ${role}; راجع كل اختلاف قبل تحديث snapshot.`);
+        assert.deepEqual(JSON.parse(readFileSync(fichierSnapshotB2_6, "utf8")), nouvelleCaracterisation,
+          `تغير توصيف مسارات B2.6 لـ${role}; راجع كل فرق قبل تحديث snapshot.`);
       }
       for (const ligne of lignes) {
         if (ligne.attendu === "DECLARE_ALLOW" && [401, 403].includes(ligne.statut)) {
@@ -322,7 +497,7 @@ test("Caractérisation HTTP des 7 rôles × 216 routes — statuts seulement", a
         }
       }
     }
-    console.log(`PASS — 7×216=${roles.length * matrice.length} requêtes; écarts de rôle documentés=${discrepancesPotentielles.length}; sondes inconclusives HTTP 400=${sondesInconclusives.length}; accès sans politique de rôle explicite=${accesSansPolitiqueExplicite.length}; corps/tokens non enregistrés.`);
+    console.log(`PASS — 7×229=${roles.length * matrice.length} requêtes (baseline B1.1 intacte: 1512 + extension B2.6: 91); écarts de rôle documentés=${discrepancesPotentielles.length}; sondes HTTP 400 héritées=${sondesInconclusives.length}; accès sans politique explicite=${accesSansPolitiqueExplicite.length}; corps/tokens non enregistrés.`);
     if (discrepancesPotentielles.length) console.log(JSON.stringify(discrepancesPotentielles));
     if (sondesInconclusives.length) console.log(`SONDES_INCONCLUSIVES ${JSON.stringify(sondesInconclusives)}`);
     if (accesSansPolitiqueExplicite.length) console.log(`ACCES_SANS_POLITIQUE ${JSON.stringify(accesSansPolitiqueExplicite)}`);

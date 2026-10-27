@@ -8,6 +8,7 @@ import { CATALOGUE_POLITIQUES_API } from "../../shared/permissions/catalogue.ts"
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const dossierSnapshots = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles");
+const dossierSnapshotsB2_6 = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles-b2-6");
 const roles = [
   "PROPRIETAIRE",
   "ADMIN_CENTRAL",
@@ -97,4 +98,31 @@ test("baseline B1.1: les décisions caractérisées des 7×216 cas restent ident
   }
   assert.equal(total, 1512);
   assert.deepEqual(totaux, { DECLARE_ALLOW: 451, DECLARE_DENY: 991, PUBLIC_OR_PREAUTH: 70 });
+});
+
+test("extension B2.6: les 7×13 routes ajoutées ont une caractérisation Worker distincte", () => {
+  const cleSnapshot = ({ methode, chemin }) => cle(methode, chemin);
+  const routesHistoriques = new Set(JSON.parse(readFileSync(resolve(dossierSnapshots, "PROPRIETAIRE.json"), "utf8")).map(cleSnapshot));
+  const routesAjoutees = CATALOGUE_POLITIQUES_API.filter((politique) => !routesHistoriques.has(cleSnapshot(politique)));
+  assert.equal(routesAjoutees.length, 13, "L’extension B2.6 doit être exactement constituée des 13 routes postérieures à B1.1.");
+
+  let total = 0;
+  for (const role of roles) {
+    const lignes = JSON.parse(readFileSync(resolve(dossierSnapshotsB2_6, `${role}.json`), "utf8"));
+    assert.equal(lignes.length, 13, `Snapshot B2.6 incomplet pour ${role}.`);
+    assert.deepEqual(lignes.map(cleSnapshot).sort(), routesAjoutees.map(cleSnapshot).sort(),
+      `La couverture des routes ajoutées doit être identique pour ${role}.`);
+    for (const ligne of lignes) {
+      const politique = routesAjoutees.find((entree) => cleSnapshot(entree) === cleSnapshot(ligne));
+      assert.ok(politique);
+      assert.equal(ligne.attendu, decisionCaractérisée(politique, role),
+        `Décision de politique B2.6 inattendue: ${role} ${cleSnapshot(ligne)}.`);
+      assert.notEqual(ligne.statut, 400,
+        `Une réponse HTTP 400 ne caractérise pas l’autorisation: ${role} ${cleSnapshot(ligne)}.`);
+      assert.ok(ligne.attendu === "DECLARE_ALLOW" ? [200, 201].includes(ligne.statut) : ligne.statut === 403,
+        `Réponse Worker incompatible avec la politique: ${role} ${cleSnapshot(ligne)} → ${ligne.statut}.`);
+      total += 1;
+    }
+  }
+  assert.equal(total, 91);
 });
