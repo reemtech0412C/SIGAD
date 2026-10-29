@@ -92,11 +92,19 @@ class ClientLocal {
     if (this.cookies.size > 0) {
       entetes.set("Cookie", [...this.cookies].map(([nom, valeur]) => `${nom}=${encodeURIComponent(valeur)}`).join("; "));
     }
-    const reponse = await fetch(new URL(chemin, adresseApi), {
-      method: options.methode ?? "GET",
-      headers: entetes,
-      ...(options.corps === undefined ? {} : { body: corpsFormulaire ? options.corps : JSON.stringify(options.corps) }),
-    });
+    const methode = options.methode ?? "GET";
+    let reponse;
+    try {
+      reponse = await fetch(new URL(chemin, adresseApi), {
+        method: methode,
+        headers: entetes,
+        signal: AbortSignal.timeout(30_000),
+        ...(options.corps === undefined ? {} : { body: corpsFormulaire ? options.corps : JSON.stringify(options.corps) }),
+      });
+    } catch (erreur) {
+      const cause = erreur instanceof Error ? `${erreur.name}: ${erreur.message}` : "erreur inconnue";
+      throw new Error(`La requête Worker locale ${methode} ${chemin} a échoué ou dépassé 30 s: ${cause}`, { cause: erreur });
+    }
     for (const cookie of reponse.headers.getSetCookie()) {
       const [paire, ...attributs] = cookie.split(";");
       if (!paire) continue;
@@ -348,6 +356,22 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   const sessionProprietaire = await proprietaire.requete("/api/auth/session");
   assert.equal(sessionProprietaire.reponse.status, 200);
   assert.equal(Reflect.get(Reflect.get(sessionProprietaire.donnees, "utilisateur"), "doit_changer_mot_de_passe"), false);
+  const sessionsActivationProprietaire = await proprietaire.requete("/api/compte/sessions");
+  assert.equal(sessionsActivationProprietaire.reponse.status, 200);
+  const sessionActivationProprietaire = sessionsActivationProprietaire.donnees.elements.find((element) => element.session_courante === 1);
+  assert.ok(sessionActivationProprietaire);
+  const controleExpirationActivation = ouvrirD1Locale();
+  try {
+    const expirationActivation = controleExpirationActivation.prepare(`SELECT activation_initiale, mfa_verifiee,
+      CAST((julianday(expire_le) - julianday('now')) * 86400 AS INTEGER) AS secondes_restantes
+      FROM sessions WHERE id = ? AND utilisateur_id = 'usr-proprietaire'`).get(sessionActivationProprietaire.id);
+    assert.equal(expirationActivation.activation_initiale, 0, "La configuration MFA clôt le parcours initial.");
+    assert.equal(expirationActivation.mfa_verifiee, 1);
+    assert.ok(expirationActivation.secondes_restantes > 0 && expirationActivation.secondes_restantes <= 15 * 60,
+      "La session issue de l’activation initiale conserve son échéance de 15 minutes après MFA; un test long doit se réauthentifier.");
+  } finally {
+    controleExpirationActivation.close();
+  }
 
   const mutationSansCsrf = await proprietaire.requete("/api/proprietaire/utilisateurs/usr-sila/statut", {
     methode: "PATCH",
@@ -2075,8 +2099,29 @@ test("Authentification et contrôles de sécurité dans le Worker Cloudflare loc
   assert.equal(appareilAutreCompteControle.prepare("SELECT statut FROM appareils WHERE id = 'appareil-autre-compte-sila'").get().statut, "AUTORISE");
   appareilAutreCompteControle.close();
 
-  const sessionProprietaireCourante = listeSessionsProprietaire.donnees.elements.find((element) => element.session_courante === 1);
+  // Le compte a été activé en début de ce scénario avec une session de 15 minutes.
+  // Réauthentifier avec MFA garantit que le test d’appareil n’utilise pas un cookie expiré si la suite a été suspendue.
+  const reconnexionProprietaireAvantAppareil = await proprietaire.connexion("proprietaire", motDePasseProprietaire);
+  assert.equal(reconnexionProprietaireAvantAppareil.reponse.status, 200, JSON.stringify(reconnexionProprietaireAvantAppareil.donnees));
+  await terminerConnexionMfaTest(proprietaire, "proprietaire", reconnexionProprietaireAvantAppareil);
+  assert.equal((await proprietaire.requete("/api/auth/session")).reponse.status, 200,
+    "Une réauthentification MFA normale renouvelle la session après l’activation initiale.");
+  const sessionsProprietaireAvantAppareil = await proprietaire.requete("/api/compte/sessions");
+  assert.equal(sessionsProprietaireAvantAppareil.reponse.status, 200);
+  const sessionProprietaireCourante = sessionsProprietaireAvantAppareil.donnees.elements.find((element) => element.session_courante === 1);
   assert.ok(sessionProprietaireCourante);
+  const controleSessionProprietaireAppareil = ouvrirD1Locale();
+  try {
+    const sessionAvantLiaison = controleSessionProprietaireAppareil.prepare(`SELECT activation_initiale, mfa_verifiee, revoquee,
+      CAST((julianday(expire_le) - julianday('now')) * 86400 AS INTEGER) AS secondes_restantes
+      FROM sessions WHERE id = ? AND utilisateur_id = 'usr-proprietaire'`).get(sessionProprietaireCourante.id);
+    assert.equal(sessionAvantLiaison.activation_initiale, 0);
+    assert.equal(sessionAvantLiaison.mfa_verifiee, 1);
+    assert.equal(sessionAvantLiaison.revoquee, 0);
+    assert.ok(sessionAvantLiaison.secondes_restantes > 0, "Le test utilise une session fraîche non expirée.");
+  } finally {
+    controleSessionProprietaireAppareil.close();
+  }
   const liaisonAppareilEnAttente = ouvrirD1Locale();
   assert.throws(() => liaisonAppareilEnAttente.prepare("UPDATE sessions SET appareil_id = ?, type = 'MOBILE' WHERE id = ?")
     .run(inscriptionAppareil.donnees.id, sessionProprietaireCourante.id), /SESSION_APPAREIL_NON_AUTORISE/u,

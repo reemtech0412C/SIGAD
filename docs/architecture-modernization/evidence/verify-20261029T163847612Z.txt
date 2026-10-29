@@ -1,0 +1,67 @@
+SIGAD — preuve d’exécution du pipeline verify
+Statut global: FAIL
+Mode: integration-only
+Début: 2026-10-29T16:38:47.612Z (29/10/2026 17:38:47 Africa/Ndjamena)
+Fin: 2026-10-29T16:38:58.109Z (29/10/2026 17:38:58 Africa/Ndjamena)
+Durée totale: 10.5 s
+Branche: codex/b2-5-identity-lifecycle
+Révision: 3e922c6
+État Git avant exécution: modifié
+M tests/integration/auth-worker.test.mjs
+?? docs/architecture-modernization/evidence/verify-20261029T163648293Z.txt
+Node: v24.19.0
+Configuration Wrangler temporaire: C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-QAupN0
+Isolation: configuration écrite dans le répertoire temporaire; identifiant D1 fictif; D1/R2/service Wrangler en mode --local avec --persist-to temporaire; aucun account_id/zone_id/route/binding distant; variables Cloudflare/API/proxy/secrets retirées des environnements enfants.
+Le libellé ENVIRONMENT=staging est conservé uniquement pour caractériser le comportement local; aucune ressource Staging ou Production n’est ciblée.
+wrangler.toml et worker-configuration.d.ts sont vérifiés par empreinte; Wrangler ne charge pas wrangler.toml et aucune commande ne génère ces fichiers.
+D-10 reste ouvert; ce pipeline n’altère pas la configuration Production suivie par Git.
+
+## Intégration Wrangler locale
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\tests\\integration\\run-auth-worker.mjs"]
+Début: 2026-10-29T16:38:50.064Z (29/10/2026 17:38:50 Africa/Ndjamena)
+Fin: 2026-10-29T16:38:55.815Z (29/10/2026 17:38:55 Africa/Ndjamena)
+Durée: 5.8 s
+Code de sortie: 1
+Sortie:
+Seed initial sécurisé généré pour le développement local.
+Seed SQL conservé hors du dépôt : C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-QAupN0\sigad-acceptation-worker-PBSLKr\seed-initial.sql
+Codes d’activation conservés hors du dépôt : C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-QAupN0\sigad-acceptation-worker-PBSLKr\codes-activation.json
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Resource location: local
+
+Use --remote if you want to access the remote instance.
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mA fetch request failed, likely due to a connectivity issue.[0m
+
+
+  Common causes:
+    - No internet connection or network connectivity problems
+    - Firewall or VPN blocking the request
+    - Network proxy configuration issues
+
+  Please check your network connection and try again.
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mfetch failed[0m
+
+
+[32mIf you think this is a bug then please create an issue at https://github.com/cloudflare/workers-sdk/issues/new/choose[0m
+🪵  Logs were written to "C:\Users\Lenovo\AppData\Local\Temp\sigad-verify-QAupN0\sigad-acceptation-worker-PBSLKr\appdata\xdg\.wrangler\logs\wrangler-2026-10-29_16-38-54_064.log"
+La commande Node s’est terminée avec le code 1.
+
+
+## عدم تعديل ملفات المشروع بواسطة الفحوص
+Commande: SHA-256 snapshot of tracked/non-ignored project files; compare ignored-root inventory
+Début: 2026-10-29T16:38:58.106Z (29/10/2026 17:38:58 Africa/Ndjamena)
+Fin: 2026-10-29T16:38:58.106Z (29/10/2026 17:38:58 Africa/Ndjamena)
+Durée: 0.0 s
+Code de sortie: 0
+Sortie:
+Tracked/non-ignored files changed: 0
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
+Échecs: Intégration Wrangler locale

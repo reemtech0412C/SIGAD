@@ -43,6 +43,36 @@ function executerNode(argumentsNode, environnement = environnementLocal) {
   if (resultat.status !== 0) throw new Error(`La commande Node s’est terminée avec le code ${resultat.status ?? "inconnu"}.`);
 }
 
+async function diagnosticDernierLogWrangler(dossierConfiguration) {
+  const dossierLogs = join(dossierConfiguration, "xdg", ".wrangler", "logs");
+  let fichiers;
+  try {
+    fichiers = (await readdir(dossierLogs)).filter((nom) => /^wrangler-.*\.log$/u.test(nom)).sort().reverse();
+  } catch {
+    return "Journal Wrangler indisponible.";
+  }
+  const dernier = fichiers[0];
+  if (!dernier) return "Journal Wrangler indisponible.";
+  let lignes;
+  try {
+    lignes = (await readFile(join(dossierLogs, dernier), "utf8")).split(/\r?\n/u);
+  } catch {
+    return "Journal Wrangler illisible.";
+  }
+  const indices = lignes.flatMap((ligne, index) =>
+    /TypeError: fetch failed|ECONN[A-Z]+|ENOTFOUND|EAI_AGAIN|UND_ERR_[A-Z_]+|TLS|socket|api\.cloudflare\.com|registry\.npmjs\.org/iu.test(ligne)
+      ? [index]
+      : []);
+  if (indices.length === 0) return `Aucun détail réseau interne dans ${dernier}.`;
+  const selection = new Set();
+  for (const index of indices.slice(-8)) {
+    for (let voisin = Math.max(0, index - 2); voisin <= Math.min(lignes.length - 1, index + 3); voisin += 1) selection.add(voisin);
+  }
+  return [...selection].sort((a, b) => a - b).map((index) => lignes[index]
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{12,}=*/giu, "Bearer [MASQUE]")
+    .replace(/([?&](?:token|secret|password|key)=)[^&\s]+/giu, "$1[MASQUE]")).join("\n");
+}
+
 if (!racineVerification || !fichierConfigurationWrangler) {
   throw new Error("Le Worker d’intégration exige la configuration locale temporaire créée par npm run verify.");
 }
@@ -204,18 +234,23 @@ try {
     migrationInitiale,
     "La génération des secrets de test ne doit modifier aucune migration appliquée.",
   );
-  executerNode([
-    executableWrangler,
-    "d1",
-    "migrations",
-    "apply",
-    "DB",
-    "--config",
-    fichierConfigurationWranglerIntegration,
-    "--local",
-    "--persist-to",
-    dossierPersistance,
-  ], environnementWrangler);
+  try {
+    executerNode([
+      executableWrangler,
+      "d1",
+      "migrations",
+      "apply",
+      "DB",
+      "--config",
+      fichierConfigurationWranglerIntegration,
+      "--local",
+      "--persist-to",
+      dossierPersistance,
+    ], { ...environnementWrangler, WRANGLER_LOG: "debug" });
+  } catch (erreur) {
+    console.error(`Diagnostic D1 local pré-Worker:\n${await diagnosticDernierLogWrangler(dossierConfigurationWrangler)}`);
+    throw erreur;
+  }
   executerNode([
     executableWrangler,
     "d1",
