@@ -27,4 +27,4 @@ Date: 2026-10-29, `Africa/Ndjamena`. Base: `37b31ca` avant ce lot. Exécution lo
 
 ## Décision de progression
 
-Le blocage des données est administratif; le planificateur et les validations indépendants sont livrés. La phase B2.6 peut donc être clôturée **TECHNICALLY COMPLETE / POLICY PENDING** selon le comparateur déjà présent, sans activer Shadow. B2.7 ne peut pas modifier les rattachements opérationnels tant que ses références/autorité et D-02/D-04 ne sont pas disponibles; son blocage sera enregistré, puis les travaux indépendants suivants seront évalués.
+Le blocage des données est administratif; le planificateur et les validations indépendants sont livrés. Le comparateur et la réconciliation B2.6 peuvent être clos comme socle **TECHNICALLY COMPLETE / POLICY PENDING**, sans activer Shadow; les conditions de lancement de l'Enforcement sont évaluées séparément dans `evidence/roadmap-readiness-20261029.md`. B2.7 ne peut pas modifier les rattachements opérationnels tant que ses références/autorité et D-02/D-04 ne sont pas disponibles.

@@ -61,3 +61,9 @@ La revue du code `meta.changes` confirme que les opérations d'état testent l'e
 6. Conserver B2.2 en ombre jusqu'à stratégie de bascule et de retour, tests de synchronisation sans fenêtre d'accès périmé, et approbations nécessaires. D-12 et B2.3-B ne sont pas modifiés ici.
 
 **Conclusion:** comparer la politique de porte est désormais possible et limité par le refus par défaut; l'équivalence resource/géographie/organisation/runtime n'est pas établie. B2.6 reste partielle et l'Enforcement est bloqué par les éléments ci-dessus.
+
+## Addendum R1 — 2026-10-29
+
+Le scénario Worker d'authentification signalé ci-dessus a été repris dans `evidence/b2.6-r1-auth-worker-diagnosis-20261029.md`. Le `401` provenait de l'expiration prévue de la session d'activation initiale (TTL de 15 minutes) après un test ayant dépassé ce TTL; le parcours reteste maintenant la connexion normale/MFA et réussit. Le test ciblé, `npm run verify:rapide` et `npm run verify` complet passent sur D1/Worker locaux avec les chemins `TEMP`/`TMP` documentés; voir `verify-20261029T164214496Z.txt`, `verify-20261029T164453967Z.txt` et `verify-20261029T164530015Z.txt`. Cette correction stabilise le test d'identité, mais ne change pas les comptes de comparaison de route/resource/géographie ci-dessus et ne permet pas à elle seule l'Enforcement.
+
+Le socle de réconciliation/comparaison B2.6 est classé **TECHNICALLY COMPLETE / POLICY PENDING**. Les limites de matrice restent ouvertes pour arbitrage; les gates de progressive activation et de rollback Enforcement ne sont pas prêtes. Statut final et readiness: `evidence/roadmap-readiness-20261029.md`.

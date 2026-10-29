@@ -40,3 +40,7 @@ npm run verify
 Les ressources D1 et R2 configurées dans `wrangler.toml` sont utilisées localement par Wrangler. Aucune ressource distante n’est sélectionnée par les commandes de développement.
 
 `npm run verify` regroupe TypeScript sans génération, les tests unitaires, le contrôle de la matrice des permissions, la vérification du schéma et des migrations en mémoire, puis l’intégration Wrangler locale. L’intégration crée une configuration éphémère et une D1 sous le répertoire temporaire; elle utilise le fournisseur de courriel local, passe les commandes Wrangler en mode `--local` et retire les identifiants Cloudflare/API de l’environnement des sous-processus. Le fichier `wrangler.toml` n’est pas chargé par cette vérification. Le rapport horodaté est enregistré dans `docs/architecture-modernization/evidence/`. `npm run verify:rapide` exécute les mêmes contrôles sans l’intégration.
+
+## Reprise de l’architecture
+
+Lire `docs/architecture-modernization/00-journal-decisions-et-progres.md`, puis `04-feuille-de-route.md` et le dernier dossier d’évidence. Au 2026-10-29, B2.3-B est partiel, le comparateur B2.6 reste en Shadow, B2.7/B2.8 sont bloqués par leurs dépendances et Phase 3 n’est pas prête. Le dernier état de vérification est archivé dans `docs/architecture-modernization/evidence/roadmap-readiness-20261029.md`.

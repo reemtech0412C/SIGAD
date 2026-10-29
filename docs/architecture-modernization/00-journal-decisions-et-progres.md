@@ -14,7 +14,11 @@
 | B1.1 Characterization of Permissions | **Terminé — 7×216** | 2026-10-26 | snapshots/diff classés dans `07` | `1081fad`, `b7bf0b2` |
 | B1.2 Household Rejection Defect | **Terminé — D-01 approuvée** | 2026-10-26 | preuves avant/après et verify complète | `6cc8ffd` |
 | B1.3 Approval Workflow Verification | **تتبع مكتمل؛ D-12 تمنع تغيير القاعدة** | 2026-10-26 | مصفوفة التتبع والاختصاص في `07` | `b7bf0b2` |
-| Phase 2 → 6 | **لم تبدأ**؛ B2.1 مرشحة للمراقبة، دفعاتها الأخرى مشروطة بقراراتها | — | `07` §شروط الانتقال | — |
+| B2.3-B — préparation d'import géographique | **PARTIAL** — planificateur dry-run, intégrité, idempotence et version source; aucun import/déploiement/API v1 | 2026-10-29 | `evidence/b2-3-b-technical-preparation-20261029.md` | `8d235fd` |
+| B2.6 — réconciliation/comparateur Shadow | **Socle TECHNICALLY COMPLETE / POLICY PENDING**; Legacy reste seul décideur; readiness Enforcement non acquise | 2026-10-29 | `evidence/roadmap-readiness-20261029.md`, addendum B2.6 final | `8d235fd` + preuves antérieures |
+| B2.7 — rattachements géographiques datés | **BLOCKED** — référence et autorité D-03/D-13, plus accord D-02/D-04 manquants | — | `evidence/roadmap-readiness-20261029.md` | — |
+| B2.8 — rôles personnalisés | **BLOCKED** — dépendances B2.6/B2.7 et catalogue sensible/délégable non défini | — | `evidence/roadmap-readiness-20261029.md` | — |
+| Phase 3 | **PHASE 3 BLOCKED** — B2.7/B2.8 et readiness Enforcement inachevés | — | `evidence/roadmap-readiness-20261029.md` | — |
 
 ## 2. Registre des décisions (format ADR)
 
@@ -66,7 +70,7 @@ Uniquement **ajout de fichiers** sous `docs/architecture-modernization/` (docume
 ## 5. Reprise de travail (checklist de session vierge)
 1. `git status` et lire `README.md` + ce journal.
 2. Lire `05-decisions-a-valider.md` : quelles décisions ont été tranchées ?
-3. Exécuter la suite de référence (ou `npm run verify` une fois B0.2 livré) et comparer aux chiffres de §3.
+3. Utiliser le dernier `verify` archivé dans `evidence/`; sous Windows, si Wrangler échoue avant le Worker avec le Temp isolé du sandbox, relancer avec `TEMP=TMP=C:\Users\Lenovo\AppData\Local\Temp` et garder les deux résultats.
 4. Prendre le **premier lot non terminé** de `04-feuille-de-route.md` dont les dépendances sont satisfaites ; respecter ses critères d'acceptation et sa section retour arrière.
 5. Clore le lot : mettre à jour §1 et §2 de ce journal, régénérer la matrice de sécurité, noter les commandes/résultats en §3.
 
@@ -85,7 +89,7 @@ Uniquement **ajout de fichiers** sous `docs/architecture-modernization/` (docume
 * **Preuve avant/après:** `evidence/verify-20261026T152612652Z.txt` reproduit le comportement HTTP 500 attendu avant le correctif (commande terminée 0 car l'assertion décrivait le bug). `evidence/verify-20261026T153257468Z.txt` après correctif: 2 tests pass, 0 fail, exit 0; Worker/D1 local; la comparaison de chaque ligne (`id`, `code_menage`, `statut`, `statut_validation`) montre que seul le statut du ménage ciblé passe à `REJETE`, sans ajout/suppression ni modification d'autres lignes.
 * **Vérification complète:** `npm run verify`, 332.8 s, exit 0 (`evidence/verify-20261026T153504120Z.txt`): TypeScript 0; Vitest 31 fichiers/151 tests pass; matrice 216 routes pass; SQLite mémoire 35 migrations jusqu'à 0035; intégration Worker/D1 locale pass; fichiers suivis/non-ignorés modifiés automatiquement = 0. Harness local temporaire, identifiant D1 fictif, aucune commande distante ni connexion en écriture à Staging/Production.
 * **قرارات التصميم المعتمدة:** D-02/D-03/D-04/D-13 هي مبادئ معتمدة، لكن التعيينات التفصيلية ومرجع/جهة التصديق الجغرافي لم تُحسم. D-12 مفتوحة؛ لا تغيير لسير الموافقات.
-* **الحالة:** B1.1 وB1.2 وB1.3 مكتملة تقنيًا؛ Phase 2 لم تبدأ. يمكن أن تكون B2.1 دفعة المراقبة الأولى فقط إذا بقيت بلا enforcement واستوفت شروط `07-readiness-for-phase-2.md`. لا push ولا نشر.
+* **الحالة التاريخية وقتها:** B1.1 وB1.2 وB1.3 مكتملة تقنيًا؛ Phase 2 لم تكن قد بدأت في 2026-10-26. الحالة الجارية محدثة في §9 أدناه.
 
 ## 8. B2.1 — تثبيت سياسات RBAC (2026-10-26)
 
@@ -94,3 +98,12 @@ Uniquement **ajout de fichiers** sous `docs/architecture-modernization/` (docume
 * **مانع أمني مثبت:** مرشح النطاق في `backend/src/services/territoire.service.ts` يقيد الدور `DELEGUE_PROVINCIAL` فقط، فيما استعلاما الدوائر والأحياء لا يضيفان شرط مقاطعة إلا لذلك الدور. بذلك تتجاوز الأدوار `RESPONSABLE_STOCK`, `SUPERVISEUR_TERRAIN`, `AGENT_DISTRIBUTION` النطاق وتقرأ بيانات جغرافية خارج مقاطعتها. لا إصلاح هنا: تعديل السماح الفعلي يتجاوز شرط الحفاظ على الصلاحيات ويتطلب اعتماد مصفوفة D-04 التفصيلية.
 * `npm run verify` على التعديلات: TypeScript 0؛ Vitest 32 ملفًا / 154 اختبارًا ناجحًا؛ فحص الكتالوج 216/216؛ SQLite و35 migration في الذاكرة ناجحة؛ تكامل Worker المحلي **exit 1 عمدًا** عند اختبار الرفض الذي كشف التسرب. فحص عدم التعديل التلقائي: 0 ملفات. الدليل الكامل: `evidence/verify-20261026T163052438Z.txt`؛ لم تُستخدم قاعدة أو بيئة بعيدة.
 * **الحالة:** B2.1 غير مغلقة؛ لا انتقال إلى B2.2 أو Phase 2 حتى اعتماد مصفوفة D-04، إصلاح نطاق القراءة في دفعة مصرح بها، ثم اجتياز اختبار الانحدار و`npm run verify` كاملًا.
+
+## 9. متابعة خارطة الطريق — 2026-10-29
+
+* **B2.3-B:** أضيف `backend/src/modules/geo/import-plan.ts` و6 اختبارات جافة؛ فحص المصدر، الهوية المستقرة، الآباء، الدورات، الأسماء المتعارضة، الإصدار وإعادة التشغيل. لا يكتب D1 ولا يستورد بيانات رسمية. المصدر/الملحق القانوني الكامل، جهة اعتماد D-03/D-13، وقواعد المسارات قبل نشر API v1 ما زالت مطلوبة. الدليل: `evidence/b2-3-b-technical-preparation-20261029.md`.
+* **B2.6:** المقارنة 229×7: route gate 1490 MATCH / 0 MISMATCH / 113 INDETERMINATE / 0 ERROR؛ القرار الكامل 1603 INDETERMINATE لأن سياقات المورد والجغرافيا والمؤسسة غير مكتملة، لا لأنه 1603 اختلافًا. الـ80 فرقًا بين الواقع والهدف المقترح؛ والـ13 استجابة 400 تاريخية تبقى غير حاسمة. المزامنة المحلية 25/25، لا بيانات حقيقية. الوضع **TECHNICALLY COMPLETE / POLICY PENDING** لنظام المقارنة فقط؛ لا Enforcement، progressive activation أو rollback ليست جاهزة.
+* **B2.6-R1:** إعادة المصادقة بعد انتهاء جلسة التفعيل الأولي (15 دقيقة) جعلت سيناريو Worker حتميًا دون تغيير سياسة الجهاز/الجلسة؛ نجاح `verify:rapide` و`verify` الكامل على D1/Worker محلي بعد ضبط `TEMP`/`TMP`; الأدلة في `b2.6-r1-auth-worker-diagnosis-20261029.md` و`verify-20261029T171321406Z.txt`.
+* **D-12:** لم يتغير سير الموافقات. الخدمة تقبل حاليًا قرارًا واحدًا مقبولًا من اللجنة **أو** الوزارة؛ الاختبارات القائمة تسجل الاثنين معًا ولا تحسم كفاية كل منهما. الخيارات والأثر موثقة في `evidence/roadmap-readiness-20261029.md`.
+* **B2.7/B2.8/Phase 3:** B2.7 ينتظر المرجع والجهة الجغرافية والمصفوفة، B2.8 ينتظر تبعياته وبيانات `sensible/delegable` المعتمدة، وPhase 3 **BLOCKED**. لا تغيير على جداول B2.2 كمصدر وصول، ولا استيراد أو migrations بعيدة أو push أو نشر.
+* **Vérification du checkpoint بعد توثيقه:** `npm run verify:rapide` PASS exit 0 (39 fichiers / 197 tests, matrice 229 routes, 42 migrations), preuve `evidence/verify-20261029T172452114Z.txt`. `npm run verify` PASS exit 0 avec `TEMP=TMP=C:\Users\Lenovo\AppData\Local\Temp`; Worker/D1 locaux, 39 fichiers / 197 tests, 229 routes, 42 migrations, aucun fichier auto-modifié; preuve `evidence/verify-20261029T172553044Z.txt`. Le run complet par défaut de 17:12, arrêté avant Worker (`fetch failed`/`EPERM`), reste archivé et explicitement classé FAIL.
