@@ -1,6 +1,6 @@
 # B2.6 — Matrice D-02 / D-04 proposée pour approbation
 
-**Statut : principes approuvés, règles opérationnelles détaillées en attente.** Aucun droit opérationnel n’a été changé. Les recommandations ci-dessous ne confèrent aucune autorisation.
+**Statut : option A approuvée en principe (voir « Décisions D-02/D-04 approuvées en principe » en fin de document); listes détaillées route par route en attente de confirmation.** Aucun droit opérationnel n’a été changé. Les recommandations ci-dessous ne confèrent aucune autorisation.
 
 ## État de preuve et limite de B2.6
 
@@ -173,3 +173,54 @@ Les principes ci-dessus sont approuvés comme contraintes de conception; ils ne 
 | D-12 et référentiel B2.3-B | Inchangés / bloqué pour import officiel | Aucun changement de workflow; référence juridique et autorité géographique approuvées avant d’utiliser le nouveau référentiel pour les décisions d’accès. |
 
 **Conclusion:** la caractérisation B2.6 est techniquement prête pour arbitrage de la matrice, mais B2.6 n’est pas close pour enforcement. Les tables B2.2 ne sont toujours pas une source d’autorisation. La Phase 3 n’est pas commencée.
+
+## Décisions D-02/D-04 approuvées en principe (30-10-2026)
+
+Option A approuvée par le propriétaire fonctionnel, avec neuf garde-fous. **Aucun enforcement activé, aucune politique Legacy modifiée.** Le travail technique est limité au mode Shadow: module `backend/src/core/authz/politique-d02-d04-ombre.ts` (non branché au middleware) et `tests/unit/politique-d02-d04-ombre.test.mjs`.
+
+| # | Garde-fou approuvé |
+|---|---|
+| 1 | Permission = rôle × action × ressource assignée × portée géographique ou institutionnelle. |
+| 2 | Les référentiels géographiques publics nécessaires restent lisibles, sans droit sur les données opérationnelles. |
+| 3 | Stocks bornés aux entrepôts et ressources assignés. |
+| 4 | Aucune donnée nominative pour PROPRIETAIRE et CONSULTATION_INSTITUTIONNELLE; pour ADMIN_CENTRAL seulement avec compétence explicitement approuvée. |
+| 5 | Notifications personnelles permises à CONSULTATION_INSTITUTIONNELLE, propriété vérifiée côté serveur. |
+| 6 | Opérations centrales et documents sensibles refusés à CONSULTATION_INSTITUTIONNELLE. |
+| 7 | Consolidation nationale refusée à DELEGUE_PROVINCIAL. |
+| 8 | Aucun accès conditionnel sans relation d’affectation fiable et vérifiable (échec fermé). |
+| 9 | Chaîne d’approbation D-12 inchangée. |
+
+### Règle candidate par profil (Shadow uniquement)
+
+| Profil | Cible candidate | Effet par rapport au Legacy (200 / 403 observés) |
+|---|---|---|
+| A1 (21) | DENY sans affectation vérifiée; ALLOW seulement avec relation serveur. | 21 → DENY tant que la relation n’existe pas. |
+| A2 (24) | 6 référentiels publics (provinces, départements, sous-préfectures, communes, cantons, localités) en ALLOW lecture seule; sites humanitaires et rattachements territoriaux exigent affectation. | 18 conservés; 6 → DENY sans affectation. *Classification des deux référentiels sensibles (sites humanitaires, rattachements territoriaux) confirmée le 30-10-2026.* |
+| A3 (20) | RESPONSABLE_STOCK: entrepôt assigné; SUPERVISEUR_TERRAIN: affectation explicite. | 20 → DENY sans relation entrepôt/affectation. |
+| A4 (5) | ALLOW seulement si rapport NON_SENSIBLE; sensibilité inconnue = DENY. | 5 conservés pour non sensible. |
+| B1, B2 (2) | DENY. | Inchangé (403). |
+| B3 (7) | 3 notifications: ALLOW si propriétaire = acteur; 4 opérations/documents: DENY. | 3 passeraient de 403 à ALLOW **(ouverture, à confirmer avant tout enforcement)**; 4 inchangés. |
+| B4 (1) | DENY. | Inchangé (403). |
+
+### Résultats de comparaison (sans contexte d’affectation)
+
+Rejeu des 80 couples contre les snapshots B1.1: Legacy = 200 pour A1–A4 et 403 pour B1–B4 (vérifié par test). Candidate sans affectation: 26 ALLOW (18 référentiels, 5 rapports non sensibles, 3 notifications propres) et 54 DENY. Parmi les 54 DENY, 47 sont d’anciens 200 (A1 21, A2 6, A3 20) et constituent des **fermetures potentielles**; 7 sont des 403 inchangés (B1, B2, B3 opérations, B4): non appliquées, car la comparaison fonctionnelle (qui utilise ces lectures légitimement) n’est pas faite.
+
+**Limite:** le modèle Shadow ne représente pas encore les affectations entrepôt/dossier/distribution; ces règles restent donc fermées par défaut. Bloqueurs avant enforcement: créer et réconcilier ces relations; rejouer les parcours e2e légitimes; obtenir la confirmation des points marqués ci-dessus; D-12 inchangé.
+
+### Relations d’affectation vérifiables — inventaire Shadow (30-10-2026)
+
+| Relation | Source D1 | État | Effet sur les profils |
+|---|---|---|---|
+| RESPONSABLE_STOCK ↔ entrepôt | `profils_operationnels_terrain` (actif, compte actif, `entrepot_id` explicite, cohérence province) | **Vérifiable** (`verifierAffectationEntrepot`, lecture seule, testé) | A3 peut s’ouvrir en Shadow pour l’entrepôt assigné seulement. Profil sans `entrepot_id` ou province entière = refus (option B écartée). |
+| SUPERVISEUR_TERRAIN ↔ dossiers | aucune | **Absente** | A3 superviseur et A1 restent fermés. |
+| AGENT_DISTRIBUTION ↔ distribution | aucune (la distribution porte province/entrepôt, pas l’agent) | **Absente** | A1 reste fermé. |
+| Référentiels sensibles (sites humanitaires, rattachements) | aucune | **Absente** | A2 sensibles restent fermés. |
+
+Création de relations manquantes = migration et décision de modèle (non faite). Aucune politique Legacy ni enforcement modifiés; non déployé: la version en Staging ne contient que la migration 0042/0043 et la matrice, sans ce module.
+
+### Migration 0044 — affectations terrain ↔ distribution (Shadow, 30-10-2026)
+
+Table additive `affectations_terrain_distributions` (SUPERVISEUR_TERRAIN / AGENT_DISTRIBUTION × distribution): statut ACTIF/SUSPENDU/REVOQUE, validité temporelle, motif obligatoire, attribuant ≠ bénéficiaire. Les déclencheurs exigent un profil terrain actif du même rôle et de la même province que la distribution, et rendent la cible immuable; une seule affectation ACTIVE par triplet. Lecteur `verifierAffectationDistribution` (compte, profil, statut, province, validité).
+
+Effet candidate: **A1 ne s’ouvre que pour `/api/distributions`** avec relation relue; approvisionnements et opérations centrales restent fermés (aucune relation modélisée). Le superviseur A3 (stock) et les référentiels sensibles A2 restent fermés: l’affectation à une distribution ne vaut pas droit sur un entrepôt ni sur un référentiel. Aucune route Legacy ne lit la table; aucune interface d’attribution n’existe encore (données à saisir par l’administration, hors périmètre). **Non déployée** (Staging est à 0043).

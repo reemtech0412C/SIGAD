@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { webcrypto } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { spawn, spawnSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -193,6 +193,8 @@ try {
   const dossierAssetsIntegration = join(racineTemporaireVerifiee, "assets");
   assert.ok(dossierAssetsIntegration.startsWith(`${racineTemporaireVerifiee}${sep}`));
   await mkdir(dossierAssetsIntegration, { recursive: true });
+  // Parcours navigateur: l'interface construite est copiée dans le dossier temporaire, jamais publiée.
+  if (process.env.SIGAD_RUN_PLAYWRIGHT === "1") await cp(resolve(racine, "frontend/dist"), dossierAssetsIntegration, { recursive: true });
   fichierConfigurationWranglerIntegration = join(racineTemporaireVerifiee, "wrangler.verify.integration.toml");
   const configurationIntegration = configurationWranglerLocale.replace(
     /(\[assets\]\r?\n)directory = "[^"]*"/mu,

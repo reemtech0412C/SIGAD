@@ -10,6 +10,7 @@ import {
 } from "./components/administration/SIGADAppShell";
 import type { VueTerritoireOperationnel } from "./components/territoire/EspaceTerritorialOperationnel";
 import { ErreurApi, chargerJetonCsrf, requeteApi } from "./services/api";
+import { adresseDansConsole, consolesV2Active, retirerPrefixeConsole } from "./consoles/consoles-config";
 
 const TableauBordPilote = lazy(() => import("./components/pilote/TableauBordPilote").then((module) => ({ default: module.TableauBordPilote })));
 const TableauOperationsCentrales = lazy(() => import("./components/gestion/TableauOperationsCentrales").then((module) => ({ default: module.TableauOperationsCentrales })));
@@ -117,8 +118,11 @@ export default function App() {
   const [adresseCourante, setAdresseCourante] = useState(
     () => `${window.location.pathname}${window.location.search}`,
   );
+  const consolesV2 = consolesV2Active();
+  // Avec consoles_v2, l'adresse du navigateur porte le préfixe de console; la logique interne reste historique.
+  const adresseLogique = consolesV2 ? retirerPrefixeConsole(adresseCourante) : adresseCourante;
   const moduleDemande = moduleDepuisAdresse(
-    adresseCourante,
+    adresseLogique,
     utilisateur?.role ?? "DELEGUE_PROVINCIAL",
   );
   const moduleActif =
@@ -165,7 +169,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (adresseCourante.split("?", 1)[0] === "/mon-compte") return;
+    if (consolesV2 && utilisateur) {
+      const cible = adresseDansConsole(adresseCourante, utilisateur.role);
+      if (cible !== adresseCourante && !utilisateur.doit_changer_mot_de_passe) {
+        window.history.replaceState(null, "", cible);
+        setAdresseCourante(cible);
+        return;
+      }
+    }
+    if (adresseLogique.split("?", 1)[0] === "/mon-compte") return;
     if (
       !utilisateur ||
       moduleDemande === moduleActif ||
@@ -175,10 +187,10 @@ export default function App() {
     ) {
       return;
     }
-    const destination = routes[moduleActif];
+    const destination = consolesV2 ? adresseDansConsole(routes[moduleActif], utilisateur.role) : routes[moduleActif];
     window.history.replaceState(null, "", destination);
     setAdresseCourante(destination);
-  }, [adresseCourante, moduleActif, moduleDemande, utilisateur]);
+  }, [adresseCourante, adresseLogique, consolesV2, moduleActif, moduleDemande, utilisateur]);
 
   useEffect(() => {
     function suivreHistorique(): void {
@@ -210,7 +222,8 @@ export default function App() {
     vueControle?: VueControleAdministration,
     cheminExplicite?: string,
   ): void {
-    const destination = cheminExplicite ?? adresseModule(module, vueControle);
+    const historique = cheminExplicite ?? adresseModule(module, vueControle);
+    const destination = consolesV2 && utilisateur ? adresseDansConsole(historique, utilisateur.role) : historique;
     if (`${window.location.pathname}${window.location.search}` !== destination) {
       window.history.pushState(null, "", destination);
     }
@@ -218,7 +231,7 @@ export default function App() {
   }
 
   function ouvrirMonCompte(): void {
-    const destination = "/mon-compte";
+    const destination = consolesV2 && utilisateur ? adresseDansConsole("/mon-compte", utilisateur.role) : "/mon-compte";
     if (`${window.location.pathname}${window.location.search}` !== destination) {
       window.history.pushState(null, "", destination);
     }
@@ -269,10 +282,10 @@ export default function App() {
     );
   }
 
-  if (adresseCourante.split("?", 1)[0] === "/mon-compte") {
+  if (adresseLogique.split("?", 1)[0] === "/mon-compte") {
     return (
       <SIGADAppShell
-        adresseCourante={adresseCourante}
+        adresseCourante={adresseLogique}
         erreur={erreurAction}
         moduleActif="mon-compte"
         onDeconnexion={deconnexion}
@@ -287,7 +300,7 @@ export default function App() {
     );
   }
 
-  const vueControleInitiale = vueControleDepuisAdresse(adresseCourante) ?? undefined;
+  const vueControleInitiale = vueControleDepuisAdresse(adresseLogique) ?? undefined;
   let contenu: ReactNode;
   switch (moduleActif) {
     case "dashboard":
@@ -318,7 +331,7 @@ export default function App() {
           <EspaceTerritorialOperationnel
             utilisateur={utilisateur}
             jetonCsrf={jetonCsrf}
-            vueInitiale={vueTerritoireDepuisAdresse(adresseCourante)}
+            vueInitiale={vueTerritoireDepuisAdresse(adresseLogique)}
           />
         );
       break;
@@ -348,7 +361,7 @@ export default function App() {
   const cleInterface = `${moduleActif}:${adresseCourante}`;
   return (
     <SIGADAppShell
-      adresseCourante={adresseCourante}
+      adresseCourante={adresseLogique}
       erreur={erreurAction}
       key={cleInterface}
       moduleActif={moduleActif}

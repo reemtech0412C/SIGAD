@@ -7,16 +7,18 @@ import { join, relative, resolve, sep } from "node:path";
 
 const racine = resolve(import.meta.dirname, "..");
 const options = new Set(process.argv.slice(2));
-const optionsConnues = new Set(["--rapide", "--integration-only"]);
+const optionsConnues = new Set(["--rapide", "--integration-only", "--e2e"]);
 for (const option of options) {
-  if (!optionsConnues.has(option)) throw new Error(`Option inconnue: ${option}. Options: --rapide, --integration-only.`);
+  if (!optionsConnues.has(option)) throw new Error(`Option inconnue: ${option}. Options: --rapide, --integration-only, --e2e.`);
 }
-if (options.has("--rapide") && options.has("--integration-only")) {
-  throw new Error("--rapide et --integration-only ne peuvent pas être combinés.");
+if (options.has("--rapide") && (options.has("--integration-only") || options.has("--e2e"))) {
+  throw new Error("--rapide ne peut pas être combiné avec --integration-only ni --e2e.");
 }
 
 const lancerIntegration = !options.has("--rapide");
-const integrationSeulement = options.has("--integration-only");
+// --e2e: intégration locale puis Playwright (filtres SIGAD_PLAYWRIGHT_GREP / _INVERT conservés), Wrangler local uniquement.
+const executerE2E = options.has("--e2e");
+const integrationSeulement = options.has("--integration-only") || executerE2E;
 const environnementModeLocal = /CLOUDFLARE|(^|_)CF_|API[_-]?KEY|ACCESS[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY|DATABASE_URL|SIGAD_EMAIL_API_URL|(^|_)PROD(uction)?(_|$)|(^|_)STAGING(_|$)|^(HTTP|HTTPS|ALL)_PROXY$/iu;
 const environnementEnfant = Object.fromEntries(
   Object.entries(process.env).filter(([nom]) => !environnementModeLocal.test(nom)),
@@ -24,14 +26,14 @@ const environnementEnfant = Object.fromEntries(
 for (const nom of [
   "SIGAD_RUN_PLAYWRIGHT",
   "SIGAD_PHASE114_ACTIVATION",
-  "SIGAD_PLAYWRIGHT_GREP",
-  "SIGAD_PLAYWRIGHT_GREP_INVERT",
+  ...(executerE2E ? [] : ["SIGAD_PLAYWRIGHT_GREP", "SIGAD_PLAYWRIGHT_GREP_INVERT"]),
   "NODE_OPTIONS",
   "NODE_PATH",
   "NPM_CONFIG_USERCONFIG",
   "NPM_CONFIG_REGISTRY",
 ]) delete environnementEnfant[nom];
 if (!integrationSeulement) delete environnementEnfant.SIGAD_INTEGRATION_TESTS;
+if (executerE2E) environnementEnfant.SIGAD_RUN_PLAYWRIGHT = "1";
 environnementEnfant.WRANGLER_SEND_METRICS = "false";
 environnementEnfant.DO_NOT_TRACK = "1";
 
@@ -247,7 +249,7 @@ console.log(`\n[VERIFY] ${nettoyerSortie(controleFichiers.sortie)}`);
 const finGlobal = new Date();
 const echecs = resultats.filter((resultat) => resultat.code !== 0);
 const statut = echecs.length === 0 ? "PASS" : "FAIL";
-const mode = integrationSeulement ? "integration-only" : options.has("--rapide") ? "rapide (sans intégration)" : "complet";
+const mode = executerE2E ? "e2e (intégration + Playwright)" : integrationSeulement ? "integration-only" : options.has("--rapide") ? "rapide (sans intégration)" : "complet";
 const lignes = [
   "SIGAD — preuve d’exécution du pipeline verify",
   `Statut global: ${statut}`,

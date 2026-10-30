@@ -163,7 +163,7 @@ flowchart LR
 ## Phase 3 — Consoles administratives
 
 ### B3.1 — Coque multi-consoles et routage
-* **Périmètre** : `consoles/{plateforme,national,provincial}` (coques + navigation déclarative par permission), chargement paresseux par console, redirection des URL actuelles ; aucune page métier réécrite : les composants existants sont montés tels quels dans la console adéquate.
+* **Périmètre** : `consoles/{plateforme,national,provincial}` (+ `institution` pour CONSULTATION_INSTITUTIONNELLE, approuvé 30-10-2026; rôles terrain dans `provincial`) (coques + navigation déclarative par permission), chargement paresseux par console, redirection des URL actuelles ; aucune page métier réécrite : les composants existants sont montés tels quels dans la console adéquate.
 * **Fichiers** : `frontend/src/App.tsx` (aiguillage), `frontend/src/consoles/*`, `navigation-config.ts`, `vite.config.ts`.
 * **Acceptation** : chaque rôle atterrit dans sa console ; les anciennes URL fonctionnent (redirection) ; taille des chunks par console consignée ; `shadcn-admin-navigation.test.mjs` adapté/vert.
 * **Tests** : unitaires de navigation (permission → entrées), e2e `top-navigation-compacte`, `global-admin-ui`.
