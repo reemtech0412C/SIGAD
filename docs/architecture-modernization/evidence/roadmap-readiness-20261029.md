@@ -18,14 +18,14 @@ Les comptes ci-dessous proviennent du test `shadow-authz-comparator.test.mjs`, s
 
 | Niveau | Résultat / dénominateur | Lecture correcte |
 |---|---|---|
-| Porte de route | 1 490 `MATCH`, 0 `MISMATCH`, 113 `INDETERMINATE`, 0 `ERROR` / 1 603 = 229 routes × 7 rôles | Les 113 se décomposent en 91 combinaisons sans politique Shadow (13 routes × 7) et 22 déclarations Legacy conditionnelles. Aucune règle par défaut n'a été inventée. |
+| Porte de route | 1 581 `MATCH`, 0 `MISMATCH`, 22 `INDETERMINATE`, 0 `ERROR` / 1 603 = 229 routes × 7 rôles (mis à jour 30/10 après migration 0043) | Les 22 sont des déclarations Legacy conditionnelles; les 13 routes sans politique (91 combinaisons) sont couvertes par 0043. Aucune règle par défaut n'a été inventée. |
 | Autorisation complète | 0 `MATCH`, 0 `MISMATCH`, 1 603 `INDETERMINATE`, 0 `ERROR` / mêmes 1 603 combinaisons | Les snapshots n'ont pas toutes les ressources et contextes nécessaires; ce résultat ne prouve ni parité ni divergence d'accès complète. |
 | Statuts HTTP historisés | 336 `ALLOW`, 917 `DENY`, 350 `INDETERMINATE`, 0 `ERROR` / 1 603 statuts | Ce sont des statuts de snapshots historiques, pas des tests redémarrés. Les 13 sondes ciblées ayant rendu `400` restent des preuves non concluantes; 211 statuts `400` apparaissent dans l'ensemble plus large. |
 | Différences historiques D-02/D-04 | 80 couples rôle-route | Ce ne sont pas 80 `MISMATCH` Shadow: 70 décrivent une cible proposée plus étroite que l'accès observé; 10 un ancien attendu documentaire plus large que le refus actuel. Chaque ligne attend sa décision. |
 
 | Dimension | Ce qui est prouvé | Cause des indéterminés / reste requis |
 |---|---|---|
-| Rôle/action/ressource de route | La porte Shadow calcule indépendamment depuis les tables B2.2; résultats de route ci-dessus. | 13 routes sans politique Shadow et 22 politiques Legacy conditionnelles; aucune règle à créer sans arbitrage. |
+| Rôle/action/ressource de route | La porte Shadow calcule indépendamment depuis les tables B2.2; résultats de route ci-dessus. | 22 politiques Legacy conditionnelles (13 routes couvertes par 0043); aucune règle à créer sans arbitrage. |
 | Propriété du resource | Fixtures: propriétaire exact `ALLOW`, autre propriétaire `DENY`, propriétaire absent `INDETERMINATE`. | Les snapshots 229×7 n'incluent pas le contexte de propriété par route; vérifier les exigences par ressource après matrice détaillée. |
 | Portée géographique | Fixture: même GID au même niveau `ALLOW`, autre GID même niveau `DENY`. | Relation parent/enfant `INDETERMINATE`: référentiel officiel et règles parentales approuvées manquent; l'inclusion organisationnelle n'est pas modélisée. |
 | Compte/session/appareil | Tests synthétiques couvrent compte actif/suspendu, session révoquée/expirée, appareil lié autorisé/révoqué et invalidation après changement d'affectation. B2.6-R1 a réparé le scénario Worker: la session d'activation à TTL 15 min est remplacée par une réauthentification normale/MFA; `npm run verify` passe. | Ces cas démontrent le cycle de vie sur les tests concernés, pas l'équivalence Shadow/Legacy complète pour chacune des 1 603 lignes. |
