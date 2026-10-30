@@ -143,14 +143,16 @@ describe("B2.6 — moteur indépendant de comparaison Legacy/Shadow", () => {
     }
 
     expect(Object.values(compteurs).reduce((a, b) => a + b, 0)).toBe(1603);
+    expect(compteurs).toEqual({ MATCH: 1581, MISMATCH: 0, INDETERMINATE: 22, ERROR: 0 });
+    expect(originesIndeterminables).toEqual({ POLITIQUE_LEGACY_CONDITIONNELLE: 22 });
     expect(comparaisonsRuntime).toEqual({ MATCH: 0, MISMATCH: 0, INDETERMINATE: 1603, ERROR: 0 });
-    expect(inconnuesShadow.size).toBe(13);
+    expect(inconnuesShadow.size, "0043 doit couvrir les 13 routes appareils/sessions").toBe(0);
     expect(observationsHttp.ERROR).toBe(0);
     // Conserver un résumé compact dans la sortie vérifiable du test.
     console.info(`[B2.6-COMPARATOR] route-gate=${JSON.stringify(compteurs)}; origines-indeterminables=${JSON.stringify(originesIndeterminables)}; runtime-complet=${JSON.stringify(comparaisonsRuntime)}; http-observe=${JSON.stringify(observationsHttp)}; shadow-policy-absente=${inconnuesShadow.size}`);
   });
 
-  it("n'accorde que les permissions réellement mappées dans Shadow et signale les treize routes absentes", () => {
+  it("n'accorde que les permissions réellement mappées dans Shadow et signale une route absente du catalogue Shadow", () => {
     const policyDelegue = CATALOGUE_POLITIQUES_API.find((politique) =>
       politique.accessMode === "ROLE" && politique.rolesAutorises.includes("DELEGUE_PROVINCIAL")
       && db.prepare("SELECT 1 FROM permissions WHERE code = ?").get(politique.permission));
@@ -161,9 +163,8 @@ describe("B2.6 — moteur indépendant de comparaison Legacy/Shadow", () => {
       utilisateurId: delegue.id, sessionId: delegue.sessionId, maintenant,
     }).decision).toBe("ALLOW");
 
-    const policyManquante = CATALOGUE_POLITIQUES_API.find((politique) =>
-      !db.prepare("SELECT 1 FROM permissions WHERE code = ?").get(politique.permission));
-    assert.ok(policyManquante);
+    // Les 13 routes appareils/sessions sont couvertes par 0043; une route inconnue reste INDETERMINATE.
+    const policyManquante = { methode: "POST", chemin: "/api/route-inexistante-b26" };
     expect(evaluerDecisionOmbre(db, {
       methode: policyManquante.methode, chemin: policyManquante.chemin,
       utilisateurId: delegue.id, sessionId: delegue.sessionId, maintenant,

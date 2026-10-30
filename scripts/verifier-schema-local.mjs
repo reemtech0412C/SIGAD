@@ -11,8 +11,8 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 42 || !fichiers.at(-1)?.startsWith("0042_")) {
-  throw new Error(`Les quarante-deux migrations versionnées, jusqu’à la réconciliation B2.6 0042, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 43 || !fichiers.at(-1)?.startsWith("0043_")) {
+  throw new Error(`Les quarante-trois migrations versionnées, jusqu’aux politiques Shadow B2.6 0043, sont requises; ${fichiers.length} trouvées.`);
 }
 
 const tablesGeoB23 = [

@@ -1,0 +1,94 @@
+SIGAD — preuve d’exécution du pipeline verify
+Statut global: PASS
+Mode: rapide (sans intégration)
+Début: 2026-10-30T20:48:50.028Z (30/10/2026 21:48:50 Africa/Ndjamena)
+Fin: 2026-10-30T20:49:08.584Z (30/10/2026 21:49:08 Africa/Ndjamena)
+Durée totale: 18.6 s
+Branche: codex/b2-5-identity-lifecycle
+Révision: 41e42ca
+État Git avant exécution: modifié
+M scripts/verifier-schema-local.mjs
+ M tests/unit/shadow-authz-comparator.test.mjs
+?? "Claude outputs/Backup-SIGAD.ps1"
+?? migrations/0043_politiques_ombre_appareils_sessions.sql
+Node: v24.19.0
+Configuration Wrangler temporaire: non utilisée
+Isolation: configuration écrite dans le répertoire temporaire; identifiant D1 fictif; D1/R2/service Wrangler en mode --local avec --persist-to temporaire; aucun account_id/zone_id/route/binding distant; variables Cloudflare/API/proxy/secrets retirées des environnements enfants.
+Le libellé ENVIRONMENT=staging est conservé uniquement pour caractériser le comportement local; aucune ressource Staging ou Production n’est ciblée.
+wrangler.toml et worker-configuration.d.ts sont vérifiés par empreinte; Wrangler ne charge pas wrangler.toml et aucune commande ne génère ces fichiers.
+D-10 reste ouvert; ce pipeline n’altère pas la configuration Production suivie par Git.
+
+## TypeScript sans génération
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\node_modules\\typescript\\bin\\tsc","--noEmit","-p","tsconfig.json"]
+Début: 2026-10-30T20:48:50.554Z (30/10/2026 21:48:50 Africa/Ndjamena)
+Fin: 2026-10-30T20:48:51.549Z (30/10/2026 21:48:51 Africa/Ndjamena)
+Durée: 1.0 s
+Code de sortie: 0
+Sortie:
+(aucune)
+
+## Tests unitaires
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\node_modules\\vitest\\vitest.mjs","run","--config","vitest.config.ts","--pool=threads","--maxWorkers=1","--reporter=dot"]
+Début: 2026-10-30T20:48:51.549Z (30/10/2026 21:48:51 Africa/Ndjamena)
+Fin: 2026-10-30T20:49:07.246Z (30/10/2026 21:49:07 Africa/Ndjamena)
+Durée: 15.7 s
+Code de sortie: 0
+Sortie:
+
+ RUN  v4.1.12 C:/Users/Lenovo/Downloads/SIGAD
+
+·····················stdout | tests/unit/shadow-authz-comparator.test.mjs > B2.6 — moteur indépendant de comparaison Legacy/Shadow > compare la matrice 229 × 7 au niveau des décisions de route, en gardant les limites HTTP séparées
+[B2.6-COMPARATOR] route-gate={"MATCH":1581,"MISMATCH":0,"INDETERMINATE":22,"ERROR":0}; origines-indeterminables={"POLITIQUE_LEGACY_CONDITIONNELLE":22}; runtime-complet={"MATCH":0,"MISMATCH":0,"INDETERMINATE":1603,"ERROR":0}; http-observe={"ALLOW":336,"DENY":917,"INDETERMINATE":350,"ERROR":0}; shadow-policy-absente=0
+
+················································································································································································
+
+ Test Files  39 passed (39)
+      Tests  197 passed (197)
+   Start at  21:48:51
+   Duration  15.27s (transform 426ms, setup 0ms, import 1.78s, tests 9.12s, environment 3ms)
+
+
+
+## Matrice des permissions en mode contrôle
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\scripts\\generer-matrice-securite-phase9.mjs","--check"]
+Début: 2026-10-30T20:49:07.246Z (30/10/2026 21:49:07 Africa/Ndjamena)
+Fin: 2026-10-30T20:49:07.339Z (30/10/2026 21:49:07 Africa/Ndjamena)
+Durée: 0.1 s
+Code de sortie: 0
+Sortie:
+PASS — Matrice de sécurité synchronisée avec 229 routes API déclarées.
+
+
+## Schéma et migrations en mémoire
+Commande: ["C:\\Program Files\\nodejs\\node.exe","--experimental-sqlite","C:\\Users\\Lenovo\\Downloads\\SIGAD\\scripts\\verifier-schema-local.mjs"]
+Début: 2026-10-30T20:49:07.339Z (30/10/2026 21:49:07 Africa/Ndjamena)
+Fin: 2026-10-30T20:49:07.985Z (30/10/2026 21:49:07 Africa/Ndjamena)
+Durée: 0.6 s
+Code de sortie: 0
+Sortie:
+PASS — EXPLAIN QUERY PLAN (SQLite vierge) : listes paginées des ménages et des mouvements utilisent leurs index composites sans tri temporaire.
+PASS — SQLite vierge : 43 migrations appliquées jusqu’à 0043; journal d’audit pré-0041 conservé intégralement; 106 tables SIGAD; 155 index; 72 déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; ombre rôles/portées: 25/25, zéro divergence; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.
+
+
+## Migration 0022 en mémoire
+Commande: ["C:\\Program Files\\nodejs\\node.exe","--experimental-sqlite","C:\\Users\\Lenovo\\Downloads\\SIGAD\\scripts\\verifier-migration-0022.mjs"]
+Début: 2026-10-30T20:49:07.986Z (30/10/2026 21:49:07 Africa/Ndjamena)
+Fin: 2026-10-30T20:49:08.217Z (30/10/2026 21:49:08 Africa/Ndjamena)
+Durée: 0.2 s
+Code de sortie: 0
+Sortie:
+PASS — migration 0022 sur un schéma 0021 : historique confirmé distinct conservé, deux dossiers placés en revue individuelle, nouvelles décisions atomiques, historique immuable et clés étrangères valides.
+PASS — migration 0022 sur un schéma vierge : colonnes, clé étrangère d’historique et index partiel uniques vérifiés.
+
+
+## عدم تعديل ملفات المشروع بواسطة الفحوص
+Commande: SHA-256 snapshot of tracked/non-ignored project files; compare ignored-root inventory
+Début: 2026-10-30T20:49:08.584Z (30/10/2026 21:49:08 Africa/Ndjamena)
+Fin: 2026-10-30T20:49:08.584Z (30/10/2026 21:49:08 Africa/Ndjamena)
+Durée: 0.0 s
+Code de sortie: 0
+Sortie:
+Tracked/non-ignored files changed: 0
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
