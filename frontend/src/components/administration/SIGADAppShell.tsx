@@ -15,6 +15,8 @@ import {
 } from "./navigation-config";
 import "../pilote/tableau-bord-pilote.css";
 import "./sigad-app-shell.css";
+import "../../consoles/consoles.css";
+import { LIBELLES_CONSOLES, type ConsoleSIGAD } from "../../consoles/consoles-config";
 import { SIGADPwaUpdateNotice } from "./SIGADPwaUpdateNotice";
 
 export type { ModuleAdministration, VueControleAdministration };
@@ -30,6 +32,7 @@ interface Props {
   utilisateur: UtilisateurAuthentifie;
   moduleActif: ModuleAdministration;
   adresseCourante?: string;
+  consoleActive?: ConsoleSIGAD | undefined;
   onNaviguer: (
     module: ModuleAdministration,
     vueControle?: VueControleAdministration,
@@ -55,6 +58,7 @@ export function SIGADAppShell({
   utilisateur,
   moduleActif,
   adresseCourante: adresseProp,
+  consoleActive,
   onNaviguer,
   onDeconnexion,
   onMonCompte,
@@ -248,9 +252,16 @@ export function SIGADAppShell({
   return (
     <div
       className={`sigad-preview sigad-admin sigad-app-shell${modeSombre ? " sigad-preview--sombre sigad-admin--sombre" : ""}`}
+      data-console={consoleActive}
       onKeyDown={gererClavier}
       ref={racineRef}
     >
+      {consoleActive && (
+        <div className="sigad-console-bandeau" role="note">
+          <strong>{LIBELLES_CONSOLES[consoleActive].titre}</strong>
+          <span>{LIBELLES_CONSOLES[consoleActive].description}</span>
+        </div>
+      )}
       <header className="sigad-app-header">
         <div className="sigad-preview__entete-institutionnelle sigad-app-masthead">
           <div className="sigad-app-masthead__marque">

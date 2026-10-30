@@ -23,14 +23,23 @@ export function consolePourRole(role: RoleSIGAD): ConsoleSIGAD {
   return CONSOLE_PAR_ROLE[role];
 }
 
-/** Drapeau de présentation: variable de build ou activation locale; désactivé en cas d'erreur de stockage. */
+export const LIBELLES_CONSOLES: Record<ConsoleSIGAD, { titre: string; description: string }> = {
+  plateforme: { titre: "Console Plateforme", description: "Comptes, sécurité et santé technique" },
+  national: { titre: "Console Administration centrale", description: "Opérations et pilotage nationaux" },
+  provincial: { titre: "Console Provinciale", description: "Opérations dans votre périmètre assigné" },
+  institution: { titre: "Console Institutionnelle", description: "Consultation des rapports agrégés" },
+};
+
+/** Drapeau de présentation: choix local explicite (« 1 » ou « 0 ») sinon variable de build; désactivé par défaut. */
 export function consolesV2Active(): boolean {
-  if (import.meta.env?.VITE_SIGAD_CONSOLES_V2 === "true") return true;
   try {
-    return window.localStorage.getItem("sigad.consoles_v2") === "1";
+    const local = window.localStorage.getItem("sigad.consoles_v2");
+    if (local === "1") return true;
+    if (local === "0") return false;
   } catch {
-    return false;
+    // Stockage indisponible: on retombe sur la variable de build.
   }
+  return import.meta.env?.VITE_SIGAD_CONSOLES_V2 === "true";
 }
 
 function separer(adresse: string): { chemin: string; requete: string } {

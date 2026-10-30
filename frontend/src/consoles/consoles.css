@@ -1,0 +1,19 @@
+/* B3.1 — identité visuelle par console (active seulement avec consoles_v2). */
+.sigad-app-shell[data-console="plateforme"] { --sigad-console-accent: #5b3fd1; --sigad-console-fond: #efeaff; --sigad-console-texte: #2f1f7a; }
+.sigad-app-shell[data-console="national"] { --sigad-console-accent: #1f5fbf; --sigad-console-fond: #e6f0ff; --sigad-console-texte: #123a75; }
+.sigad-app-shell[data-console="provincial"] { --sigad-console-accent: #1d7a4d; --sigad-console-fond: #e4f5ec; --sigad-console-texte: #0f4a2e; }
+.sigad-app-shell[data-console="institution"] { --sigad-console-accent: #a35a00; --sigad-console-fond: #fff1de; --sigad-console-texte: #6b3b00; }
+
+.sigad-console-bandeau {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px;
+  padding: 6px clamp(18px, 4vw, 54px);
+  background: var(--sigad-console-fond); color: var(--sigad-console-texte);
+  border-top: 4px solid var(--sigad-console-accent); font-size: 12px;
+}
+.sigad-console-bandeau strong { font-weight: 700; letter-spacing: .02em; }
+.sigad-console-bandeau span { opacity: .85; }
+.sigad-app-shell[data-console] .sigad-app-header { border-bottom: 2px solid var(--sigad-console-accent); }
+.sigad-app-shell[data-console] .sigad-preview__badge-session-point { background: var(--sigad-console-accent); }
+
+.sigad-preview--sombre[data-console] .sigad-console-bandeau { background: color-mix(in srgb, var(--sigad-console-accent) 22%, #0f1722); color: #e8eef7; }
+@media (max-width: 640px) { .sigad-console-bandeau { padding: 5px 14px; font-size: 11px; } }

@@ -10,7 +10,7 @@ import {
 } from "./components/administration/SIGADAppShell";
 import type { VueTerritoireOperationnel } from "./components/territoire/EspaceTerritorialOperationnel";
 import { ErreurApi, chargerJetonCsrf, requeteApi } from "./services/api";
-import { adresseDansConsole, consolesV2Active, retirerPrefixeConsole } from "./consoles/consoles-config";
+import { adresseDansConsole, consolePourRole, consolesV2Active, retirerPrefixeConsole } from "./consoles/consoles-config";
 
 const TableauBordPilote = lazy(() => import("./components/pilote/TableauBordPilote").then((module) => ({ default: module.TableauBordPilote })));
 const TableauOperationsCentrales = lazy(() => import("./components/gestion/TableauOperationsCentrales").then((module) => ({ default: module.TableauOperationsCentrales })));
@@ -288,7 +288,8 @@ export default function App() {
         adresseCourante={adresseLogique}
         erreur={erreurAction}
         moduleActif="mon-compte"
-        onDeconnexion={deconnexion}
+        consoleActive={consolesV2 ? consolePourRole(utilisateur.role) : undefined}
+      onDeconnexion={deconnexion}
         onMonCompte={ouvrirMonCompte}
         onNaviguer={naviguer}
         utilisateur={utilisateur}
@@ -365,6 +366,7 @@ export default function App() {
       erreur={erreurAction}
       key={cleInterface}
       moduleActif={moduleActif}
+      consoleActive={consolesV2 ? consolePourRole(utilisateur.role) : undefined}
       onDeconnexion={deconnexion}
       onMonCompte={ouvrirMonCompte}
       onNaviguer={naviguer}
