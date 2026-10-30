@@ -10,7 +10,7 @@ import {
 } from "./components/administration/SIGADAppShell";
 import type { VueTerritoireOperationnel } from "./components/territoire/EspaceTerritorialOperationnel";
 import { ErreurApi, chargerJetonCsrf, requeteApi } from "./services/api";
-import { adresseDansConsole, consolePourRole, consolesV2Active, retirerPrefixeConsole } from "./consoles/consoles-config";
+import { adresseDansConsole, consolePourRole, consolesV2Active, moduleAutoriseConsolePlateforme, retirerPrefixeConsole } from "./consoles/consoles-config";
 
 const TableauBordPilote = lazy(() => import("./components/pilote/TableauBordPilote").then((module) => ({ default: module.TableauBordPilote })));
 const TableauOperationsCentrales = lazy(() => import("./components/gestion/TableauOperationsCentrales").then((module) => ({ default: module.TableauOperationsCentrales })));
@@ -125,8 +125,10 @@ export default function App() {
     adresseLogique,
     utilisateur?.role ?? "DELEGUE_PROVINCIAL",
   );
+  const plateformeRestreinte = consolesV2 && utilisateur?.role === "PROPRIETAIRE"
+    && !moduleAutoriseConsolePlateforme(moduleDemande, vueControleDepuisAdresse(adresseLogique));
   const moduleActif =
-    utilisateur && autorise(moduleDemande, utilisateur.role)
+    utilisateur && !plateformeRestreinte && autorise(moduleDemande, utilisateur.role)
       ? moduleDemande
       : utilisateur?.role === "PROPRIETAIRE"
         ? "comptes"

@@ -87,7 +87,10 @@ export function SIGADAppShell({
   const ancreProfilRef = useRef<HTMLDivElement>(null);
   const declencheurProfilRef = useRef<HTMLButtonElement>(null);
 
-  const groupesNavigation = useMemo(() => construireNavigationParRole(utilisateur.role), [utilisateur.role]);
+  const groupesNavigation = useMemo(
+    () => construireNavigationParRole(utilisateur.role, { consolePlateforme: consoleActive === "plateforme" }),
+    [utilisateur.role, consoleActive],
+  );
   const groupesPrincipaux = groupesNavigation.filter((groupe) => groupe.id !== "mon-espace");
   const groupeCompte = groupesNavigation.find((groupe) => groupe.id === "mon-espace");
   const { groupeActif, sousMenuActif } = useMemo(

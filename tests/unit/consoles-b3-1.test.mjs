@@ -46,3 +46,50 @@ describe("B3.1 consoles: aiguillage par rôle", () => {
     expect(consoleDepuisAdresse("/api/auth/session")).toBeNull();
   });
 });
+
+import { construireNavigationParRole, ENTREES_CONSOLE_PLATEFORME } from "../../frontend/src/components/administration/navigation-config.ts";
+import { moduleAutoriseConsolePlateforme } from "../../frontend/src/consoles/consoles-config.ts";
+
+describe("B3.2 console Plateforme: retrait d'interface des modules opérationnels", () => {
+  const entrees = (role, options) => construireNavigationParRole(role, options).flatMap((g) => g.sousMenus);
+
+  it("le propriétaire ne garde que les entrées de plateforme", () => {
+    const ids = entrees("PROPRIETAIRE", { consolePlateforme: true }).map((e) => e.id);
+    expect(ids.every((id) => ENTREES_CONSOLE_PLATEFORME.includes(id))).toBe(true);
+    expect(ids).toContain("admin-comptes");
+    const modules = new Set(entrees("PROPRIETAIRE", { consolePlateforme: true }).map((e) => e.module));
+    for (const interdit of ["operations", "approvisionnements", "stocks", "distributions", "rapports", "beneficiaires"]) {
+      expect(modules.has(interdit), interdit).toBe(false);
+    }
+  });
+
+  it("sans console Plateforme la navigation reste inchangée, pour tous les rôles", () => {
+    for (const role of roles) {
+      expect(entrees(role).map((e) => e.id)).toEqual(entrees(role, { consolePlateforme: false }).map((e) => e.id));
+    }
+    expect(entrees("PROPRIETAIRE").some((e) => e.module === "stocks")).toBe(true);
+  });
+
+  it("les autres rôles ne sont pas affectés par l'option", () => {
+    for (const role of roles.filter((r) => r !== "PROPRIETAIRE")) {
+      expect(entrees(role, { consolePlateforme: true }).map((e) => e.id)).toEqual(entrees(role).map((e) => e.id));
+    }
+  });
+
+  it("chaque entrée conservée appartient à un module autorisé par la console", () => {
+    for (const e of entrees("PROPRIETAIRE", { consolePlateforme: true })) {
+      const vue = new URLSearchParams(e.chemin.split("?")[1] ?? "").get("vue");
+      expect(moduleAutoriseConsolePlateforme(e.module, vue), e.id).toBe(true);
+    }
+  });
+
+  it("garde de module: opérations refusées, audit et comptes permis", () => {
+    for (const m of ["operations", "stocks", "distributions", "approvisionnements", "rapports", "beneficiaires"]) {
+      expect(moduleAutoriseConsolePlateforme(m, null)).toBe(false);
+    }
+    expect(moduleAutoriseConsolePlateforme("controle", "observations")).toBe(false);
+    expect(moduleAutoriseConsolePlateforme("controle", null)).toBe(false);
+    expect(moduleAutoriseConsolePlateforme("controle", "audit")).toBe(true);
+    expect(moduleAutoriseConsolePlateforme("comptes", null)).toBe(true);
+  });
+});

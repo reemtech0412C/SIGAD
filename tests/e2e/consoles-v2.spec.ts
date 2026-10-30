@@ -40,3 +40,18 @@ test("Consoles v2 désactivé: les URL historiques restent sans préfixe", async
   await expect(page).toHaveURL(/\/mon-compte$/u);
   await expect(page).not.toHaveURL(/\/(plateforme|national|provincial|institution)\//u);
 });
+
+test("Consoles v2: la console Plateforme retire les modules opérationnels du propriétaire", async ({ page }) => {
+  await activerConsolesV2(page);
+  await connecterDansLeNavigateur(page, "proprietaire");
+  const navigation = page.getByRole("navigation", { name: "Navigation principale" });
+  await expect(navigation).toBeVisible();
+  await expect(navigation.getByRole("button", { name: "Opérations & aide", exact: true })).toHaveCount(0);
+  await expect(navigation.getByRole("button", { name: "Bénéficiaires", exact: true })).toHaveCount(0);
+
+  for (const chemin of ["/plateforme/stocks", "/plateforme/distributions", "/plateforme/rapports", "/plateforme/operations-centrales"]) {
+    await page.goto(chemin);
+    await expect(page).toHaveURL(/\/plateforme\/administration\/comptes$/u);
+  }
+  await expect(page.locator(".sigad-console-bandeau")).toContainText("Console Plateforme");
+});

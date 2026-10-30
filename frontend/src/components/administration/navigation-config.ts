@@ -79,7 +79,30 @@ const ROLES_BENEFICIAIRES: readonly RoleUtilisateur[] = [
   "AGENT_DISTRIBUTION",
 ];
 
-export function construireNavigationParRole(role: RoleUtilisateur): GroupeMenuNavigation[] {
+/**
+ * B3.2 — Console Plateforme (consoles_v2): le propriétaire n'a dans l'interface que les entrées de plateforme.
+ * Retrait d'interface seulement; la fermeture des routes d'API correspondantes relève de B2.6.
+ */
+export const ENTREES_CONSOLE_PLATEFORME: readonly string[] = [
+  "dashboard-ensemble",
+  "terr-localites",
+  "terr-corrections",
+  "ctrl-historique",
+  "ctrl-notifications",
+  "admin-comptes",
+  "espace-profil",
+  "espace-securite",
+];
+
+export interface OptionsNavigation {
+  readonly consolePlateforme?: boolean;
+}
+
+export function construireNavigationParRole(
+  role: RoleUtilisateur,
+  options: OptionsNavigation = {},
+): GroupeMenuNavigation[] {
+  const restreindrePlateforme = options.consolePlateforme === true && role === "PROPRIETAIRE";
   const vueControleDefaut: VueControleAdministration =
     role === "ADMIN_CENTRAL"
       ? "tableau"
@@ -348,7 +371,8 @@ export function construireNavigationParRole(role: RoleUtilisateur): GroupeMenuNa
   return groupesBruts
     .map((groupe) => ({
       ...groupe,
-      sousMenus: groupe.sousMenus.filter((sm) => sm.rolesAutorises.includes(role)),
+      sousMenus: groupe.sousMenus.filter((sm) => sm.rolesAutorises.includes(role)
+        && (!restreindrePlateforme || ENTREES_CONSOLE_PLATEFORME.includes(sm.id))),
     }))
     .filter((groupe) => groupe.sousMenus.length > 0);
 }

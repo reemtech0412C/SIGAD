@@ -69,3 +69,9 @@ export function adresseDansConsole(adresse: string, role: RoleSIGAD): string {
   if (chemin === "/ui-preview") return logique;
   return `/${consolePourRole(role)}${chemin === "/" ? "" : chemin}${requete}`;
 }
+
+/** Modules d'interface ouverts au propriétaire dans la console Plateforme (l'API reste l'autorité d'accès). */
+export function moduleAutoriseConsolePlateforme(module: string, vueControle: string | null): boolean {
+  if (module === "dashboard" || module === "comptes" || module === "mon-compte" || module === "territoire") return true;
+  return module === "controle" && (vueControle === "audit" || vueControle === "notifications");
+}
