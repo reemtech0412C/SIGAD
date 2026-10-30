@@ -15,6 +15,7 @@ const migrations = readdirSync(join(racine, "migrations"))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom)).sort();
 const snapshotsAnciens = join(racine, "tests/integration/__snapshots__/caracterisation-roles");
 const snapshotsB26 = join(racine, "tests/integration/__snapshots__/caracterisation-roles-b2-6");
+const snapshotsB32 = join(racine, "tests/integration/__snapshots__/caracterisation-roles-b3-2");
 const maintenant = new Date().toISOString();
 let db;
 let comptes;
@@ -81,7 +82,7 @@ function legacyDeclare(politique, role) {
 function lireMatriceSnapshots() {
   const lignes = [];
   for (const role of roles) {
-    for (const [dossier, attendu] of [[snapshotsAnciens, 216], [snapshotsB26, 13]]) {
+    for (const [dossier, attendu] of [[snapshotsAnciens, 216], [snapshotsB26, 13], [snapshotsB32, 8]]) {
       const fichier = join(dossier, `${role}.json`);
       const contenu = JSON.parse(readFileSync(fichier, "utf8"));
       assert.equal(contenu.length, attendu, `${role}: couverture snapshot attendue.`);
@@ -106,9 +107,9 @@ describe("B2.6 — moteur indépendant de comparaison Legacy/Shadow", () => {
 
   afterAll(() => db?.close());
 
-  it("compare la matrice 229 × 7 au niveau des décisions de route, en gardant les limites HTTP séparées", () => {
+  it("compare la matrice 237 × 7 au niveau des décisions de route, en gardant les limites HTTP séparées", () => {
     const lignes = lireMatriceSnapshots();
-    expect(lignes).toHaveLength(229 * 7);
+    expect(lignes).toHaveLength(237 * 7);
     const compteurs = { MATCH: 0, MISMATCH: 0, INDETERMINATE: 0, ERROR: 0 };
     const originesIndeterminables = {};
     const comparaisonsRuntime = { MATCH: 0, MISMATCH: 0, INDETERMINATE: 0, ERROR: 0 };
@@ -142,11 +143,11 @@ describe("B2.6 — moteur indépendant de comparaison Legacy/Shadow", () => {
       observationsHttp[observation] += 1;
     }
 
-    expect(Object.values(compteurs).reduce((a, b) => a + b, 0)).toBe(1603);
-    expect(compteurs).toEqual({ MATCH: 1581, MISMATCH: 0, INDETERMINATE: 22, ERROR: 0 });
+    expect(Object.values(compteurs).reduce((a, b) => a + b, 0)).toBe(1659);
+    expect(compteurs).toEqual({ MATCH: 1637, MISMATCH: 0, INDETERMINATE: 22, ERROR: 0 });
     expect(originesIndeterminables).toEqual({ POLITIQUE_LEGACY_CONDITIONNELLE: 22 });
-    expect(comparaisonsRuntime).toEqual({ MATCH: 0, MISMATCH: 0, INDETERMINATE: 1603, ERROR: 0 });
-    expect(inconnuesShadow.size, "0043 doit couvrir les 13 routes appareils/sessions").toBe(0);
+    expect(comparaisonsRuntime).toEqual({ MATCH: 0, MISMATCH: 0, INDETERMINATE: 1659, ERROR: 0 });
+    expect(inconnuesShadow.size, "0043 et 0046 doivent couvrir les routes appareils/sessions et plateforme").toBe(0);
     expect(observationsHttp.ERROR).toBe(0);
     // Conserver un résumé compact dans la sortie vérifiable du test.
     console.info(`[B2.6-COMPARATOR] route-gate=${JSON.stringify(compteurs)}; origines-indeterminables=${JSON.stringify(originesIndeterminables)}; runtime-complet=${JSON.stringify(comparaisonsRuntime)}; http-observe=${JSON.stringify(observationsHttp)}; shadow-policy-absente=${inconnuesShadow.size}`);

@@ -1957,6 +1957,110 @@ export const CATALOGUE_POLITIQUES_API = [
     "csrf": true
   },
   {
+    "permission": "API:GET:/api/proprietaire/plateforme/approbations",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/proprietaire/plateforme/approbations",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": false
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/plateforme/approbations",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/plateforme/approbations",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/plateforme/approbations/:id/annuler",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/annuler",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/plateforme/approbations/:id/approuver",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/approuver",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/plateforme/approbations/:id/executer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/executer",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/proprietaire/plateforme/approbations/:id/refuser",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/refuser",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": true
+  },
+  {
+    "permission": "API:GET:/api/proprietaire/plateforme/drapeaux",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/proprietaire/plateforme/drapeaux",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": false
+  },
+  {
+    "permission": "API:PUT:/api/proprietaire/plateforme/drapeaux/:code",
+    "methode": "PUT",
+    "action": "REMPLACEMENT",
+    "chemin": "/api/proprietaire/plateforme/drapeaux/:code",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "PROPRIETAIRE"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Sans restriction de province; drapeaux et demandes d’approbation de plateforme, aucune donnée bénéficiaire",
+    "csrf": true
+  },
+  {
     "permission": "API:GET:/api/proprietaire/referentiel-territorial/propositions",
     "methode": "GET",
     "action": "LECTURE",

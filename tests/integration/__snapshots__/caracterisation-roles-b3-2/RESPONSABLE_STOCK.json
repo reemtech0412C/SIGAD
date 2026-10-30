@@ -1,0 +1,58 @@
+[
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/plateforme/approbations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/annuler",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/approuver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/executer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/refuser",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/plateforme/drapeaux",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "PUT",
+    "chemin": "/api/proprietaire/plateforme/drapeaux/:code",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  }
+]

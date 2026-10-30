@@ -11,8 +11,8 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 45 || !fichiers.at(-1)?.startsWith("0045_")) {
-  throw new Error(`Les quarante-cinq migrations versionnées, jusqu’aux drapeaux et approbations de plateforme 0045, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 46 || !fichiers.at(-1)?.startsWith("0046_")) {
+  throw new Error(`Les quarante-six migrations versionnées, jusqu’aux politiques Shadow de plateforme 0046, sont requises; ${fichiers.length} trouvées.`);
 }
 
 const tablesGeoB23 = [

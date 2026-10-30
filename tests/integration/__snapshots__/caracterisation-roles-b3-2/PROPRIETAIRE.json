@@ -1,0 +1,58 @@
+[
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/plateforme/approbations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 409,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/annuler",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/approuver",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/executer",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/proprietaire/plateforme/approbations/:id/refuser",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
+    "chemin": "/api/proprietaire/plateforme/drapeaux",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "PUT",
+    "chemin": "/api/proprietaire/plateforme/drapeaux/:code",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  }
+]

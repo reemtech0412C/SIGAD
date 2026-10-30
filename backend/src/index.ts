@@ -12,6 +12,7 @@ import { isolationProvinciale, exigerRoles } from "./middlewares/rbac.middleware
 import { routesAuth } from "./routes/auth.routes";
 import { routesTerritoire } from "./routes/territoire.routes";
 import { routesProprietaire } from "./routes/utilisateurs.routes";
+import { routesPlateforme } from "./routes/plateforme.routes";
 import { routesValidationTerritoire } from "./routes/validation-territoire.routes";
 import { routesGestion } from "./routes/gestion.routes";
 import { routesStocks } from "./routes/stocks.routes";
@@ -188,6 +189,7 @@ app.use("/api/proprietaire/*", csrfSessionMiddleware);
 app.use("/api/proprietaire/*", refuserAccesOperationnelConsultation);
 app.use("/api/proprietaire/*", exigerRoles("PROPRIETAIRE"));
 app.route("/api/proprietaire", routesProprietaire);
+app.route("/api/proprietaire", routesPlateforme);
 app.route("/api/proprietaire", routesValidationTerritoire);
 app.route("/api/proprietaire/donnees-test", routesProprietaireDonneesTest);
 app.route("/api/proprietaire/territoire", routesAdministrationTerritoriale);

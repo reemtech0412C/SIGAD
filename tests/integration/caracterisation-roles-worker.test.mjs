@@ -12,6 +12,8 @@ const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adresseApi = process.env.SIGAD_LOCAL_API_URL ?? "http://127.0.0.1:8787";
 const dossierSnapshots = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles");
 const dossierSnapshotsB2_6 = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles-b2-6");
+const dossierSnapshotsB3_2 = resolve(racine, "tests/integration/__snapshots__/caracterisation-roles-b3-2");
+const estRoutePlateforme = ({ chemin }) => chemin.startsWith("/api/proprietaire/plateforme/");
 const roles = [
   "PROPRIETAIRE",
   "ADMIN_CENTRAL",
@@ -47,10 +49,13 @@ function routesDeLaMatrice() {
   assert.equal(baseline.length, 216, "La baseline B1.1 doit conserver ses 216 routes historiques.");
   const routesBaseline = new Set(baseline.map(({ methode, chemin }) => `${methode} ${chemin}`));
   const historiques = matrice.filter(({ methode, chemin }) => routesBaseline.has(`${methode} ${chemin}`));
-  const extension = matrice.filter(({ methode, chemin }) => !routesBaseline.has(`${methode} ${chemin}`));
+  const apresBaseline = matrice.filter(({ methode, chemin }) => !routesBaseline.has(`${methode} ${chemin}`));
+  const extension = apresBaseline.filter((route) => !estRoutePlateforme(route));
+  const extensionB3_2 = apresBaseline.filter(estRoutePlateforme);
   assert.equal(historiques.length, 216, "La matrice courante doit conserver les 216 routes de la baseline B1.1.");
   assert.equal(extension.length, 13, "La matrice B2.6 doit ajouter exactement les 13 routes postérieures à B1.1.");
-  return { historiques, extension, toutes: [...historiques, ...extension] };
+  assert.equal(extensionB3_2.length, 8, "La console Plateforme B3.2 ajoute exactement 8 routes.");
+  return { historiques, extension, extensionB3_2, toutes: [...historiques, ...extension, ...extensionB3_2] };
 }
 
 function cheminConcrete(chemin, provinceId) {
@@ -181,6 +186,12 @@ async function corpsCaracterisation(route, role, compte) {
   if (route.chemin === "/api/auth/mfa/reinitialiser/:utilisateurId" && role === "PROPRIETAIRE") {
     return { code: await codeMfaInutilise(compte.identifiant) };
   }
+  if (route.chemin.startsWith("/api/proprietaire/plateforme/")) {
+    if (route.chemin.endsWith("/drapeaux/:code")) return { actif: true, motif: "Sonde synthétique B3.2 du drapeau." };
+    if (route.chemin.endsWith("/approbations")) return { drapeau_code: "authz_observation", actif: true, motif: "Sonde synthétique B3.2." };
+    if (route.chemin.endsWith("/approuver")) return { code_totp: "000000" };
+    return { motif_decision: "Sonde synthétique B3.2; demande inexistante." };
+  }
   if (route.chemin.startsWith("/api/administration/comptes/appareils/")
     || route.chemin === "/api/proprietaire/appareils/:id/revoquer"
     || route.chemin === "/api/proprietaire/utilisateurs/:id/revoquer") {
@@ -233,7 +244,7 @@ function creerAppareilFixture(base, utilisateurId, statut, autorisePar) {
   return id;
 }
 
-test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", async () => {
+test("Caractérisation HTTP des 7 rôles × 237 routes — statuts seulement", async () => {
   const base = ouvrirD1Locale();
   const clients = new Map();
   const profilsAjoutes = [];
@@ -296,10 +307,11 @@ test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", a
       clients.set(compte.roleCaractérisation, await preparerCompte(base, compte));
     }
 
-    const { historiques, extension, toutes: matrice } = routesDeLaMatrice();
+    const { historiques, extension, extensionB3_2, toutes: matrice } = routesDeLaMatrice();
     const cleRoute = ({ methode, chemin }) => `${methode} ${chemin}`;
     const routesHistoriques = new Set(historiques.map(cleRoute));
     const routesExtension = new Set(extension.map(cleRoute));
+    const routesExtensionB3_2 = new Set(extensionB3_2.map(cleRoute));
     const observations = new Map(roles.map((role) => [role, []]));
     const routesDeconnexion = historiques.filter((route) => route.methode === "POST" && route.chemin === "/api/auth/deconnexion");
     const routesRevoquerToutes = extension.filter((route) => route.methode === "POST" && route.chemin === "/api/compte/sessions/revoquer-toutes");
@@ -339,6 +351,7 @@ test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", a
         const route = routesOrdinaires[index];
         let resultat;
         let chemin = cheminConcrete(route.chemin, compte.province_id ?? "prov-sila");
+        if (route.chemin.endsWith("/drapeaux/:code")) chemin = route.chemin.replace(":code", "consoles_v2");
         let corps = route.methode === "GET" ? undefined : await corpsCaracterisation(route, role, compte);
         const cle = cleRoute(route);
         try {
@@ -380,6 +393,16 @@ test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", a
           }
         } catch (erreur) {
           throw new Error(`Sonde HTTP sans réponse pour ${role} ${route.methode} ${route.chemin}.`, { cause: erreur });
+        }
+        if (routesExtensionB3_2.has(cle)) {
+          assert.notEqual(resultat.reponse.status, 400,
+            `${role} ${cle}: une réponse 400 ne caractérise pas le contrôle d’autorisation; corrigez la sonde.`);
+          if (role === "PROPRIETAIRE") {
+            assert.ok([200, 201, 404, 409].includes(resultat.reponse.status),
+              `${role} ${cle}: la sonde propriétaire doit atteindre le gestionnaire (obtenu ${resultat.reponse.status}).`);
+          } else {
+            assert.equal(resultat.reponse.status, 403, `${role} ${cle}: la console Plateforme reste propriétaire seulement.`);
+          }
         }
         if (routesExtension.has(cle)) {
           assert.notEqual(resultat.reponse.status, 400,
@@ -468,12 +491,22 @@ test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", a
     const accesSansPolitiqueExplicite = [];
     for (const role of roles) {
       const lignes = observations.get(role);
-      assert.equal(lignes.length, 229, `La couverture du rôle ${role} doit contenir 229 routes.`);
+      assert.equal(lignes.length, 237, `La couverture du rôle ${role} doit contenir 237 routes.`);
       const fichierSnapshot = join(dossierSnapshots, `${role}.json`);
       const historique = lignes.filter((ligne) => routesHistoriques.has(cleRoute(ligne)));
       const nouvelleCaracterisation = lignes.filter((ligne) => routesExtension.has(cleRoute(ligne)));
       assert.equal(historique.length, 216, `${role}: l’extension ne doit pas modifier la couverture B1.1.`);
       assert.equal(nouvelleCaracterisation.length, 13, `${role}: les 13 routes ajoutées doivent être caractérisées.`);
+      const caracterisationB3_2 = lignes.filter((ligne) => routesExtensionB3_2.has(cleRoute(ligne)));
+      assert.equal(caracterisationB3_2.length, 8, `${role}: les 8 routes B3.2 doivent être caractérisées.`);
+      const fichierSnapshotB3_2 = join(dossierSnapshotsB3_2, `${role}.json`);
+      if (process.env.SIGAD_UPDATE_B3_2_ROLE_SNAPSHOT === "1") {
+        mkdirSync(dossierSnapshotsB3_2, { recursive: true });
+        writeFileSync(fichierSnapshotB3_2, `${JSON.stringify(caracterisationB3_2, null, 2)}\n`, { encoding: "utf8", flag: "w", mode: 0o600 });
+      } else {
+        assert.deepEqual(JSON.parse(readFileSync(fichierSnapshotB3_2, "utf8")), caracterisationB3_2,
+          `Caractérisation B3.2 modifiée pour ${role}; vérifiez chaque écart avant de mettre à jour le snapshot.`);
+      }
       assert.deepEqual(JSON.parse(readFileSync(fichierSnapshot, "utf8")), historique,
         `Baseline B1.1 modifiée pour ${role}; les 216 résultats historiques doivent rester inchangés.`);
       const fichierSnapshotB2_6 = join(dossierSnapshotsB2_6, `${role}.json`);
@@ -497,7 +530,7 @@ test("Caractérisation HTTP des 7 rôles × 229 routes — statuts seulement", a
         }
       }
     }
-    console.log(`PASS — 7×229=${roles.length * matrice.length} requêtes (baseline B1.1 intacte: 1512 + extension B2.6: 91); écarts de rôle documentés=${discrepancesPotentielles.length}; sondes HTTP 400 héritées=${sondesInconclusives.length}; accès sans politique explicite=${accesSansPolitiqueExplicite.length}; corps/tokens non enregistrés.`);
+    console.log(`PASS — 7×237=${roles.length * matrice.length} requêtes (baseline B1.1 intacte: 1512 + extension B2.6: 91; console Plateforme B3.2: 56); écarts de rôle documentés=${discrepancesPotentielles.length}; sondes HTTP 400 héritées=${sondesInconclusives.length}; accès sans politique explicite=${accesSansPolitiqueExplicite.length}; corps/tokens non enregistrés.`);
     if (discrepancesPotentielles.length) console.log(JSON.stringify(discrepancesPotentielles));
     if (sondesInconclusives.length) console.log(`SONDES_INCONCLUSIVES ${JSON.stringify(sondesInconclusives)}`);
     if (accesSansPolitiqueExplicite.length) console.log(`ACCES_SANS_POLITIQUE ${JSON.stringify(accesSansPolitiqueExplicite)}`);
