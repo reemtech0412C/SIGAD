@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { PROVINCES_TCHADIENNES } from "../../../../shared/constantes/provinces";
 import type { EntreeJournalAudit, ReponsePagination, UtilisateurAdmin } from "../../../../shared/types/authentification";
 import { formaterDate } from "../../utils/formatters";
@@ -22,8 +22,13 @@ import {
 import { GestionDonneesTest } from "./GestionDonneesTest";
 import { AdministrationTerritoriale } from "./AdministrationTerritoriale";
 
+const PermissionsPlateforme = lazy(() => import("./PermissionsPlateforme").then((m) => ({ default: m.PermissionsPlateforme })));
+const SanteTechnique = lazy(() => import("./SanteTechnique").then((m) => ({ default: m.SanteTechnique })));
+
 interface TableauProprietaireProps {
   jetonCsrf: string;
+  /** B3.2: entrées de la console Plateforme (permissions, santé), actives avec consoles_v2. */
+  consolePlateforme?: boolean | undefined;
 }
 
 const TAILLE_PAGE = 20;
@@ -39,8 +44,8 @@ function libelleRole(role: UtilisateurAdmin["role"]): string {
   return "Délégation provinciale";
 }
 
-export function TableauProprietaire({ jetonCsrf }: TableauProprietaireProps) {
-  const lireOngletDepuisUrl = useCallback((): "comptes" | "audit" | "donnees_test" | "territoire" => {
+export function TableauProprietaire({ jetonCsrf, consolePlateforme = false }: TableauProprietaireProps) {
+  const lireOngletDepuisUrl = useCallback((): "comptes" | "audit" | "donnees_test" | "territoire" | "permissions" | "sante" => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
       const search = window.location.search;
@@ -53,11 +58,13 @@ export function TableauProprietaire({ jetonCsrf }: TableauProprietaireProps) {
       if (hash === "#audit" || search.includes("section=audit")) {
         return "audit";
       }
+      if (hash === "#permissions") return "permissions";
+      if (hash === "#sante") return "sante";
     }
     return "comptes";
   }, []);
 
-  const [onglet, setOnglet] = useState<"comptes" | "audit" | "donnees_test" | "territoire">(lireOngletDepuisUrl);
+  const [onglet, setOnglet] = useState<"comptes" | "audit" | "donnees_test" | "territoire" | "permissions" | "sante">(lireOngletDepuisUrl);
   const [utilisateurs, setUtilisateurs] = useState<UtilisateurAdmin[]>([]);
   const [journaux, setJournaux] = useState<EntreeJournalAudit[]>([]);
   const [totalUtilisateurs, setTotalUtilisateurs] = useState(0);
@@ -196,8 +203,37 @@ export function TableauProprietaire({ jetonCsrf }: TableauProprietaireProps) {
           >
             Gestion des données de test
           </SIGADTab>
+          {consolePlateforme && (
+            <SIGADTab
+              active={onglet === "permissions"}
+              onClick={() => {
+                setOnglet("permissions");
+                window.history.replaceState(null, "", "#permissions");
+              }}
+            >
+              Rôles et permissions
+            </SIGADTab>
+          )}
+
+          {consolePlateforme && (
+            <SIGADTab
+              active={onglet === "sante"}
+              onClick={() => {
+                setOnglet("sante");
+                window.history.replaceState(null, "", "#sante");
+              }}
+            >
+              Santé technique
+            </SIGADTab>
+          )}
         </SIGADTabsList>
       </div>
+
+      {consolePlateforme && (onglet === "permissions" || onglet === "sante") && (
+        <Suspense fallback={<p role="status">Chargement…</p>}>
+          {onglet === "permissions" ? <PermissionsPlateforme /> : <SanteTechnique />}
+        </Suspense>
+      )}
 
       {onglet === "territoire" && (
         <AdministrationTerritoriale jetonCsrf={jetonCsrf} />

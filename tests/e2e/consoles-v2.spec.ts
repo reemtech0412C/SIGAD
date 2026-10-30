@@ -55,3 +55,18 @@ test("Consoles v2: la console Plateforme retire les modules opérationnels du pr
   }
   await expect(page.locator(".sigad-console-bandeau")).toContainText("Console Plateforme");
 });
+
+test("Consoles v2: la console Plateforme expose permissions et santé, sans donnée nominative", async ({ page }) => {
+  await activerConsolesV2(page);
+  await connecterDansLeNavigateur(page, "proprietaire");
+  await expect(page).toHaveURL(/\/plateforme(\/|$)/u);
+  await page.getByRole("tab", { name: "Rôles et permissions" }).click();
+  await expect(page.getByRole("heading", { name: "Rôles et permissions" })).toBeVisible();
+  await expect(page.getByTestId("resume-permissions")).toContainText("Autorisé:");
+  await page.getByLabel("Rôle simulé").selectOption("CONSULTATION_INSTITUTIONNELLE");
+  await page.getByLabel("Filtrer les routes").fill("/api/distributions/menages");
+  await expect(page.getByRole("table")).toContainText("/api/distributions/menages");
+
+  await page.getByRole("tab", { name: "Santé technique" }).click();
+  await expect(page.getByTestId("sante-technique")).toContainText("operationnel");
+});
