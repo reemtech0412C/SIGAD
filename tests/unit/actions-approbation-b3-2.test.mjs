@@ -27,7 +27,7 @@ describe("B3.2 écran des approbations: actions proposées", () => {
 
   it("validation locale du motif et du code MFA, et libellé du changement", () => {
     expect(motifValide("court")).toBe(false);
-    expect(motifValide("   dix car.  ")).toBe(true);
+    expect(motifValide("   dix caractères  ")).toBe(true);
     expect(motifValide("x".repeat(501))).toBe(false);
     expect(codeTotpValide("123456")).toBe(true);
     for (const mauvais of ["12345", "1234567", "12345a", ""]) expect(codeTotpValide(mauvais)).toBe(false);
