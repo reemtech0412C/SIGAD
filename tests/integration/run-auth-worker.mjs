@@ -390,6 +390,7 @@ try {
     "caracterisation-roles-worker.test.mjs",
     "audit-unifie-worker.test.mjs",
     "plateforme-approbations-worker.test.mjs",
+    "exceptions-nominatives-worker.test.mjs",
   ];
   const testsSelectionnes = process.env.SIGAD_INTEGRATION_TESTS
     ? process.env.SIGAD_INTEGRATION_TESTS.split(",").map((nom) => nom.trim()).filter(Boolean)

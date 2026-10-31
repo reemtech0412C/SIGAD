@@ -13,6 +13,8 @@ import { routesAuth } from "./routes/auth.routes";
 import { routesTerritoire } from "./routes/territoire.routes";
 import { routesProprietaire } from "./routes/utilisateurs.routes";
 import { routesPlateforme } from "./routes/plateforme.routes";
+import { routesExceptionsNominatives } from "./routes/exceptions-nominatives.routes";
+import { expirerDemandesApprobation } from "./services/expiration-approbations.service";
 import { routesValidationTerritoire } from "./routes/validation-territoire.routes";
 import { routesGestion } from "./routes/gestion.routes";
 import { routesStocks } from "./routes/stocks.routes";
@@ -202,6 +204,7 @@ app.route("/api/central", routesValidationTerritoire);
 app.route("/api/central/approvisionnements", routesApprovisionnementsCentrales);
 app.route("/api/central/distributions", routesControleDistributions);
 app.route("/api/central", routesControleCentral);
+app.route("/api/central", routesExceptionsNominatives);
 
 app.use("/api/provincial/*", authMiddleware);
 app.use("/api/provincial/*", csrfSessionMiddleware);
@@ -306,4 +309,10 @@ app.notFound((c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-export default app;
+// Fetch HTTP et tâche planifiée: l'expiration des demandes d'approbation ne dépend pas d'une lecture.
+export default {
+  fetch: app.fetch,
+  async scheduled(_evenement: ScheduledController, env: EnvironnementApplication["Bindings"], ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(expirerDemandesApprobation(env.DB).then(() => undefined));
+  },
+} satisfies ExportedHandler<EnvironnementApplication["Bindings"]>;

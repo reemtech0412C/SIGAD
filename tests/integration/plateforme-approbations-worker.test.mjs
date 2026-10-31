@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hacherMotDePasse } from "../../backend/src/services/cryptographie.service.ts";
+import { preparerProprietaireSecondaire } from "../../backend/src/services/proprietaire-secondaire.ts";
 import { codeMfaInutilise, configurerMfaTest, terminerConnexionMfaTest } from "./mfa-test-helper.mjs";
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -98,8 +99,22 @@ test("Console Plateforme: cycle complet de demande, approbation, exécution et a
     assert.equal(seul.reponse.status, 409);
     assert.match(seul.donnees.erreur, /SECOND_PROPRIETAIRE_ABSENT/u);
 
-    const b = await preparerProprietaire(base, identifiantB, randomBytes(16).toString("hex"));
-    const proprietaireB = base.prepare("SELECT id FROM utilisateurs WHERE identifiant = ?").get(identifiantB).id;
+    // Le second propriétaire naît de la procédure d'exploitation documentée (SQL préparé, code d'activation hors bande).
+    const preparation = await preparerProprietaireSecondaire({
+      identifiant: identifiantB, nomComplet: "Second propriétaire synthétique", operateur: "Opérateur de test",
+      motif: "Test d’intégration de la procédure de second propriétaire.",
+    });
+    assert.ok(!preparation.sql.includes(preparation.codeActivation), "Le code d’activation ne doit jamais figurer dans le fichier SQL.");
+    base.exec(preparation.sql);
+    base.exec(preparation.sql);
+    assert.equal(base.prepare("SELECT COUNT(*) AS total FROM utilisateurs WHERE identifiant = ?").get(identifiantB).total, 1,
+      "Une seconde exécution ne doit pas dupliquer le compte.");
+    const auditCreation = base.prepare("SELECT role_utilisateur, utilisateur_id FROM journaux_audit WHERE action = 'CREATION_PROPRIETAIRE_SECONDAIRE' AND entite_id = ?")
+      .all(preparation.utilisateurId);
+    assert.equal(auditCreation.length, 1, "La création doit être auditée une seule fois.");
+    const b = new ClientLocal();
+    await b.connexion(identifiantB, preparation.codeActivation);
+    const proprietaireB = preparation.utilisateurId;
 
     const catalogue = await a.requete(`${BASE}/drapeaux`);
     assert.equal(catalogue.reponse.status, 200);

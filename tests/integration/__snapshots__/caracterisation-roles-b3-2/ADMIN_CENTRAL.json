@@ -1,6 +1,48 @@
 [
   {
     "methode": "GET",
+    "chemin": "/api/central/exceptions-nominatives",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 201,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/annuler",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/approuver",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/executer",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/refuser",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 404,
+    "observation": "RESSOURCE_ABSENTE_OU_CONFLIT"
+  },
+  {
+    "methode": "GET",
     "chemin": "/api/proprietaire/plateforme/approbations",
     "attendu": "DECLARE_DENY",
     "statut": 403,

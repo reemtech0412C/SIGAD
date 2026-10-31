@@ -82,7 +82,7 @@ function legacyDeclare(politique, role) {
 function lireMatriceSnapshots() {
   const lignes = [];
   for (const role of roles) {
-    for (const [dossier, attendu] of [[snapshotsAnciens, 216], [snapshotsB26, 13], [snapshotsB32, 8]]) {
+    for (const [dossier, attendu] of [[snapshotsAnciens, 216], [snapshotsB26, 13], [snapshotsB32, 14]]) {
       const fichier = join(dossier, `${role}.json`);
       const contenu = JSON.parse(readFileSync(fichier, "utf8"));
       assert.equal(contenu.length, attendu, `${role}: couverture snapshot attendue.`);
@@ -107,9 +107,9 @@ describe("B2.6 — moteur indépendant de comparaison Legacy/Shadow", () => {
 
   afterAll(() => db?.close());
 
-  it("compare la matrice 237 × 7 au niveau des décisions de route, en gardant les limites HTTP séparées", () => {
+  it("compare la matrice 243 × 7 au niveau des décisions de route, en gardant les limites HTTP séparées", () => {
     const lignes = lireMatriceSnapshots();
-    expect(lignes).toHaveLength(237 * 7);
+    expect(lignes).toHaveLength(243 * 7);
     const compteurs = { MATCH: 0, MISMATCH: 0, INDETERMINATE: 0, ERROR: 0 };
     const originesIndeterminables = {};
     const comparaisonsRuntime = { MATCH: 0, MISMATCH: 0, INDETERMINATE: 0, ERROR: 0 };
@@ -143,10 +143,10 @@ describe("B2.6 — moteur indépendant de comparaison Legacy/Shadow", () => {
       observationsHttp[observation] += 1;
     }
 
-    expect(Object.values(compteurs).reduce((a, b) => a + b, 0)).toBe(1659);
-    expect(compteurs).toEqual({ MATCH: 1637, MISMATCH: 0, INDETERMINATE: 22, ERROR: 0 });
+    expect(Object.values(compteurs).reduce((a, b) => a + b, 0)).toBe(1701);
+    expect(compteurs).toEqual({ MATCH: 1679, MISMATCH: 0, INDETERMINATE: 22, ERROR: 0 });
     expect(originesIndeterminables).toEqual({ POLITIQUE_LEGACY_CONDITIONNELLE: 22 });
-    expect(comparaisonsRuntime).toEqual({ MATCH: 0, MISMATCH: 0, INDETERMINATE: 1659, ERROR: 0 });
+    expect(comparaisonsRuntime).toEqual({ MATCH: 0, MISMATCH: 0, INDETERMINATE: 1701, ERROR: 0 });
     expect(inconnuesShadow.size, "0043 et 0046 doivent couvrir les routes appareils/sessions et plateforme").toBe(0);
     expect(observationsHttp.ERROR).toBe(0);
     // Conserver un résumé compact dans la sortie vérifiable du test.

@@ -32,8 +32,10 @@ describe("D-16/D-17: politique d'approbation", () => {
     const seul = { maintenant, proprietairesActifs: 1 };
     assert.equal(evaluerCreationDemande("NETTOYER_DONNEES_TEST", { role: "PROPRIETAIRE", actif: true }, seul).motif, "SECOND_PROPRIETAIRE_ABSENT");
     assert.equal(evaluerApprobation(demandeBase, approbateurBase, seul).autorise, false);
-    // L'exception nominative relève de l'Administration centrale et ne dépend pas du second propriétaire.
-    assert.equal(evaluerCreationDemande("EXCEPTION_ACCES_NOMINATIF", { role: "ADMIN_CENTRAL", actif: true }, seul).autorise, true);
+    // L'exception nominative relève de l'Administration centrale: elle ne dépend pas du second propriétaire,
+    // mais exige un second administrateur central actif (échec fermé sinon).
+    assert.equal(evaluerCreationDemande("EXCEPTION_ACCES_NOMINATIF", { role: "ADMIN_CENTRAL", actif: true }, { ...seul, administrateursCentrauxActifs: 2 }).autorise, true);
+    assert.equal(evaluerCreationDemande("EXCEPTION_ACCES_NOMINATIF", { role: "ADMIN_CENTRAL", actif: true }, seul).motif, "SECOND_ADMIN_CENTRAL_ABSENT");
   });
 
   test("séparation des tâches, habilitation et fraîcheur MFA", () => {

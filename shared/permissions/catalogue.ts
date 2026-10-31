@@ -802,6 +802,84 @@ export const CATALOGUE_POLITIQUES_API = [
     "csrf": true
   },
   {
+    "permission": "API:GET:/api/central/exceptions-nominatives",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/central/exceptions-nominatives",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; enregistre une exception inerte, aucun accès nominatif accordé par cette route",
+    "csrf": false
+  },
+  {
+    "permission": "API:POST:/api/central/exceptions-nominatives",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/central/exceptions-nominatives",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; enregistre une exception inerte, aucun accès nominatif accordé par cette route",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/central/exceptions-nominatives/:id/annuler",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/central/exceptions-nominatives/:id/annuler",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; enregistre une exception inerte, aucun accès nominatif accordé par cette route",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/central/exceptions-nominatives/:id/approuver",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/central/exceptions-nominatives/:id/approuver",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; enregistre une exception inerte, aucun accès nominatif accordé par cette route",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/central/exceptions-nominatives/:id/executer",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/central/exceptions-nominatives/:id/executer",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; enregistre une exception inerte, aucun accès nominatif accordé par cette route",
+    "csrf": true
+  },
+  {
+    "permission": "API:POST:/api/central/exceptions-nominatives/:id/refuser",
+    "methode": "POST",
+    "action": "COMMANDE",
+    "chemin": "/api/central/exceptions-nominatives/:id/refuser",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; enregistre une exception inerte, aucun accès nominatif accordé par cette route",
+    "csrf": true
+  },
+  {
     "permission": "API:GET:/api/central/referentiel-territorial/propositions",
     "methode": "GET",
     "action": "LECTURE",

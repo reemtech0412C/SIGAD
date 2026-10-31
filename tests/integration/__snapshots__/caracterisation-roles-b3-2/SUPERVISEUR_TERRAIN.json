@@ -1,6 +1,48 @@
 [
   {
     "methode": "GET",
+    "chemin": "/api/central/exceptions-nominatives",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/annuler",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/approuver",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/executer",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "POST",
+    "chemin": "/api/central/exceptions-nominatives/:id/refuser",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
     "chemin": "/api/proprietaire/plateforme/approbations",
     "attendu": "DECLARE_DENY",
     "statut": 403,

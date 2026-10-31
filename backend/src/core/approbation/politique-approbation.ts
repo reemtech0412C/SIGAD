@@ -69,6 +69,8 @@ export interface ContexteApprobation {
   readonly maintenant: string;
   /** Nombre de comptes PROPRIETAIRE actifs relu en base. */
   readonly proprietairesActifs: number;
+  /** Nombre de comptes ADMIN_CENTRAL actifs relu en base; absent = 0 (échec fermé). */
+  readonly administrateursCentrauxActifs?: number;
 }
 
 export interface DecisionApprobation {
@@ -115,6 +117,9 @@ export function evaluerCreationDemande(
   if (requis === "PROPRIETAIRE" && (demandeur.role !== "PROPRIETAIRE" || contexte.proprietairesActifs < 2)) {
     return refus(demandeur.role !== "PROPRIETAIRE" ? "DEMANDEUR_NON_HABILITE" : "SECOND_PROPRIETAIRE_ABSENT");
   }
+  if (requis === "ADMIN_CENTRAL" && (demandeur.role !== "ADMIN_CENTRAL" || (contexte.administrateursCentrauxActifs ?? 0) < 2)) {
+    return refus(demandeur.role !== "ADMIN_CENTRAL" ? "DEMANDEUR_NON_HABILITE" : "SECOND_ADMIN_CENTRAL_ABSENT");
+  }
   return { autorise: true, motif: "DEMANDE_RECEVABLE" };
 }
 
@@ -138,6 +143,7 @@ export function evaluerApprobation(
   if (demande.cibleType === "UTILISATEUR" && approbateur.id === demande.cibleId) return refus("APPROBATEUR_EST_LA_CIBLE");
   if (approbateur.role !== requis) return refus("HABILITATION_INSUFFISANTE");
   if (requis === "PROPRIETAIRE" && contexte.proprietairesActifs < 2) return refus("SECOND_PROPRIETAIRE_ABSENT");
+  if (requis === "ADMIN_CENTRAL" && (contexte.administrateursCentrauxActifs ?? 0) < 2) return refus("SECOND_ADMIN_CENTRAL_ABSENT");
   const mfa = approbateur.mfaVerifieeLe ? instant(approbateur.mfaVerifieeLe) : Number.NaN;
   if (Number.isNaN(mfa) || maintenant - mfa > FRAICHEUR_MFA_MAX_MS || mfa > maintenant) return refus("MFA_NON_RECENTE");
   return { autorise: true, motif: "APPROBATION_VALIDE" };
