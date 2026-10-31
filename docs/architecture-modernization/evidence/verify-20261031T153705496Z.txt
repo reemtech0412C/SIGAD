@@ -1,0 +1,137 @@
+SIGAD — preuve d’exécution du pipeline verify
+Statut global: PASS
+Mode: rapide (sans intégration)
+Début: 2026-10-31T15:37:05.496Z (31/10/2026 16:37:05 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:54.184Z (31/10/2026 16:37:54 Africa/Ndjamena)
+Durée totale: 48.7 s
+Branche: codex/b2-5-identity-lifecycle
+Révision: 2a6d056
+État Git avant exécution: modifié
+M backend/src/core/approbation/politique-approbation.ts
+ M backend/src/index.ts
+ M backend/src/routes/plateforme.routes.ts
+ M docs/matrice-securite-api-phase9.md
+ M scripts/generer-matrice-securite-phase9.mjs
+ M scripts/verifier-schema-local.mjs
+ M shared/permissions/catalogue.ts
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/ADMIN_CENTRAL.json
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/AGENT_DISTRIBUTION.json
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/CONSULTATION_INSTITUTIONNELLE.json
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/DELEGUE_PROVINCIAL.json
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/PROPRIETAIRE.json
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/RESPONSABLE_STOCK.json
+ M tests/integration/__snapshots__/caracterisation-roles-b3-2/SUPERVISEUR_TERRAIN.json
+ M tests/integration/caracterisation-roles-worker.test.mjs
+ M tests/integration/plateforme-approbations-worker.test.mjs
+ M tests/integration/run-auth-worker.mjs
+ M tests/unit/approbation-plateforme-b3-2.test.mjs
+ M tests/unit/authz-policy.test.mjs
+ M tests/unit/b22-roles-portees-ombre.test.mjs
+ M tests/unit/shadow-authz-comparator.test.mjs
+ M tests/unit/simulateur-permissions-b3-2.test.mjs
+?? "Claude outputs/Backup-SIGAD.ps1"
+?? backend/src/routes/approbation-commun.ts
+?? backend/src/routes/exceptions-nominatives.routes.ts
+?? backend/src/services/expiration-approbations.service.ts
+?? backend/src/services/proprietaire-secondaire.ts
+?? docs/architecture-modernization/10-procedure-second-proprietaire.md
+?? docs/architecture-modernization/evidence/verify-20261030T221922472Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T222653858Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T222908970Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T223150922Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T223407053Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T224452487Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T224937112Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T233515339Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T234049639Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T234250950Z.txt
+?? docs/architecture-modernization/evidence/verify-20261030T234527945Z.txt
+?? docs/architecture-modernization/evidence/verify-20261031T152048435Z.txt
+?? docs/architecture-modernization/evidence/verify-20261031T153156525Z.txt
+?? docs/architecture-modernization/evidence/verify-20261031T153456218Z.txt
+?? migrations/0047_exceptions_acces_nominatif.sql
+?? migrations/0048_politiques_ombre_exceptions_nominatives.sql
+?? scripts/preparer-proprietaire-secondaire.mjs
+?? tests/integration/exceptions-nominatives-worker.test.mjs
+?? tests/unit/approbation-complements-b3-2.test.mjs
+Node: v24.19.0
+Configuration Wrangler temporaire: non utilisée
+Isolation: configuration écrite dans le répertoire temporaire; identifiant D1 fictif; D1/R2/service Wrangler en mode --local avec --persist-to temporaire; aucun account_id/zone_id/route/binding distant; variables Cloudflare/API/proxy/secrets retirées des environnements enfants.
+Le libellé ENVIRONMENT=staging est conservé uniquement pour caractériser le comportement local; aucune ressource Staging ou Production n’est ciblée.
+wrangler.toml et worker-configuration.d.ts sont vérifiés par empreinte; Wrangler ne charge pas wrangler.toml et aucune commande ne génère ces fichiers.
+D-10 reste ouvert; ce pipeline n’altère pas la configuration Production suivie par Git.
+
+## TypeScript sans génération
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\node_modules\\typescript\\bin\\tsc","--noEmit","-p","tsconfig.json"]
+Début: 2026-10-31T15:37:05.994Z (31/10/2026 16:37:05 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:06.920Z (31/10/2026 16:37:06 Africa/Ndjamena)
+Durée: 0.9 s
+Code de sortie: 0
+Sortie:
+(aucune)
+
+## Tests unitaires
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\node_modules\\vitest\\vitest.mjs","run","--config","vitest.config.ts","--pool=threads","--maxWorkers=1","--reporter=dot"]
+Début: 2026-10-31T15:37:06.921Z (31/10/2026 16:37:06 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:51.702Z (31/10/2026 16:37:51 Africa/Ndjamena)
+Durée: 44.8 s
+Code de sortie: 0
+Sortie:
+
+ RUN  v4.1.12 C:/Users/Lenovo/Downloads/SIGAD
+
+···························stdout | tests/unit/shadow-authz-comparator.test.mjs > B2.6 — moteur indépendant de comparaison Legacy/Shadow > compare la matrice 243 × 7 au niveau des décisions de route, en gardant les limites HTTP séparées
+[B2.6-COMPARATOR] route-gate={"MATCH":1679,"MISMATCH":0,"INDETERMINATE":22,"ERROR":0}; origines-indeterminables={"POLITIQUE_LEGACY_CONDITIONNELLE":22}; runtime-complet={"MATCH":0,"MISMATCH":0,"INDETERMINATE":1701,"ERROR":0}; http-observe={"ALLOW":341,"DENY":1001,"INDETERMINATE":359,"ERROR":0}; shadow-policy-absente=0
+
+···························································································································································································································
+
+ Test Files  47 passed (47)
+      Tests  246 passed (246)
+   Start at  16:37:07
+   Duration  44.29s (transform 1.20s, setup 0ms, import 4.47s, tests 27.20s, environment 10ms)
+
+
+
+## Matrice des permissions en mode contrôle
+Commande: ["C:\\Program Files\\nodejs\\node.exe","C:\\Users\\Lenovo\\Downloads\\SIGAD\\scripts\\generer-matrice-securite-phase9.mjs","--check"]
+Début: 2026-10-31T15:37:51.708Z (31/10/2026 16:37:51 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:51.807Z (31/10/2026 16:37:51 Africa/Ndjamena)
+Durée: 0.1 s
+Code de sortie: 0
+Sortie:
+PASS — Matrice de sécurité synchronisée avec 243 routes API déclarées.
+
+
+## Schéma et migrations en mémoire
+Commande: ["C:\\Program Files\\nodejs\\node.exe","--experimental-sqlite","C:\\Users\\Lenovo\\Downloads\\SIGAD\\scripts\\verifier-schema-local.mjs"]
+Début: 2026-10-31T15:37:51.809Z (31/10/2026 16:37:51 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:52.496Z (31/10/2026 16:37:52 Africa/Ndjamena)
+Durée: 0.7 s
+Code de sortie: 0
+Sortie:
+PASS — EXPLAIN QUERY PLAN (SQLite vierge) : listes paginées des ménages et des mouvements utilisent leurs index composites sans tri temporaire.
+PASS — SQLite vierge : 48 migrations appliquées jusqu’à 0048; journal d’audit pré-0041 conservé intégralement; 110 tables SIGAD; 161 index; 79 déclencheurs de validation et 2 déclencheurs de cohérence de comptes; 23 provinces comparées au fichier source; 500 communes en relecture, aucune activée; 25 comptes; ombre rôles/portées: 25/25, zéro divergence; 5 catégories de population; 5 vulnérabilités; 5 catégories d’aide; 6 unités; contraintes CHECK et UNIQUE actives; aucune violation de clé étrangère.
+
+
+## Migration 0022 en mémoire
+Commande: ["C:\\Program Files\\nodejs\\node.exe","--experimental-sqlite","C:\\Users\\Lenovo\\Downloads\\SIGAD\\scripts\\verifier-migration-0022.mjs"]
+Début: 2026-10-31T15:37:52.497Z (31/10/2026 16:37:52 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:52.753Z (31/10/2026 16:37:52 Africa/Ndjamena)
+Durée: 0.3 s
+Code de sortie: 0
+Sortie:
+PASS — migration 0022 sur un schéma 0021 : historique confirmé distinct conservé, deux dossiers placés en revue individuelle, nouvelles décisions atomiques, historique immuable et clés étrangères valides.
+PASS — migration 0022 sur un schéma vierge : colonnes, clé étrangère d’historique et index partiel uniques vérifiés.
+
+
+## عدم تعديل ملفات المشروع بواسطة الفحوص
+Commande: SHA-256 snapshot of tracked/non-ignored project files; compare ignored-root inventory
+Début: 2026-10-31T15:37:54.184Z (31/10/2026 16:37:54 Africa/Ndjamena)
+Fin: 2026-10-31T15:37:54.184Z (31/10/2026 16:37:54 Africa/Ndjamena)
+Durée: 0.0 s
+Code de sortie: 0
+Sortie:
+Tracked/non-ignored files changed: 0
+Ignored root entries added: 0
+Ignored root entries disappeared: 0
+
