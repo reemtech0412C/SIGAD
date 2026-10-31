@@ -23,12 +23,15 @@ import { GestionDonneesTest } from "./GestionDonneesTest";
 import { AdministrationTerritoriale } from "./AdministrationTerritoriale";
 
 const PermissionsPlateforme = lazy(() => import("./PermissionsPlateforme").then((m) => ({ default: m.PermissionsPlateforme })));
+const ApprobationsPlateforme = lazy(() => import("./ApprobationsPlateforme").then((m) => ({ default: m.ApprobationsPlateforme })));
 const SanteTechnique = lazy(() => import("./SanteTechnique").then((m) => ({ default: m.SanteTechnique })));
 
 interface TableauProprietaireProps {
   jetonCsrf: string;
   /** B3.2: entrées de la console Plateforme (permissions, santé), actives avec consoles_v2. */
   consolePlateforme?: boolean | undefined;
+  /** Identifiant du propriétaire connecté (séparation des tâches affichée dans l'écran des approbations). */
+  utilisateurId?: string | undefined;
 }
 
 const TAILLE_PAGE = 20;
@@ -44,8 +47,8 @@ function libelleRole(role: UtilisateurAdmin["role"]): string {
   return "Délégation provinciale";
 }
 
-export function TableauProprietaire({ jetonCsrf, consolePlateforme = false }: TableauProprietaireProps) {
-  const lireOngletDepuisUrl = useCallback((): "comptes" | "audit" | "donnees_test" | "territoire" | "permissions" | "sante" => {
+export function TableauProprietaire({ jetonCsrf, consolePlateforme = false, utilisateurId = "" }: TableauProprietaireProps) {
+  const lireOngletDepuisUrl = useCallback((): "comptes" | "audit" | "donnees_test" | "territoire" | "permissions" | "sante" | "approbations" => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
       const search = window.location.search;
@@ -58,13 +61,14 @@ export function TableauProprietaire({ jetonCsrf, consolePlateforme = false }: Ta
       if (hash === "#audit" || search.includes("section=audit")) {
         return "audit";
       }
+      if (hash === "#approbations") return "approbations";
       if (hash === "#permissions") return "permissions";
       if (hash === "#sante") return "sante";
     }
     return "comptes";
   }, []);
 
-  const [onglet, setOnglet] = useState<"comptes" | "audit" | "donnees_test" | "territoire" | "permissions" | "sante">(lireOngletDepuisUrl);
+  const [onglet, setOnglet] = useState<"comptes" | "audit" | "donnees_test" | "territoire" | "permissions" | "sante" | "approbations">(lireOngletDepuisUrl);
   const [utilisateurs, setUtilisateurs] = useState<UtilisateurAdmin[]>([]);
   const [journaux, setJournaux] = useState<EntreeJournalAudit[]>([]);
   const [totalUtilisateurs, setTotalUtilisateurs] = useState(0);
@@ -205,6 +209,18 @@ export function TableauProprietaire({ jetonCsrf, consolePlateforme = false }: Ta
           </SIGADTab>
           {consolePlateforme && (
             <SIGADTab
+              active={onglet === "approbations"}
+              onClick={() => {
+                setOnglet("approbations");
+                window.history.replaceState(null, "", "#approbations");
+              }}
+            >
+              Approbations et drapeaux
+            </SIGADTab>
+          )}
+
+          {consolePlateforme && (
+            <SIGADTab
               active={onglet === "permissions"}
               onClick={() => {
                 setOnglet("permissions");
@@ -229,9 +245,10 @@ export function TableauProprietaire({ jetonCsrf, consolePlateforme = false }: Ta
         </SIGADTabsList>
       </div>
 
-      {consolePlateforme && (onglet === "permissions" || onglet === "sante") && (
+      {consolePlateforme && (onglet === "permissions" || onglet === "sante" || onglet === "approbations") && (
         <Suspense fallback={<p role="status">Chargement…</p>}>
-          {onglet === "permissions" ? <PermissionsPlateforme /> : <SanteTechnique />}
+          {onglet === "approbations" ? <ApprobationsPlateforme jetonCsrf={jetonCsrf} utilisateurId={utilisateurId} />
+            : onglet === "permissions" ? <PermissionsPlateforme /> : <SanteTechnique />}
         </Suspense>
       )}
 

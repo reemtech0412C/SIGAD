@@ -354,7 +354,7 @@ export default function App() {
     case "mon-compte":
       contenu =
         utilisateur.role === "PROPRIETAIRE" ? (
-          <TableauProprietaire consolePlateforme={consolesV2} jetonCsrf={jetonCsrf} />
+          <TableauProprietaire consolePlateforme={consolesV2} jetonCsrf={jetonCsrf} utilisateurId={utilisateur.id} />
         ) : (
           <AdministrationComptes jetonCsrf={jetonCsrf} />
         );
