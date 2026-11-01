@@ -11,8 +11,8 @@ const fichiers = (await readdir(dossierMigrations))
   .filter((nom) => /^\d{4}_.*\.sql$/u.test(nom))
   .sort((premier, second) => premier.localeCompare(second));
 
-if (fichiers.length !== 48 || !fichiers.at(-1)?.startsWith("0048_")) {
-  throw new Error(`Les quarante-huit migrations versionnées, jusqu’aux politiques Shadow des exceptions nominatives 0048, sont requises; ${fichiers.length} trouvées.`);
+if (fichiers.length !== 49 || !fichiers.at(-1)?.startsWith("0049_")) {
+  throw new Error(`Les quarante-neuf migrations versionnées, jusqu’à la politique Shadow de performance des délégations 0049, sont requises; ${fichiers.length} trouvées.`);
 }
 
 const tablesGeoB23 = [

@@ -16,6 +16,7 @@ export type ModuleAdministration =
   | "territoire"
   | "controle"
   | "rapports"
+  | "performance"
   | "comptes"
   | "mon-compte";
 
@@ -279,6 +280,14 @@ export function construireNavigationParRole(
           module: "controle",
           chemin: "/controle?vue=corrections",
           rolesAutorises: ["ADMIN_CENTRAL", "DELEGUE_PROVINCIAL"],
+        },
+        {
+          id: "ctrl-performance",
+          libelle: "Performance des délégations",
+          icone: "bar-chart-3",
+          module: "performance",
+          chemin: "/performance-delegations",
+          rolesAutorises: ["ADMIN_CENTRAL"],
         },
         {
           id: "ctrl-rapports",

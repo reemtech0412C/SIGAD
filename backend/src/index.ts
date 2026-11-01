@@ -14,6 +14,7 @@ import { routesTerritoire } from "./routes/territoire.routes";
 import { routesProprietaire } from "./routes/utilisateurs.routes";
 import { routesPlateforme } from "./routes/plateforme.routes";
 import { routesExceptionsNominatives } from "./routes/exceptions-nominatives.routes";
+import { routesPerformanceDelegations } from "./routes/performance-delegations.routes";
 import { expirerDemandesApprobation } from "./services/expiration-approbations.service";
 import { routesValidationTerritoire } from "./routes/validation-territoire.routes";
 import { routesGestion } from "./routes/gestion.routes";
@@ -205,6 +206,7 @@ app.route("/api/central/approvisionnements", routesApprovisionnementsCentrales);
 app.route("/api/central/distributions", routesControleDistributions);
 app.route("/api/central", routesControleCentral);
 app.route("/api/central", routesExceptionsNominatives);
+app.route("/api/central", routesPerformanceDelegations);
 
 app.use("/api/provincial/*", authMiddleware);
 app.use("/api/provincial/*", csrfSessionMiddleware);

@@ -880,6 +880,19 @@ export const CATALOGUE_POLITIQUES_API = [
     "csrf": true
   },
   {
+    "permission": "API:GET:/api/central/performance-delegations",
+    "methode": "GET",
+    "action": "LECTURE",
+    "chemin": "/api/central/performance-delegations",
+    "accessMode": "ROLE",
+    "rolesAutorises": [
+      "ADMIN_CENTRAL"
+    ],
+    "rolesConditionnels": [],
+    "portee": "Périmètre central national; indicateurs agrégés par province, aucune donnée nominative",
+    "csrf": false
+  },
+  {
     "permission": "API:GET:/api/central/referentiel-territorial/propositions",
     "methode": "GET",
     "action": "LECTURE",

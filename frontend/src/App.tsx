@@ -19,6 +19,7 @@ const TableauGestionStocks = lazy(() => import("./components/gestion/TableauGest
 const TableauApprovisionnements = lazy(() => import("./components/gestion/TableauApprovisionnements").then((module) => ({ default: module.TableauApprovisionnements })));
 const TableauDistributions = lazy(() => import("./components/gestion/TableauDistributions").then((module) => ({ default: module.TableauDistributions })));
 const TableauControle = lazy(() => import("./components/gestion/TableauControle").then((module) => ({ default: module.TableauControle })));
+const PerformanceDelegations = lazy(() => import("./components/gestion/PerformanceDelegations").then((module) => ({ default: module.PerformanceDelegations })));
 const TableauRapports = lazy(() => import("./components/gestion/TableauRapports").then((module) => ({ default: module.TableauRapports })));
 const TableauProprietaire = lazy(() => import("./components/proprietaire/TableauProprietaire").then((module) => ({ default: module.TableauProprietaire })));
 const AdministrationTerritoriale = lazy(() => import("./components/proprietaire/AdministrationTerritoriale").then((module) => ({ default: module.AdministrationTerritoriale })));
@@ -41,6 +42,7 @@ const routes: Record<ModuleAdministration, string> = {
   territoire: "/territoire",
   controle: "/controle",
   rapports: "/rapports",
+  performance: "/performance-delegations",
   comptes: "/administration/comptes",
   "mon-compte": "/mon-compte",
 };
@@ -63,6 +65,7 @@ function autorise(
 ): boolean {
   if (module === "mon-compte") return true;
   if (module === "comptes") return role === "PROPRIETAIRE" || role === "ADMIN_CENTRAL";
+  if (module === "performance") return role === "ADMIN_CENTRAL";
   if (role === "CONSULTATION_INSTITUTIONNELLE") {
     return module === "dashboard" || module === "operations" || module === "rapports";
   }
@@ -346,6 +349,9 @@ export default function App() {
           vueInitiale={vueControleInitiale}
         />
       );
+      break;
+    case "performance":
+      contenu = <PerformanceDelegations />;
       break;
     case "rapports":
       contenu = <TableauRapports utilisateur={utilisateur} jetonCsrf={jetonCsrf} />;

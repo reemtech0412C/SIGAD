@@ -86,7 +86,7 @@ describe("B2.2 — rétro-remplissage et comparaison en mode ombre", () => {
     const politiquesOmbre = CATALOGUE_POLITIQUES_API.filter(({ permission }) => codesOmbre.has(permission));
     const politiquesHorsOmbre = CATALOGUE_POLITIQUES_API.filter(({ permission }) => !codesOmbre.has(permission));
     expect(politiquesOmbre).toHaveLength(216);
-    expect(politiquesHorsOmbre).toHaveLength(27);
+    expect(politiquesHorsOmbre).toHaveLength(28);
 
     for (const politique of politiquesOmbre) {
       const attendu = new Set();

@@ -91,3 +91,21 @@ test("Consoles v2: l'écran des approbations liste les drapeaux et applique la r
   await expect(page.getByRole("heading", { name: "Demandes d’approbation" })).toBeVisible();
   await expect(page.getByText("Aucune demande", { exact: true })).toBeVisible();
 });
+
+test("Consoles v2: l'administration centrale lit la performance des délégations, le délégué en est exclu", async ({ page }) => {
+  await activerConsolesV2(page);
+  await connecterDansLeNavigateur(page, "central");
+  await page.goto("/national/performance-delegations");
+  await expect(page).toHaveURL(/\/national\/performance-delegations$/u);
+  await expect(page.getByRole("heading", { name: "Performance des délégations" })).toBeVisible();
+  await expect(page.getByTestId("performance-national")).toBeVisible();
+  await expect(page.getByText("n/d est", { exact: false }).or(page.getByText("n/d", { exact: false })).first()).toBeVisible();
+});
+
+test("Consoles v2: le délégué provincial est redirigé hors de la performance des délégations", async ({ page }) => {
+  await activerConsolesV2(page);
+  await connecterDansLeNavigateur(page, "sila");
+  await page.goto("/provincial/performance-delegations");
+  await expect(page.getByRole("heading", { name: "Performance des délégations" })).toHaveCount(0);
+  await expect(page).not.toHaveURL(/performance-delegations/u);
+});

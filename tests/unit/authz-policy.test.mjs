@@ -30,8 +30,8 @@ function decisionCaractérisée(politique, role) {
 }
 
 test("catalogue: routes uniques, portée explicite et échec fermé sans politique", () => {
-  assert.equal(CATALOGUE_POLITIQUES_API.length, 243);
-  assert.equal(new Set(CATALOGUE_POLITIQUES_API.map(({ methode, chemin }) => cle(methode, chemin))).size, 243);
+  assert.equal(CATALOGUE_POLITIQUES_API.length, 244);
+  assert.equal(new Set(CATALOGUE_POLITIQUES_API.map(({ methode, chemin }) => cle(methode, chemin))).size, 244);
   for (const politique of CATALOGUE_POLITIQUES_API) {
     assert.match(politique.permission, /^API:(GET|POST|PUT|PATCH|DELETE):\/api\//u);
     assert.ok(politique.portee.trim(), `${politique.methode} ${politique.chemin} doit déclarer sa portée.`);
@@ -105,7 +105,7 @@ test("extension B2.6: les 7×13 routes ajoutées ont une caractérisation Worker
   const cleSnapshot = ({ methode, chemin }) => cle(methode, chemin);
   const routesHistoriques = new Set(JSON.parse(readFileSync(resolve(dossierSnapshots, "PROPRIETAIRE.json"), "utf8")).map(cleSnapshot));
   const routesAjoutees = CATALOGUE_POLITIQUES_API.filter((politique) => !routesHistoriques.has(cleSnapshot(politique))
-    && !politique.chemin.startsWith("/api/proprietaire/plateforme/") && !politique.chemin.startsWith("/api/central/exceptions-nominatives"));
+    && !politique.chemin.startsWith("/api/proprietaire/plateforme/") && !politique.chemin.startsWith("/api/central/exceptions-nominatives") && politique.chemin !== "/api/central/performance-delegations");
   assert.equal(routesAjoutees.length, 13, "L’extension B2.6 doit être exactement constituée des 13 routes postérieures à B1.1.");
 
   let total = 0;
@@ -129,11 +129,11 @@ test("extension B2.6: les 7×13 routes ajoutées ont une caractérisation Worker
   assert.equal(total, 91);
 });
 
-test("extension B3.2: les 7×14 routes (plateforme et exceptions nominatives) sont caractérisées et réservées à leur rôle", () => {
+test("extension B3.2: les 7×15 routes (plateforme et exceptions nominatives) sont caractérisées et réservées à leur rôle", () => {
   const cleSnapshot = ({ methode, chemin }) => cle(methode, chemin);
   const routesPlateforme = CATALOGUE_POLITIQUES_API.filter((politique) => politique.chemin.startsWith("/api/proprietaire/plateforme/")
-    || politique.chemin.startsWith("/api/central/exceptions-nominatives"));
-  assert.equal(routesPlateforme.length, 14);
+    || politique.chemin.startsWith("/api/central/exceptions-nominatives") || politique.chemin === "/api/central/performance-delegations");
+  assert.equal(routesPlateforme.length, 15);
   for (const politique of routesPlateforme) {
     const roleAttendu = politique.chemin.startsWith("/api/central/") ? "ADMIN_CENTRAL" : "PROPRIETAIRE";
     assert.deepEqual(politique.rolesAutorises, [roleAttendu], `${cleSnapshot(politique)} doit rester réservée à ${roleAttendu}.`);
@@ -152,5 +152,5 @@ test("extension B3.2: les 7×14 routes (plateforme et exceptions nominatives) so
       total += 1;
     }
   }
-  assert.equal(total, 98);
+  assert.equal(total, 105);
 });

@@ -8,10 +8,10 @@ const roles = [
 ];
 
 describe("B3.2 simulateur de permissions (lecture du catalogue)", () => {
-  it("le résumé couvre exactement les 243 routes pour chaque rôle", () => {
+  it("le résumé couvre exactement les 244 routes pour chaque rôle", () => {
     for (const role of roles) {
       const total = Object.values(resumerParRole(role)).reduce((a, b) => a + b, 0);
-      expect(total, role).toBe(243);
+      expect(total, role).toBe(244);
     }
   });
 
@@ -27,7 +27,7 @@ describe("B3.2 simulateur de permissions (lecture du catalogue)", () => {
   });
 
   it("recherche par méthode et chemin, sans effet de bord", () => {
-    expect(rechercherPolitiques("").length).toBe(243);
+    expect(rechercherPolitiques("").length).toBe(244);
     expect(rechercherPolitiques("GET /api/stocks").every((p) => p.methode === "GET" && p.chemin.startsWith("/api/stocks"))).toBe(true);
     expect(rechercherPolitiques("zzz-inexistant")).toEqual([]);
   });

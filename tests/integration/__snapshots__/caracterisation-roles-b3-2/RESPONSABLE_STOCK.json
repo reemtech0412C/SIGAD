@@ -43,6 +43,13 @@
   },
   {
     "methode": "GET",
+    "chemin": "/api/central/performance-delegations",
+    "attendu": "DECLARE_DENY",
+    "statut": 403,
+    "observation": "REFUS_AUTH_SCOPE_OR_CSRF"
+  },
+  {
+    "methode": "GET",
     "chemin": "/api/proprietaire/plateforme/approbations",
     "attendu": "DECLARE_DENY",
     "statut": 403,

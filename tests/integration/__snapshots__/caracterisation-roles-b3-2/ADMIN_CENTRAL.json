@@ -43,6 +43,13 @@
   },
   {
     "methode": "GET",
+    "chemin": "/api/central/performance-delegations",
+    "attendu": "DECLARE_ALLOW",
+    "statut": 200,
+    "observation": "HANDLER_ATTEINT"
+  },
+  {
+    "methode": "GET",
     "chemin": "/api/proprietaire/plateforme/approbations",
     "attendu": "DECLARE_DENY",
     "statut": 403,
